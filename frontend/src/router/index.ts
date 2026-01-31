@@ -6,7 +6,8 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/', component: AppList },
-    { path: '/app/:id', component: AppDetail }
+    { path: '/app/:id', component: AppDetail },
+    { path: '/app/:id/stage/:stageId', component: AppDetail } // 共享 AppDetail 组件，但带上 stageId
   ]
 })
 

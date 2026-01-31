@@ -24,9 +24,10 @@
 ## 核心功能模块 (Features)
 
 ### 1. 经典视图复刻与增强 (Classic UI Parity & Beyond)
-- **Jobs & Stages Explorer:** 深度复刻原生列表，支持基于 DuckDB 的毫秒级排序与过滤。
-- **Executor Monitor:** 全面监控计算节点资源（Cores/Memory）与运行状态。
-- **High-Performance Task List:** **核心竞争力**。支持百万级 Task 的数据库级分页加载，内置 GC 占比异常提醒与磁盘溢写（Spill）预警。
+- **Jobs & Stages Explorer:** 深度复刻原生列表，包含 **Job 描述**、进度条展示，支持毫秒级排序与过滤。
+- **Summary Metrics:** 完美复刻 Spark UI 的 Stage 统计面板。提供 Duration, GC Time, Spill, Shuffle 等指标的五分位数（Min, 25%, Median, 75%, 95%, Max）统计分布。
+- **高性能 Task 列表:** 支持百万级 Task 的后端分页、自定义每页条数、以及 **多列同时排序**（按住 Shift 多选）。
+- **SPA 路由持久化:** 全面支持页面刷新与 URL 直接访问。可直接分享特定的 Stage 详情链接。
 
 ### 2. 智能化诊断引擎 (Smart Diagnosis)
 - **Markdown 报告生成:** 自动分析数据倾斜、GC 压力、磁盘溢写等，生成 LLM 友好的诊断报告。

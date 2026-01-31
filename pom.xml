@@ -54,18 +54,6 @@
 
     <build>
         <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <excludes>
-                        <exclude>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </exclude>
-                    </excludes>
-                </configuration>
-            </plugin>
             <!-- Frontend build plugin -->
             <plugin>
                 <groupId>com.github.eirslett</groupId>
@@ -127,7 +115,7 @@
                 </executions>
             </plugin>
             <!-- Clean frontend build -->
-             <plugin>
+            <plugin>
                 <artifactId>maven-clean-plugin</artifactId>
                 <version>3.3.2</version>
                 <configuration>
@@ -135,10 +123,19 @@
                         <fileset>
                             <directory>frontend/dist</directory>
                         </fileset>
-                        <fileset>
-                            <directory>frontend/node_modules</directory>
-                        </fileset>
                     </filesets>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
                 </configuration>
             </plugin>
         </plugins>

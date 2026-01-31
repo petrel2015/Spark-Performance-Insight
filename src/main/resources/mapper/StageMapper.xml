@@ -31,4 +31,65 @@
         WHERE s.app_id = m.app_id AND s.stage_id = m.stage_id
     </update>
 
+    <delete id="deleteStageStats">
+        DELETE FROM stage_statistics WHERE app_id = #{appId}
+    </delete>
+
+    <!-- 计算详细的 Task 分布统计并存入 stage_statistics 表 -->
+    <insert id="insertTaskStats">
+        INSERT INTO stage_statistics (id, app_id, stage_id, attempt_id, metric_name, min_value, p25, p50, p75, p95, max_value)
+        WITH task_stats AS (
+            SELECT 
+                app_id, 
+                stage_id,
+                'duration' as metric_name,
+                min(duration) as min_v,
+                approx_quantile(duration, 0.25) as p25,
+                approx_quantile(duration, 0.5) as p50,
+                approx_quantile(duration, 0.75) as p75,
+                approx_quantile(duration, 0.95) as p95,
+                max(duration) as max_v
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, 'gc_time',
+                min(gc_time), approx_quantile(gc_time, 0.25), approx_quantile(gc_time, 0.5), approx_quantile(gc_time, 0.75), approx_quantile(gc_time, 0.95), max(gc_time)
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, 'memory_spill',
+                min(memory_bytes_spilled), approx_quantile(memory_bytes_spilled, 0.25), approx_quantile(memory_bytes_spilled, 0.5), approx_quantile(memory_bytes_spilled, 0.75), approx_quantile(memory_bytes_spilled, 0.95), max(memory_bytes_spilled)
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, 'disk_spill',
+                min(disk_bytes_spilled), approx_quantile(disk_bytes_spilled, 0.25), approx_quantile(disk_bytes_spilled, 0.5), approx_quantile(disk_bytes_spilled, 0.75), approx_quantile(disk_bytes_spilled, 0.95), max(disk_bytes_spilled)
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, 'shuffle_read',
+                min(shuffle_read_bytes), approx_quantile(shuffle_read_bytes, 0.25), approx_quantile(shuffle_read_bytes, 0.5), approx_quantile(shuffle_read_bytes, 0.75), approx_quantile(shuffle_read_bytes, 0.95), max(shuffle_read_bytes)
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, 'shuffle_read_records',
+                min(shuffle_read_records), approx_quantile(shuffle_read_records, 0.25), approx_quantile(shuffle_read_records, 0.5), approx_quantile(shuffle_read_records, 0.75), approx_quantile(shuffle_read_records, 0.95), max(shuffle_read_records)
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, 'shuffle_write',
+                min(shuffle_write_bytes), approx_quantile(shuffle_write_bytes, 0.25), approx_quantile(shuffle_write_bytes, 0.5), approx_quantile(shuffle_write_bytes, 0.75), approx_quantile(shuffle_write_bytes, 0.95), max(shuffle_write_bytes)
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, 'shuffle_write_records',
+                min(shuffle_write_records), approx_quantile(shuffle_write_records, 0.25), approx_quantile(shuffle_write_records, 0.5), approx_quantile(shuffle_write_records, 0.75), approx_quantile(shuffle_write_records, 0.95), max(shuffle_write_records)
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+        )
+        SELECT 
+            app_id || ':' || stage_id || ':0:' || metric_name,
+            app_id, stage_id, 0, metric_name, min_v, p25, p50, p75, p95, max_v
+        FROM task_stats
+    </insert>
+
 </mapper>

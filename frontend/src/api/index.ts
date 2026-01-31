@@ -9,8 +9,8 @@ export const getAppStages = (appId: string) => request.get(`/apps/${appId}/stage
 export const getAppJobs = (appId: string) => request.get(`/apps/${appId}/jobs`);
 export const getAppExecutors = (appId: string) => request.get(`/apps/${appId}/executors`);
 export const getAppEnvironment = (appId: string) => request.get(`/apps/${appId}/environment`);
-export const getStageTasks = (appId: string, stageId: number, page = 1, size = 100) => 
-    request.get(`/apps/${appId}/stages/${stageId}/tasks?page=${page}&size=${size}`);
+export const getStageTasks = (appId: string, stageId: number, page = 1, size = 20, sort = '') => 
+    request.get(`/apps/${appId}/stages/${stageId}/tasks?page=${page}&size=${size}&sort=${sort}`);
 export const getStageStats = (appId: string, stageId: number, attemptId = 0) =>
     request.get(`/apps/${appId}/stages/${stageId}/${attemptId}/stats`);
 export const getDiagnosisReport = (appId: string) => request.get(`/apps/${appId}/report`);

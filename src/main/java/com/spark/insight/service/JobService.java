@@ -7,4 +7,8 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class JobService extends ServiceImpl<JobMapper, JobModel> {
+
+    public void calculateJobMetrics(String appId) {
+        baseMapper.calculateJobMetrics(appId);
+    }
 }

@@ -11,6 +11,7 @@ public class TaskModel {
     private String appId;
     private Integer stageId;
     private Long taskId;
+    private Integer taskIndex;
     private String executorId;
     private String host;
     private Long duration;
@@ -22,6 +23,9 @@ public class TaskModel {
     private Long memoryBytesSpilled;
     private Long diskBytesSpilled;
     private Long shuffleReadBytes;
+    private Long shuffleReadRecords;
+    private Long shuffleWriteBytes;
+    private Long shuffleWriteRecords;
     private Long shuffleRemoteRead;
     private Boolean speculative;
     private String status;

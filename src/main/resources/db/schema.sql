@@ -40,7 +40,16 @@ CREATE TABLE IF NOT EXISTS jobs (
     status VARCHAR,
     num_stages INT,
     num_tasks INT,
-    stage_ids TEXT -- 存储 Stage ID 列表，逗号分隔
+    stage_ids TEXT, -- 存储 Stage ID 列表，逗号分隔
+    description TEXT,
+    job_group VARCHAR,
+    num_completed_stages INT DEFAULT 0,
+    num_failed_stages INT DEFAULT 0,
+    num_skipped_stages INT DEFAULT 0,
+    num_completed_tasks INT DEFAULT 0,
+    num_failed_tasks INT DEFAULT 0,
+    num_active_tasks INT DEFAULT 0,
+    num_skipped_tasks INT DEFAULT 0
 );
 
 -- Stage 详情
@@ -71,6 +80,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     app_id VARCHAR,
     stage_id INT,
     task_id BIGINT,
+    task_index INT,
     executor_id VARCHAR,
     host VARCHAR,
     duration BIGINT,
@@ -82,6 +92,9 @@ CREATE TABLE IF NOT EXISTS tasks (
     memory_bytes_spilled BIGINT DEFAULT 0,
     disk_bytes_spilled BIGINT DEFAULT 0,
     shuffle_read_bytes BIGINT,
+    shuffle_read_records BIGINT DEFAULT 0,
+    shuffle_write_bytes BIGINT DEFAULT 0,
+    shuffle_write_records BIGINT DEFAULT 0,
     shuffle_remote_read BIGINT,
     speculative BOOLEAN,
     status VARCHAR

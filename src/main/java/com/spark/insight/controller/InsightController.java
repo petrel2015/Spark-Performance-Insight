@@ -2,6 +2,7 @@ package com.spark.insight.controller;
 
 import com.spark.insight.model.*;
 import com.spark.insight.model.dto.AppComparisonResult;
+import com.spark.insight.model.dto.PageResponse;
 import com.spark.insight.service.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -47,19 +48,49 @@ public class InsightController {
         return executorService.lambdaQuery().eq(ExecutorModel::getAppId, appId).list();
     }
 
-    /**
-     * 获取 Stage 下的 Task 分页列表 (超越原生 UI 的关键)
-     */
     @GetMapping("/apps/{appId}/stages/{stageId}/tasks")
-    public List<TaskModel> listTasks(@PathVariable String appId,
-                                     @PathVariable Integer stageId,
-                                     @RequestParam(defaultValue = "1") int page,
-                                     @RequestParam(defaultValue = "100") int size) {
-        return taskService.lambdaQuery()
+    public PageResponse<TaskModel> listTasks(@PathVariable String appId,
+                                             @PathVariable Integer stageId,
+                                             @RequestParam(defaultValue = "1") int page,
+                                             @RequestParam(defaultValue = "20") int size,
+                                             @RequestParam(required = false) String sort) {
+        // 1. 获取总数 (使用独立的 QueryWrapper)
+        long total = taskService.lambdaQuery()
                 .eq(TaskModel::getAppId, appId)
                 .eq(TaskModel::getStageId, stageId)
-                .last("LIMIT " + size + " OFFSET " + (page - 1) * size)
-                .list();
+                .count();
+
+        // 2. 获取列表 (使用新的 QueryWrapper)
+        var listQuery = taskService.lambdaQuery()
+                .eq(TaskModel::getAppId, appId)
+                .eq(TaskModel::getStageId, stageId);
+
+        StringBuilder orderBy = new StringBuilder();
+        if (sort != null && !sort.isBlank()) {
+            String[] orders = sort.split(";");
+            for (String order : orders) {
+                String[] parts = order.split(",");
+                if (parts.length == 2) {
+                    String field = parts[0];
+                    String dir = "asc".equalsIgnoreCase(parts[1]) ? "ASC" : "DESC";
+                    // 驼峰转蛇形: taskId -> task_id, taskIndex -> task_index
+                    String column = field.replaceAll("([a-z])([A-Z])", "$1_$2").toLowerCase();
+                    if (orderBy.length() > 0) orderBy.append(", ");
+                    orderBy.append(column).append(" ").append(dir);
+                }
+            }
+        }
+
+        if (orderBy.length() > 0) {
+            listQuery.last("ORDER BY " + orderBy.toString() + " LIMIT " + size + " OFFSET " + (page - 1) * size);
+        } else {
+            // 默认按 taskIndex 排序
+            listQuery.last("ORDER BY task_index ASC LIMIT " + size + " OFFSET " + (page - 1) * size);
+        }
+
+        List<TaskModel> items = listQuery.list();
+        int totalPages = (int) Math.ceil((double) total / size);
+        return new PageResponse<>(items, total, page, size, totalPages);
     }
 
     /**

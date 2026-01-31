@@ -30,8 +30,9 @@ public class StageService extends ServiceImpl<StageMapper, StageModel> {
         StageMapper mapper = (StageMapper) getBaseMapper();
         // 1. 更新 Stage 表的基础聚合字段
         mapper.updateStageMetrics(appId);
-        // 2. 计算详细的 Task 分布统计 (Min, P25, P50, P75, P95, Max)
-        mapper.calculateAndInsertTaskStats(appId);
+        // 2. 清理旧统计并插入新统计
+        mapper.deleteStageStats(appId);
+        mapper.insertTaskStats(appId);
     }
 
     public List<StageStatisticsModel> getStageStats(String appId, Integer stageId, Integer attemptId) {

@@ -24,9 +24,10 @@ While the native Spark Web UI provides basic monitoring, it suffers from the fol
 ## Core Features
 
 ### 1. Classic UI Parity & Beyond
-- **Jobs & Stages Explorer:** Deep replication of the native lists, supporting millisecond-level sorting and filtering powered by DuckDB.
-- **Executor Monitor:** Comprehensive monitoring of compute node resources (Cores/Memory) and runtime status.
-- **High-Performance Task List:** **Core Competency**. Supports database-level pagination loading of millions of Tasks, with built-in alerts for abnormal GC ratios and disk spills.
+- **Jobs & Stages Explorer:** Deep replication of the native lists, including **Job Descriptions**, progress bars, and millisecond-level sorting/filtering.
+- **Summary Metrics:** Full parity with Spark UI Stage details. Provides statistical distributions (Min, 25%, Median, 75%, 95%, Max) for Duration, GC Time, Spills, and Shuffle metrics.
+- **Advanced Task List:** Supports server-side pagination for millions of Tasks, custom page sizes, and **Multi-column Sorting** (Shift+Click).
+- **SPA Stability:** Full support for page refreshes and deep linking. Share specific Stage views via URL.
 
 ### 2. Smart Diagnosis Engine
 - **Markdown Report Generation:** Automatically analyzes data skew, GC pressure, disk spills, etc., generating LLM-friendly diagnostic reports.

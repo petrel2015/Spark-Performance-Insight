@@ -1,0 +1,22 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: spark-performance-insight
+  datasource:
+    url: jdbc:duckdb:spark_performance_insight.db
+    driver-class-name: org.duckdb.DuckDBDriver
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema.sql
+
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.spark.insight.model
+  configuration:
+    map-underscore-to-camel-case: true
+
+insight:
+  event-log-path: ./eventlogs

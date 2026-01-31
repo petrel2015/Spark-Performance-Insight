@@ -1,0 +1,40 @@
+package com.spark.insight.service;
+
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.spark.insight.mapper.StageMapper;
+import com.spark.insight.mapper.StageStatisticsMapper;
+import com.spark.insight.model.StageModel;
+import com.spark.insight.model.StageStatisticsModel;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class StageService extends ServiceImpl<StageMapper, StageModel> {
+    
+    private final StageStatisticsMapper stageStatisticsMapper;
+
+    public StageModel getById(String id) {
+        return super.getById(id);
+    }
+
+    /**
+     * 利用 DuckDB 的强大分析能力进行后期预计算
+     */
+    public void calculateStageMetrics(String appId) {
+        log.info("Calculating advanced metrics for App: {}", appId);
+        StageMapper mapper = (StageMapper) getBaseMapper();
+        // 1. 更新 Stage 表的基础聚合字段
+        mapper.updateStageMetrics(appId);
+        // 2. 计算详细的 Task 分布统计 (Min, P25, P50, P75, P95, Max)
+        mapper.calculateAndInsertTaskStats(appId);
+    }
+
+    public List<StageStatisticsModel> getStageStats(String appId, Integer stageId, Integer attemptId) {
+        return stageStatisticsMapper.selectByStage(appId, stageId, attemptId);
+    }
+}

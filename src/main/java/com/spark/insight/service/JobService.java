@@ -1,0 +1,10 @@
+package com.spark.insight.service;
+
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.spark.insight.mapper.JobMapper;
+import com.spark.insight.model.JobModel;
+import org.springframework.stereotype.Service;
+
+@Service
+public class JobService extends ServiceImpl<JobMapper, JobModel> {
+}

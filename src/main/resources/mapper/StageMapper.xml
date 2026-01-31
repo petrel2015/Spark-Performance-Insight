@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.spark.insight.mapper.StageMapper">
+
+    <!-- 预计算 Stage 的聚合指标 -->
+    <update id="updateStageMetrics">
+        UPDATE stages s
+        SET 
+            gc_time_sum = m.total_gc,
+            input_bytes = m.total_input,
+            shuffle_read_bytes = m.total_shuffle_read,
+            duration_p50 = m.p50,
+            duration_p95 = m.p95,
+            duration_p99 = m.p99,
+            is_skewed = (CASE WHEN m.max_dur > m.p50 * 2 THEN TRUE ELSE FALSE END)
+        FROM (
+            SELECT 
+                app_id, 
+                stage_id,
+                sum(gc_time) as total_gc,
+                sum(input_bytes) as total_input, -- 注意：Schema 中 task 暂无 input_bytes，后续需补充
+                sum(shuffle_read_bytes) as total_shuffle_read,
+                approx_quantile(duration, 0.5) as p50,
+                approx_quantile(duration, 0.95) as p95,
+                approx_quantile(duration, 0.99) as p99,
+                max(duration) as max_dur
+            FROM tasks
+            WHERE app_id = #{appId}
+            GROUP BY app_id, stage_id
+        ) m
+        WHERE s.app_id = m.app_id AND s.stage_id = m.stage_id
+    </update>
+
+</mapper>

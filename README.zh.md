@@ -81,4 +81,21 @@
 
 ## 快速开始
 
-(等待后续开发填充...)
+### 构建与运行
+
+1.  **构建项目:**
+    该命令会自动构建前端（在本地安装 Node.js/NPM）并将其打包到 JAR 文件中。
+    ```bash
+    mvn clean install
+    ```
+
+2.  **启动应用:**
+    ```bash
+    java -jar target/spark-performance-insight-0.0.1-SNAPSHOT.jar
+    ```
+
+3.  **访问界面:**
+    打开浏览器访问:
+    ```
+    http://localhost:8081
+    ```

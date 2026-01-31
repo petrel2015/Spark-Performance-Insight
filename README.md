@@ -79,4 +79,22 @@ While the native Spark Web UI provides basic monitoring, it suffers from the fol
 
 ## Quick Start
 
-(Waiting for future development...)
+### Build and Run
+
+1.  **Build the Project:**
+    This will automatically build the frontend (installing Node.js/NPM locally) and package it into the JAR.
+    ```bash
+    mvn clean install
+    ```
+
+2.  **Run the Application:**
+    ```bash
+    java -jar target/spark-performance-insight-0.0.1-SNAPSHOT.jar
+    ```
+
+3.  **Access the UI:**
+    Open your browser and visit:
+    ```
+    http://localhost:8081
+    ```
+

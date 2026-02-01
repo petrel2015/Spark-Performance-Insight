@@ -14,6 +14,8 @@ public class TaskModel {
     private Integer taskIndex;
     private String executorId;
     private String host;
+    private Long launchTime;
+    private Long finishTime;
     private Long duration;
     private Long gcTime;
     private Long schedulerDelay;
@@ -29,6 +31,7 @@ public class TaskModel {
     private Long diskBytesSpilled;
     private Long shuffleReadBytes;
     private Long shuffleReadRecords;
+    private Long shuffleFetchWaitTime;
     private Long shuffleWriteBytes;
     private Long shuffleWriteTime;
     private Long shuffleWriteRecords;

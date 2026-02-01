@@ -291,6 +291,8 @@ public class JacksonEventParser implements EventParser {
         task.setTaskIndex(taskIndex);
         task.setExecutorId(info.has("Executor ID") ? info.get("Executor ID").asText() : "unknown");
         task.setHost(info.has("Host") ? info.get("Host").asText() : "unknown");
+        task.setLaunchTime(info.has("Launch Time") ? info.get("Launch Time").asLong() : 0L);
+        task.setFinishTime(info.has("Finish Time") ? info.get("Finish Time").asLong() : 0L);
         task.setDuration(info.has("Duration") ? info.get("Duration").asLong() : 0L);
         task.setSpeculative(info.has("Speculative") ? info.get("Speculative").asBoolean() : false);
         task.setStatus(info.has("Status") ? info.get("Status").asText() : "unknown");
@@ -332,6 +334,7 @@ public class JacksonEventParser implements EventParser {
                 task.setShuffleReadBytes(remote + local);
                 task.setShuffleRemoteRead(remote);
                 task.setShuffleReadRecords(srMetrics.has("Total Records Read") ? srMetrics.get("Total Records Read").asLong() : 0L);
+                task.setShuffleFetchWaitTime(srMetrics.has("Fetch Wait Time") ? srMetrics.get("Fetch Wait Time").asLong() : 0L);
             }
 
             JsonNode swMetrics = metrics.get("Shuffle Write Metrics");

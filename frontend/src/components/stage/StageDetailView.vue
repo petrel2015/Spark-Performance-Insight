@@ -60,6 +60,7 @@ const fetchStageDetails = async () => {
       getStage(props.appId, props.stageId),
       getStageStats(props.appId, props.stageId, 0)
     ]);
+    currentStage.value = stageRes.data;
     stageStats.value = statsRes.data;
     console.log("Stage Details Loaded:", { stage: currentStage.value, stats: stageStats.value });
   } catch (err) {

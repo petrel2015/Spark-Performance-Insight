@@ -56,7 +56,8 @@ public class LogScannerRunner implements CommandLineRunner {
             }
         } else if (file.isFile() && !file.getName().startsWith(".")) {
             // 过滤掉一些明显不是 eventlog 的文件，比如 appstatus
-            if (file.getName().contains("events_") || file.getName().endsWith(".json") || file.getName().endsWith(".zstd")) {
+            // 支持 Spark Standalone (app-...), History Server (events_...), JSON, ZSTD
+            if (file.getName().startsWith("app-") || file.getName().contains("events_") || file.getName().endsWith(".json") || file.getName().endsWith(".zstd") || file.getName().endsWith(".zst")) {
                 log.info("Found log file: {}, submitting for parsing", file.getPath());
                 executor.submit(() -> {
                     try {

@@ -146,6 +146,18 @@ public class InsightController {
     }
 
     /**
+     * 获取 Stage 的所有 Task 数据 (用于 Timeline 可视化)
+     */
+    @GetMapping("/apps/{appId}/stages/{stageId}/timeline")
+    public List<TaskModel> getStageTimeline(@PathVariable String appId, @PathVariable Integer stageId) {
+        return taskService.lambdaQuery()
+                .eq(TaskModel::getAppId, appId)
+                .eq(TaskModel::getStageId, stageId)
+                .orderByAsc(TaskModel::getLaunchTime)
+                .list();
+    }
+
+    /**
      * 获取单个 Application 的元数据
      */
     @GetMapping("/apps/{appId}")

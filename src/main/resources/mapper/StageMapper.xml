@@ -7,8 +7,13 @@
         UPDATE stages s
         SET 
             gc_time_sum = m.total_gc,
+            tasks_duration_sum = m.total_duration,
             input_bytes = m.total_input,
+            input_records = m.total_input_records,
             shuffle_read_bytes = m.total_shuffle_read,
+            shuffle_read_records = m.total_shuffle_read_records,
+            shuffle_write_bytes = m.total_shuffle_write,
+            shuffle_write_records = m.total_shuffle_write_records,
             duration_p50 = m.p50,
             duration_p95 = m.p95,
             duration_p99 = m.p99,
@@ -18,8 +23,13 @@
                 app_id, 
                 stage_id,
                 sum(gc_time) as total_gc,
-                sum(input_bytes) as total_input, -- 注意：Schema 中 task 暂无 input_bytes，后续需补充
+                sum(duration) as total_duration,
+                sum(input_bytes) as total_input,
+                sum(input_records) as total_input_records,
                 sum(shuffle_read_bytes) as total_shuffle_read,
+                sum(shuffle_read_records) as total_shuffle_read_records,
+                sum(shuffle_write_bytes) as total_shuffle_write,
+                sum(shuffle_write_records) as total_shuffle_write_records,
                 approx_quantile(duration, 0.5) as p50,
                 approx_quantile(duration, 0.95) as p95,
                 approx_quantile(duration, 0.99) as p99,
@@ -131,5 +141,30 @@
             app_id, stage_id, 0, metric_name, min_v, p25, p50, p75, p95, max_v
         FROM task_stats
     </insert>
+
+    <!-- 按 Executor 聚合任务指标 -->
+    <select id="getExecutorSummary" resultType="map">
+        SELECT 
+            executor_id as executorId,
+            count(*) as taskCount,
+            sum(executor_deserialize_time) as executorDeserializeTime,
+            sum(duration) as duration,
+            sum(gc_time) as gcTime,
+            sum(result_serialization_time) as resultSerializationTime,
+            sum(getting_result_time) as getting_result_time,
+            sum(scheduler_delay) as schedulerDelay,
+            max(peak_execution_memory) as peakExecutionMemory,
+            sum(memory_bytes_spilled) as memoryBytesSpilled,
+            sum(disk_bytes_spilled) as diskBytesSpilled,
+            sum(input_bytes) as inputBytes,
+            sum(input_records) as inputRecords,
+            sum(shuffle_write_bytes) as shuffleWriteBytes,
+            sum(shuffle_write_records) as shuffleWriteRecords,
+            sum(shuffle_write_time) as shuffleWriteTime
+        FROM tasks
+        WHERE app_id = #{appId} AND stage_id = #{stageId}
+        GROUP BY executor_id
+        ORDER BY executor_id ASC
+    </select>
 
 </mapper>

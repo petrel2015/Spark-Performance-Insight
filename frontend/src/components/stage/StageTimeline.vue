@@ -1,16 +1,13 @@
 <template>
-  <div class="timeline-card full-width">
-    <div class="chart-header">
-      <h4>Event Timeline</h4>
-      <div class="legend">
-        <span class="legend-item"><i style="background: #80B1D3"></i>Scheduler Delay</span>
-        <span class="legend-item"><i style="background: #FB8072"></i>Task Deserialization</span>
-        <span class="legend-item"><i style="background: #FDB462"></i>Shuffle Read</span>
-        <span class="legend-item"><i style="background: #B3DE69"></i>Executor Computing</span>
-        <span class="legend-item"><i style="background: #FFED6F"></i>Shuffle Write</span>
-        <span class="legend-item"><i style="background: #BC80BD"></i>Result Serialization</span>
-        <span class="legend-item"><i style="background: #8DD3C7"></i>Getting Result Time</span>
-      </div>
+  <div class="timeline-wrapper">
+    <div class="legend">
+      <span class="legend-item"><i style="background: #80B1D3"></i>Scheduler Delay</span>
+      <span class="legend-item"><i style="background: #FB8072"></i>Task Deserialization</span>
+      <span class="legend-item"><i style="background: #FDB462"></i>Shuffle Read</span>
+      <span class="legend-item"><i style="background: #B3DE69"></i>Executor Computing</span>
+      <span class="legend-item"><i style="background: #FFED6F"></i>Shuffle Write</span>
+      <span class="legend-item"><i style="background: #BC80BD"></i>Result Serialization</span>
+      <span class="legend-item"><i style="background: #8DD3C7"></i>Getting Result Time</span>
     </div>
     <div ref="chartDom" class="timeline-chart"></div>
   </div>
@@ -20,6 +17,7 @@
 import { ref, onMounted, watch } from 'vue';
 import * as echarts from 'echarts';
 import { getStageTimeline } from '../../api';
+import { formatTime } from '../../utils/format';
 
 const props = defineProps({
   appId: { type: String, required: true },
@@ -110,14 +108,14 @@ const renderChart = (tasks) => {
     tooltip: {
       formatter: (params) => {
         const v = params.value;
-        return `<b>Task ${v[11]}</b><br/>Duration: ${v[3]} ms<br/>` +
-               `<span style="color:#80B1D3">Scheduler Delay: ${v[4]} ms</span><br/>` +
-               `<span style="color:#FB8072">Deserialization: ${v[5]} ms</span><br/>` +
-               `<span style="color:#FDB462">Shuffle Read: ${v[6]} ms</span><br/>` +
-               `<span style="color:#B3DE69">Computing: ${v[7]} ms</span><br/>` +
-               `<span style="color:#FFED6F">Shuffle Write: ${v[8].toFixed(1)} ms</span><br/>` +
-               `<span style="color:#BC80BD">Result Ser: ${v[9]} ms</span><br/>` +
-               `<span style="color:#8DD3C7">Get Result: ${v[10]} ms</span>`;
+        return `<b>Task ${v[11]}</b><br/>Duration: ${formatTime(v[3])}<br/>` +
+               `<span style="color:#80B1D3">Scheduler Delay: ${formatTime(v[4])}</span><br/>` +
+               `<span style="color:#FB8072">Deserialization: ${formatTime(v[5])}</span><br/>` +
+               `<span style="color:#FDB462">Shuffle Read: ${formatTime(v[6])}</span><br/>` +
+               `<span style="color:#B3DE69">Computing: ${formatTime(v[7])}</span><br/>` +
+               `<span style="color:#FFED6F">Shuffle Write: ${formatTime(v[8])}</span><br/>` +
+               `<span style="color:#BC80BD">Result Ser: ${formatTime(v[9])}</span><br/>` +
+               `<span style="color:#8DD3C7">Get Result: ${formatTime(v[10])}</span>`;
       }
     },
     dataZoom: [{ type: 'slider', top: 0, height: 20 }, { type: 'inside' }],
@@ -191,11 +189,17 @@ watch(() => props.stageId, fetchAndRender);
 </script>
 
 <style scoped>
-.timeline-card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 1.5rem; }
-.chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-.chart-header h4 { margin: 0; font-size: 1rem; color: #2c3e50; }
-.legend { display: flex; gap: 10px; font-size: 0.8rem; flex-wrap: wrap; }
+
+.timeline-wrapper { width: 100%; }
+
+.legend { display: flex; gap: 10px; font-size: 0.8rem; flex-wrap: wrap; margin-bottom: 15px; }
+
 .legend-item { display: flex; align-items: center; gap: 4px; color: #666; }
+
 .legend-item i { display: block; width: 10px; height: 10px; border-radius: 2px; }
+
 .timeline-chart { width: 100%; min-height: 300px; }
+
 </style>
+
+

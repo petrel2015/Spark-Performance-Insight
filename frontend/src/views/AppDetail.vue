@@ -1,11 +1,13 @@
 <template>
   <div class="app-detail">
     <div class="header-bar">
-      <h2>{{ app?.appName }} <small>{{ app?.appId }}</small></h2>
       <div class="tabs">
         <button v-for="tab in tabList" :key="tab" :class="{ active: activeTab === tab }" @click="activeTab = tab">
           {{ tab }}
         </button>
+      </div>
+      <div class="app-info">
+        <h2>{{ app?.appName }} <small>{{ app?.appId }}</small></h2>
       </div>
     </div>
 
@@ -33,6 +35,7 @@
           :app-id="app.appId" 
           :stage-id="selectedStageId" 
           @back="navigateBackToStages" 
+          @view-job="handleViewJob"
         />
       </div>
 
@@ -85,6 +88,11 @@ const handleViewJobStages = (job) => {
   activeTab.value = 'Stages';
 };
 
+const handleViewJob = (jobId) => {
+  activeTab.value = 'Jobs';
+  router.push(`/app/${app.value.appId}`); // 回退到 App 根路径（显示列表）
+};
+
 onMounted(async () => {
   const appId = route.params.id;
   if (route.params.stageId) {
@@ -108,11 +116,13 @@ onMounted(async () => {
 
 <style scoped>
 .app-detail { padding: 0; display: flex; flex-direction: column; height: calc(100vh - 60px); }
-.header-bar { background: white; padding: 1rem 2rem; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; }
-.header-bar h2 { margin: 0; font-size: 1.2rem; }
-.header-bar small { color: #999; font-weight: normal; margin-left: 10px; }
+.header-bar { background: white; padding: 0 2rem; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; min-height: 50px; }
+.app-info h2 { margin: 0; font-size: 1.1rem; color: #333; }
+.app-info small { color: #999; font-weight: normal; margin-left: 8px; font-size: 0.8rem; }
 
-.tabs button { background: none; border: none; padding: 0.8rem 1.5rem; cursor: pointer; font-weight: bold; color: #666; border-bottom: 3px solid transparent; }
+.tabs { display: flex; align-items: stretch; height: 50px; }
+.tabs button { background: none; border: none; padding: 0 1.2rem; cursor: pointer; font-weight: 600; color: #555; border-bottom: 3px solid transparent; height: 100%; transition: all 0.2s; font-size: 0.9rem; }
+.tabs button:hover { color: #3498db; background: #f9f9f9; }
 .tabs button.active { color: #3498db; border-bottom-color: #3498db; }
 
 .content-area { flex: 1; overflow-y: auto; padding: 1.5rem; background: #f8f9fa; }

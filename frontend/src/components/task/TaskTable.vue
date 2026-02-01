@@ -1,8 +1,8 @@
 <template>
   <div class="task-table-container">
-    <div class="table-header">
+    <div class="table-header-toolbar">
       <div class="header-left">
-        <h4>Tasks List <small>(Total: {{ totalTasks }})</small></h4>
+        <span>Total: {{ totalTasks }}</span>
       </div>
       
       <div class="pagination-controls">
@@ -49,49 +49,71 @@
       <small class="sort-hint">(Hold <b>Shift</b> + Click headers to sort by multiple columns)</small>
     </div>
 
-    <table class="styled-table">
-      <thead>
-        <tr>
-          <th v-for="col in columns" 
-              :key="col.field"
-              @click="handleSort(col.field, $event)" 
-              class="sortable" 
-              :style="{ width: col.width }">
-            {{ col.label }} {{ getSortIcon(col.field) }}
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="task in tasks" :key="task.taskId">
-          <td>{{ task.taskId }}</td>
-          <td>{{ task.taskIndex }}</td>
-          <td>{{ task.host }}</td>
-          <td>{{ task.executorId }}</td>
-          <td>{{ formatDuration(task.duration) }}</td>
-          <td :class="{ 'high-gc': task.gcTime > task.duration * 0.1 }">{{ formatDuration(task.gcTime) }}</td>
-          <td>{{ formatBytes(task.inputBytes) }}</td>
-          <td>{{ formatBytes(task.shuffleReadBytes) }}</td>
-          <td>
-            <span :class="'status-badge status-' + (task.status || 'UNKNOWN').toLowerCase()">
-              {{ task.status || 'UNKNOWN' }}
-            </span>
-          </td>
-        </tr>
-        <tr v-if="tasks.length === 0">
-          <td colspan="9" style="text-align: center; padding: 40px;">No tasks found for this stage.</td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="table-wrapper">
+      <table class="styled-table">
+        <thead>
+          <tr>
+            <th v-for="col in columns" 
+                :key="col.field"
+                @click="handleSort(col.field, $event)" 
+                class="sortable" 
+                :style="{ minWidth: col.width }">
+              {{ col.label }} {{ getSortIcon(col.field) }}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="task in tasks" :key="task.taskId">
+            <td v-for="col in columns" :key="col.field">
+              <template v-if="col.field === 'status'">
+                <span :class="'status-badge status-' + (task.status || 'UNKNOWN').toLowerCase()">
+                  {{ task.status || 'UNKNOWN' }}
+                </span>
+              </template>
+              <template v-else-if="col.type === 'time'">
+                <span :class="{ 'high-gc': col.field === 'gcTime' && task.gcTime > task.duration * 0.1 }">
+                  {{ formatTime(task[col.field]) }}
+                </span>
+              </template>
+              <template v-else-if="col.type === 'bytes'">
+                {{ formatBytes(task[col.field]) }}
+              </template>
+              <template v-else-if="col.type === 'nanos'">
+                {{ formatTime(task[col.field] / 1000000) }}
+              </template>
+              <template v-else-if="col.field === 'input'">
+                {{ formatBytes(task.inputBytes) }} / {{ formatNum(task.inputRecords) }}
+              </template>
+              <template v-else-if="col.field === 'shuffle_write'">
+                {{ formatBytes(task.shuffleWriteBytes) }} / {{ formatNum(task.shuffleWriteRecords) }}
+              </template>
+              <template v-else>
+                {{ task[col.field] }}
+              </template>
+            </td>
+          </tr>
+          <tr v-if="tasks.length === 0">
+            <td :colspan="columns.length" style="text-align: center; padding: 40px;">No tasks found for this stage.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, watch } from 'vue';
 import { getStageTasks } from '../../api';
+import { formatTime, formatBytes, formatNum } from '../../utils/format';
+import { computed } from 'vue';
 
 const props = defineProps({
   appId: String,
-  stageId: Number
+  stageId: Number,
+  visibleMetrics: {
+    type: Array,
+    default: () => []
+  }
 });
 
 const tasks = ref([]);
@@ -102,17 +124,43 @@ const pageSize = ref(20);
 const jumpPageInput = ref(1);
 const sorts = ref([]); // [{ field, dir }]
 
-const columns = [
-  { field: 'taskId', label: 'ID', width: '80px' },
-  { field: 'taskIndex', label: 'Index', width: '80px' },
-  { field: 'host', label: 'Host' },
-  { field: 'executorId', label: 'Executor', width: '100px' },
-  { field: 'duration', label: 'Duration', width: '120px' },
-  { field: 'gcTime', label: 'GC Time', width: '120px' },
-  { field: 'inputBytes', label: 'Input', width: '120px' },
-  { field: 'shuffleReadBytes', label: 'Shuffle Read', width: '120px' },
-  { field: 'status', label: 'Status', width: '100px' }
+// 基础列（始终显示）
+const baseColumns = [
+  { field: 'taskId', label: 'ID', width: '60px' },
+  { field: 'taskIndex', label: 'Index', width: '60px' },
+  { field: 'host', label: 'Host', width: '120px' },
+  { field: 'executorId', label: 'Executor', width: '80px' },
 ];
+
+// 动态指标列映射
+const metricColumnsMap = {
+  'task_deserialization_time': { field: 'executorDeserializeTime', label: 'Deserialization', width: '100px', type: 'time' },
+  'duration': { field: 'duration', label: 'Duration', width: '90px', type: 'time' },
+  'gc_time': { field: 'gcTime', label: 'GC Time', width: '80px', type: 'time' },
+  'result_serialization_time': { field: 'resultSerializationTime', label: 'Result Ser', width: '100px', type: 'time' },
+  'getting_result_time': { field: 'gettingResultTime', label: 'Getting Result', width: '110px', type: 'time' },
+  'scheduler_delay': { field: 'schedulerDelay', label: 'Scheduler Delay', width: '110px', type: 'time' },
+  'peak_execution_memory': { field: 'peakExecutionMemory', label: 'Peak Memory', width: '100px', type: 'bytes' },
+  'memory_spill': { field: 'memoryBytesSpilled', label: 'Spill (mem)', width: '90px', type: 'bytes' },
+  'disk_spill': { field: 'diskBytesSpilled', label: 'Spill (disk)', width: '90px', type: 'bytes' },
+  'input': { field: 'input', label: 'Input Size / Records', width: '200px', type: 'composite' },
+  'shuffle_write': { field: 'shuffle_write', label: 'Shuffle Write Size / Records', width: '220px', type: 'composite' },
+  'shuffle_write_time': { field: 'shuffleWriteTime', label: 'Shuffle Write Time', width: '120px', type: 'nanos' }
+};
+
+const columns = computed(() => {
+  const cols = [...baseColumns];
+  props.visibleMetrics.forEach(key => {
+    if (metricColumnsMap[key]) {
+      cols.push(metricColumnsMap[key]);
+    }
+  });
+  cols.push({ field: 'status', label: 'Status', width: '80px' });
+  return cols;
+});
+
+const isColumnVisible = (field) => columns.value.some(c => c.field === field);
+const getMetricType = (field) => columns.value.find(c => c.field === field)?.type;
 
 const fetchTasks = async () => {
   try {
@@ -212,20 +260,6 @@ const getSortIcon = (field) => {
   return icon;
 };
 
-const formatDuration = (ms) => {
-  if (ms === null || ms === undefined) return '-';
-  if (ms < 1000) return ms + ' ms';
-  return (ms / 1000).toFixed(2) + ' s';
-};
-
-const formatBytes = (bytes) => {
-  if (!bytes || bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-};
-
 onMounted(fetchTasks);
 
 watch(() => props.stageId, () => {
@@ -236,14 +270,10 @@ watch(() => props.stageId, () => {
 
 <style scoped>
 .task-table-container { 
-  margin-top: 1rem; 
-  background: white; 
-  border-radius: 8px; 
-  padding: 1.5rem; 
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05); 
+  width: 100%;
 }
 
-.table-header { 
+.table-header-toolbar { 
   display: flex; 
   justify-content: space-between; 
   align-items: center; 
@@ -252,8 +282,7 @@ watch(() => props.stageId, () => {
   border-bottom: 1px solid #eee;
 }
 
-.header-left h4 { margin: 0; color: #2c3e50; }
-.header-left small { color: #7f8c8d; font-weight: normal; margin-left: 8px; }
+.header-left span { color: #7f8c8d; font-size: 0.9rem; }
 
 .active-sorts-bar {
   display: flex;
@@ -401,8 +430,13 @@ watch(() => props.stageId, () => {
   font-size: 0.9rem;
 }
 
-.styled-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-.styled-table th, .styled-table td { padding: 12px 8px; text-align: left; border-bottom: 1px solid #eee; }
+.table-wrapper {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.styled-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; min-width: 1200px; }
+.styled-table th, .styled-table td { padding: 12px 8px; text-align: left; border-bottom: 1px solid #eee; white-space: nowrap; }
 
 .styled-table tbody tr:hover {
   background-color: #f7fbff;

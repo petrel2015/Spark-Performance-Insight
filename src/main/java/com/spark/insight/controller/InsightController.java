@@ -158,6 +158,15 @@ public class InsightController {
     }
 
     /**
+     * 获取 Stage 按 Executor 聚合的统计数据
+     */
+    @GetMapping("/apps/{appId}/stages/{stageId}/executor-summary")
+    public List<java.util.Map<String, Object>> getExecutorSummary(@PathVariable String appId,
+                                                                  @PathVariable Integer stageId) {
+        return stageService.getExecutorSummary(appId, stageId);
+    }
+
+    /**
      * 获取单个 Application 的元数据
      */
     @GetMapping("/apps/{appId}")

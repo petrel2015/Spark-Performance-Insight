@@ -1,5 +1,6 @@
 package com.spark.insight.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.spark.insight.mapper.StageMapper;
 import com.spark.insight.mapper.StageStatisticsMapper;
@@ -36,6 +37,13 @@ public class StageService extends ServiceImpl<StageMapper, StageModel> {
     }
 
     public List<StageStatisticsModel> getStageStats(String appId, Integer stageId, Integer attemptId) {
-        return stageStatisticsMapper.selectByStage(appId, stageId, attemptId);
+        return stageStatisticsMapper.selectList(new QueryWrapper<StageStatisticsModel>()
+                .eq("app_id", appId)
+                .eq("stage_id", stageId)
+                .eq("attempt_id", attemptId));
+    }
+
+    public List<java.util.Map<String, Object>> getExecutorSummary(String appId, Integer stageId) {
+        return baseMapper.getExecutorSummary(appId, stageId);
     }
 }

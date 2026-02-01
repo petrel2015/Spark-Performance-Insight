@@ -1,42 +1,41 @@
 <template>
-  <div class="summary-card full-width overview-card">
-    <h4>Stage Overview</h4>
-    <div class="overview-grid">
-      <div class="overview-item">
-        <span class="label">Status:</span>
-        <span :class="'status-badge status-' + (stage.status || 'UNKNOWN').toLowerCase()">
-          {{ stage.status || 'UNKNOWN' }}
-        </span>
-      </div>
-      <div class="overview-item">
-        <span class="label">Submission Time:</span>
-        <span>{{ formatTime(stage.submissionTime) }}</span>
-      </div>
-      <div class="overview-item">
-        <span class="label">Duration:</span>
-        <span>{{ calculateDuration(stage.submissionTime, stage.completionTime) }}</span>
-      </div>
-      <div class="overview-item">
-        <span class="label">Input:</span>
-        <span>{{ formatBytes(stage.inputBytes) }}</span>
-      </div>
-      <div class="overview-item">
-        <span class="label">Output:</span>
-        <span>{{ formatBytes(stage.outputBytes) }}</span>
-      </div>
-      <div class="overview-item">
-        <span class="label">Shuffle Read:</span>
-        <span>{{ formatBytes(stage.shuffleReadBytes) }}</span>
-      </div>
-      <div class="overview-item">
-        <span class="label">Shuffle Write:</span>
-        <span>{{ formatBytes(stage.shuffleWriteBytes) }}</span>
-      </div>
+  <div class="overview-grid">
+    <div class="overview-item">
+      <span class="label">Status:</span>
+      <span :class="'status-badge status-' + (stage.status || 'UNKNOWN').toLowerCase()">
+        {{ stage.status || 'UNKNOWN' }}
+      </span>
+    </div>
+    <div class="overview-item">
+      <span class="label">Submission Time:</span>
+      <span>{{ formatDateTime(stage.submissionTime) }}</span>
+    </div>
+    <div class="overview-item">
+      <span class="label">Duration:</span>
+      <span>{{ commonFormatTime(stage.tasksDurationSum) }}</span>
+    </div>
+    <div class="overview-item">
+      <span class="label">Input:</span>
+      <span>{{ formatBytes(stage.inputBytes) }} / {{ formatNum(stage.inputRecords) }}</span>
+    </div>
+    <div class="overview-item">
+      <span class="label">Output:</span>
+      <span>{{ formatBytes(stage.outputBytes) }}</span>
+    </div>
+    <div class="overview-item">
+      <span class="label">Shuffle Read:</span>
+      <span>{{ formatBytes(stage.shuffleReadBytes) }} / {{ formatNum(stage.shuffleReadRecords) }}</span>
+    </div>
+    <div class="overview-item">
+      <span class="label">Shuffle Write:</span>
+      <span>{{ formatBytes(stage.shuffleWriteBytes) }} / {{ formatNum(stage.shuffleWriteRecords) }}</span>
     </div>
   </div>
 </template>
 
 <script setup>
+import { formatTime as commonFormatTime, formatBytes, formatNum } from '../../utils/format';
+
 defineProps({
   stage: {
     type: Object,
@@ -44,46 +43,14 @@ defineProps({
   }
 });
 
-const formatTime = (t) => t ? new Date(t).toLocaleString() : '-';
-
-const calculateDuration = (s, e) => {
-  if (!s || !e) return '-';
-  const diff = new Date(e) - new Date(s);
-  if (diff < 1000) return diff + ' ms';
-  return (diff / 1000).toFixed(1) + ' s';
-};
-
-const formatBytes = (bytes) => {
-  if (!bytes || bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-};
+const formatDateTime = (t) => t ? new Date(t).toLocaleString() : '-';
 </script>
 
 <style scoped>
-.summary-card {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  margin-bottom: 1.5rem;
-}
-
-.summary-card h4 {
-  margin: 0 0 10px 0;
-  font-size: 0.95rem;
-  color: #2c3e50;
-  border-bottom: 1px solid #f1f1f1;
-  padding-bottom: 6px;
-}
-
 .overview-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 20px;
-  padding-top: 10px;
 }
 
 .overview-item {

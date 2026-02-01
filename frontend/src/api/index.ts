@@ -17,6 +17,9 @@ export const getStageTasks = (appId: string, stageId: number, page = 1, size = 2
 export const getStageStats = (appId: string, stageId: number, attemptId: number) => 
   request.get(`/apps/${appId}/stages/${stageId}/${attemptId}/stats`);
 
+export const getExecutorSummary = (appId: string, stageId: number) =>
+  request.get(`/apps/${appId}/stages/${stageId}/executor-summary`);
+
 export const getStageTimeline = (appId: string, stageId: number) => 
   request.get(`/apps/${appId}/stages/${stageId}/timeline`);
 

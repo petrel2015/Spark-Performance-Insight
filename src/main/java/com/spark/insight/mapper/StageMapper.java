@@ -4,7 +4,9 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.spark.insight.model.StageModel;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Update;
+
+import java.util.List;
+import java.util.Map;
 
 @Mapper
 public interface StageMapper extends BaseMapper<StageModel> {
@@ -13,4 +15,6 @@ public interface StageMapper extends BaseMapper<StageModel> {
     void deleteStageStats(@Param("appId") String appId);
 
     void insertTaskStats(@Param("appId") String appId);
+
+    List<java.util.Map<String, Object>> getExecutorSummary(@Param("appId") String appId, @Param("stageId") Integer stageId);
 }

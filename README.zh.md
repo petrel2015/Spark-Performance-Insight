@@ -98,5 +98,10 @@
 3.  **访问界面:**
     打开浏览器访问:
     ```
-    http://localhost:8081
-    ```
+        http://localhost:8081
+        ```
+    
+    ## 致谢
+    
+    - 特别感谢 [JimLiu/baoyu-skills](https://github.com/JimLiu/baoyu-skills.git) 项目及作者，为本项目提供自动化的 **release-skills** 发布流程支持。
+    

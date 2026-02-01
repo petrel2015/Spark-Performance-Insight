@@ -99,3 +99,7 @@ While the native Spark Web UI provides basic monitoring, it suffers from the fol
     http://localhost:8081
     ```
 
+## Acknowledgments
+
+- Special thanks to [JimLiu/baoyu-skills](https://github.com/JimLiu/baoyu-skills.git) for the **release-skills** that streamlines our release workflow.
+

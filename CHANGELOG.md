@@ -1,25 +1,15 @@
 # Changelog
 
+English | [中文](./CHANGELOG.zh.md)
+
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## 0.1.0 - 2026-02-01
 
-### Added
-- **Stage Detail View**: Refactored into a dedicated drill-down page with breadcrumb navigation, Overview card, and a Summary Metrics matrix table that fully replicates the Spark UI layout.
-- **Environment Tab**: Added advanced client-side sorting (multi-column support with Shift+Click) and search filtering.
-- **UI Consistency**: Unified table styles, hover effects, and sorting controls across Jobs, Stages, Tasks, and Environment views.
-- **Component Architecture**: Decoupled `StageDetailView`, `StageOverview`, and `StageSummary` components for better maintainability.
-- **Multi-column Sorting**: Enabled multi-column sorting in the Task List view. Users can now hold `Shift` to sort by multiple fields (e.g., Duration then GC Time). Added visual indicators for sort priority and controls to manage active sorts.
-- **Integrated Frontend Build**: Added `frontend-maven-plugin` and `maven-resources-plugin` to automate the frontend build process during `mvn package`. The UI is now automatically bundled into the JAR and served at `http://localhost:8081`.
-- **Job/Stage Comparison**: Enhanced documentation and planning for a deeper comparison engine that supports cross-app Job alignment and Stage/Task-level statistical benchmarking.
-- **Zstd Support**: Added native support for reading `.zstd` and `.zst` compressed Spark event logs using `zstd-jni`.
-... (existing entries) ...
+### Features
+- Enable multi-column sorting in task table
+- Enhance job/stage analysis and UI parity with Spark History Server
+- Implement automatic frontend packaging into the JAR
 
-### Changed
-- **Build Workflow**: Simplified the build process to a single `mvn clean install` command.
-- **Project Structure**: Added a `.gitignore` specifically for the `frontend` directory to maintain a clean repository state.
-
-### Fixed
-- **Build Stability**: Bypassed a `vue-tsc` compatibility issue during the frontend build to ensure reliable JAR creation in diverse environments.
-- **Database Lock Issue**: Resolved startup failures caused by stale database locks when previous instances weren't shut down cleanly.
-
+### Refactor
+- Modularize stage details and enhance environment tab

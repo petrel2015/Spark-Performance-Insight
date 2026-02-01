@@ -219,30 +219,42 @@ public class JacksonEventParser implements EventParser {
         job.setSubmissionTime(parseTimestamp(node.get("Submission Time").asLong()));
         job.setStatus("RUNNING");
         
+        String description = null;
         if (node.has("Properties")) {
             JsonNode props = node.get("Properties");
-            String description = null;
             if (props.has("spark.job.description")) {
                 description = props.get("spark.job.description").asText();
             } else if (props.has("spark.job.callSite")) {
                 description = props.get("spark.job.callSite").asText();
-                // Take only the first line of call site
-                if (description != null && description.contains("\n")) {
-                    description = description.split("\n")[0];
-                }
             }
-            
-            // Limit length
-            if (description != null && description.length() > 200) {
-                description = description.substring(0, 197) + "...";
-            }
-            
-            job.setDescription(description);
             
             if (props.has("spark.jobGroup.id")) {
                 job.setJobGroup(props.get("spark.jobGroup.id").asText());
             }
         }
+        
+        // 补丁：如果 Properties 中没有描述，从第一个 Stage 的名称中提取 (对标 Spark UI 行为)
+        if (description == null || description.isEmpty()) {
+            JsonNode stageInfos = node.get("Stage Infos");
+            if (stageInfos != null && stageInfos.isArray() && stageInfos.size() > 0) {
+                JsonNode firstStage = stageInfos.get(0);
+                if (firstStage.has("Stage Name")) {
+                    description = firstStage.get("Stage Name").asText();
+                }
+            }
+        }
+        
+        // 如果描述包含多行，只取第一行
+        if (description != null && description.contains("\n")) {
+            description = description.split("\n")[0];
+        }
+        
+        // 长度截断保护
+        if (description != null && description.length() > 250) {
+            description = description.substring(0, 247) + "...";
+        }
+        
+        job.setDescription(description);
         
         JsonNode stageInfos = node.get("Stage Infos");
         if (stageInfos != null && stageInfos.isArray()) {

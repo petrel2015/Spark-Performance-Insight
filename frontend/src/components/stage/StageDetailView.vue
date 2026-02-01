@@ -21,6 +21,9 @@
       No detailed statistics available.
     </div>
 
+    <!-- Timeline Chart -->
+    <StageTimeline v-if="currentStage" :app-id="appId" :stage-id="stageId" />
+
     <!-- Task Details Section -->
     <TaskTable :app-id="appId" :stage-id="stageId" />
   </div>
@@ -31,6 +34,7 @@ import { ref, onMounted, watch } from 'vue';
 import { getStage, getStageStats } from '../../api';
 import StageOverview from './StageOverview.vue';
 import StageSummary from './StageSummary.vue';
+import StageTimeline from './StageTimeline.vue';
 import TaskTable from '../task/TaskTable.vue';
 
 const props = defineProps({
@@ -56,10 +60,11 @@ const fetchStageDetails = async () => {
       getStage(props.appId, props.stageId),
       getStageStats(props.appId, props.stageId, 0)
     ]);
-    currentStage.value = stageRes.data;
     stageStats.value = statsRes.data;
+    console.log("Stage Details Loaded:", { stage: currentStage.value, stats: stageStats.value });
   } catch (err) {
-    console.error("Failed to fetch stage details", err);
+    console.error("Failed to fetch stage details:", err);
+    console.error("AppID:", props.appId, "StageID:", props.stageId);
     currentStage.value = null;
     stageStats.value = [];
   }

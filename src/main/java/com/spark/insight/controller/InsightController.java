@@ -42,6 +42,14 @@ public class InsightController {
         return new PageResponse<>(items, total, page, size, totalPages);
     }
 
+    @GetMapping("/apps/{appId}/jobs/{jobId}")
+    public JobModel getJob(@PathVariable String appId, @PathVariable Integer jobId) {
+        return jobService.lambdaQuery()
+                .eq(JobModel::getAppId, appId)
+                .eq(JobModel::getJobId, jobId)
+                .one();
+    }
+
     /**
      * 获取 Environment Config 列表
      */

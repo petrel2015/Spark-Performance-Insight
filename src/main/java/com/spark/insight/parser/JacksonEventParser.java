@@ -221,9 +221,24 @@ public class JacksonEventParser implements EventParser {
         
         if (node.has("Properties")) {
             JsonNode props = node.get("Properties");
+            String description = null;
             if (props.has("spark.job.description")) {
-                job.setDescription(props.get("spark.job.description").asText());
+                description = props.get("spark.job.description").asText();
+            } else if (props.has("spark.job.callSite")) {
+                description = props.get("spark.job.callSite").asText();
+                // Take only the first line of call site
+                if (description != null && description.contains("\n")) {
+                    description = description.split("\n")[0];
+                }
             }
+            
+            // Limit length
+            if (description != null && description.length() > 200) {
+                description = description.substring(0, 197) + "...";
+            }
+            
+            job.setDescription(description);
+            
             if (props.has("spark.jobGroup.id")) {
                 job.setJobGroup(props.get("spark.jobGroup.id").asText());
             }

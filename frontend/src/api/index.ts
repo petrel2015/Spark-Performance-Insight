@@ -13,6 +13,7 @@ export const getAppStages = (appId: string, page = 1, size = 20, sort = '', jobI
 export const getStage = (appId: string, stageId: number) => request.get(`/apps/${appId}/stages/${stageId}`);
 export const getAppJobs = (appId: string, page = 1, size = 20, sort = '') => 
     request.get(`/apps/${appId}/jobs?page=${page}&size=${size}&sort=${sort}`);
+export const getJob = (appId: string, jobId: number) => request.get(`/apps/${appId}/jobs/${jobId}`);
 export const getAppExecutors = (appId: string) => request.get(`/apps/${appId}/executors`);
 export const getAppEnvironment = (appId: string) => request.get(`/apps/${appId}/environment`);
 export const getStageTasks = (appId: string, stageId: number, page = 1, size = 20, sort = '') => 

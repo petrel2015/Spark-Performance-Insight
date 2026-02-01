@@ -4,6 +4,18 @@ English | [中文](./CHANGELOG.zh.md)
 
 All notable changes to this project will be documented in this file.
 
+## 0.5.0 - 2026-02-01
+
+### Features
+- **Job Detail View**: Dedicated view for Job details with job-level executor metrics and filtered Stage list
+- **Environment Overhaul**: categorized sections (Runtime, Spark, Hadoop, System, Metrics, Classpath) with search and independent collapsible cards
+- **Stage List V2**: Added Submitted, Duration, Input/Output, and Shuffle columns with capitalized headers
+- **Progress Visualization**: Succeeded/Total task progress bar in Stage and Job lists
+- **Call Site Info**: Job descriptions now include call site details (e.g., `csv at File.scala:10`) via `spark.job.callSite`
+- **Spark Version Badge**: Show Spark version in navigation bar and application list
+- **Enhanced Data Handling**: Improved Task success identification and zero-value masking (`-` instead of `0`)
+- **UI Consistency**: Uniform multi-column sorting and hover highlights across all data tables
+
 ## 0.4.0 - 2026-02-01
 
 ### Features

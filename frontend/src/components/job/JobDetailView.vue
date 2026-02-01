@@ -31,7 +31,7 @@
 
 <script setup>
 import { ref, onMounted, watch } from 'vue';
-import { getJobExecutorSummary } from '../../api';
+import { getJobExecutorSummary, getJob } from '../../api';
 import CollapsibleCard from '../common/CollapsibleCard.vue';
 import StageTable from '../stage/StageTable.vue';
 import ExecutorSummary from '../stage/ExecutorSummary.vue';
@@ -44,11 +44,16 @@ const props = defineProps({
 
 const emit = defineEmits(['back', 'view-stage']);
 
+const currentJob = ref(null);
 const executorSummary = ref([]);
 
 const fetchJobDetails = async () => {
   try {
-    const execRes = await getJobExecutorSummary(props.appId, props.jobId);
+    const [jobRes, execRes] = await Promise.all([
+      getJob(props.appId, props.jobId),
+      getJobExecutorSummary(props.appId, props.jobId)
+    ]);
+    currentJob.value = jobRes.data;
     executorSummary.value = execRes.data;
   } catch (err) {
     console.error("Failed to fetch job details", err);

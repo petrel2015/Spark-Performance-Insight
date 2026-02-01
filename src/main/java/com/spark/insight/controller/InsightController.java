@@ -28,8 +28,18 @@ public class InsightController {
      * 获取 Job 列表
      */
     @GetMapping("/apps/{appId}/jobs")
-    public List<JobModel> listJobs(@PathVariable String appId) {
-        return jobService.lambdaQuery().eq(JobModel::getAppId, appId).orderByAsc(JobModel::getJobId).list();
+    public PageResponse<JobModel> listJobs(@PathVariable String appId,
+                                           @RequestParam(defaultValue = "1") int page,
+                                           @RequestParam(defaultValue = "20") int size,
+                                           @RequestParam(required = false) String sort) {
+        long total = jobService.lambdaQuery().eq(JobModel::getAppId, appId).count();
+        var listQuery = jobService.lambdaQuery().eq(JobModel::getAppId, appId);
+
+        listQuery.last(buildSqlSuffix(sort, page, size, "job_id ASC"));
+
+        List<JobModel> items = listQuery.list();
+        int totalPages = (int) Math.ceil((double) total / size);
+        return new PageResponse<>(items, total, page, size, totalPages);
     }
 
     /**
@@ -65,28 +75,7 @@ public class InsightController {
                 .eq(TaskModel::getAppId, appId)
                 .eq(TaskModel::getStageId, stageId);
 
-        StringBuilder orderBy = new StringBuilder();
-        if (sort != null && !sort.isBlank()) {
-            String[] orders = sort.split(";");
-            for (String order : orders) {
-                String[] parts = order.split(",");
-                if (parts.length == 2) {
-                    String field = parts[0];
-                    String dir = "asc".equalsIgnoreCase(parts[1]) ? "ASC" : "DESC";
-                    // 驼峰转蛇形: taskId -> task_id, taskIndex -> task_index
-                    String column = field.replaceAll("([a-z])([A-Z])", "$1_$2").toLowerCase();
-                    if (orderBy.length() > 0) orderBy.append(", ");
-                    orderBy.append(column).append(" ").append(dir);
-                }
-            }
-        }
-
-        if (orderBy.length() > 0) {
-            listQuery.last("ORDER BY " + orderBy.toString() + " LIMIT " + size + " OFFSET " + (page - 1) * size);
-        } else {
-            // 默认按 taskIndex 排序
-            listQuery.last("ORDER BY task_index ASC LIMIT " + size + " OFFSET " + (page - 1) * size);
-        }
+        listQuery.last(buildSqlSuffix(sort, page, size, "task_index ASC"));
 
         List<TaskModel> items = listQuery.list();
         int totalPages = (int) Math.ceil((double) total / size);
@@ -113,11 +102,29 @@ public class InsightController {
      * 获取指定 App 的 Stage 详情（包含预计算指标）
      */
     @GetMapping("/apps/{appId}/stages")
-    public List<StageModel> listStages(@PathVariable String appId) {
+    public PageResponse<StageModel> listStages(@PathVariable String appId,
+                                               @RequestParam(defaultValue = "1") int page,
+                                               @RequestParam(defaultValue = "20") int size,
+                                               @RequestParam(required = false) String sort) {
+        long total = stageService.lambdaQuery().eq(StageModel::getAppId, appId).count();
+        var listQuery = stageService.lambdaQuery().eq(StageModel::getAppId, appId);
+
+        listQuery.last(buildSqlSuffix(sort, page, size, "stage_id ASC"));
+
+        List<StageModel> items = listQuery.list();
+        int totalPages = (int) Math.ceil((double) total / size);
+        return new PageResponse<>(items, total, page, size, totalPages);
+    }
+
+    /**
+     * 获取单个 Stage 的元数据
+     */
+    @GetMapping("/apps/{appId}/stages/{stageId}")
+    public StageModel getStage(@PathVariable String appId, @PathVariable Integer stageId) {
         return stageService.lambdaQuery()
                 .eq(StageModel::getAppId, appId)
-                .orderByAsc(StageModel::getStageId)
-                .list();
+                .eq(StageModel::getStageId, stageId)
+                .one();
     }
 
     /**
@@ -144,5 +151,26 @@ public class InsightController {
     @GetMapping("/apps/{appId}")
     public ApplicationModel getApp(@PathVariable String appId) {
         return applicationService.getById(appId);
+    }
+
+    private String buildSqlSuffix(String sort, int page, int size, String defaultSort) {
+        StringBuilder orderBy = new StringBuilder();
+        if (sort != null && !sort.isBlank()) {
+            String[] orders = sort.split(";");
+            for (String order : orders) {
+                String[] parts = order.split(",");
+                if (parts.length == 2) {
+                    String field = parts[0];
+                    String dir = "asc".equalsIgnoreCase(parts[1]) ? "ASC" : "DESC";
+                    // 驼峰转蛇形: taskId -> task_id, taskIndex -> task_index
+                    String column = field.replaceAll("([a-z])([A-Z])", "$1_$2").toLowerCase();
+                    if (orderBy.length() > 0) orderBy.append(", ");
+                    orderBy.append(column).append(" ").append(dir);
+                }
+            }
+        }
+
+        String orderClause = orderBy.length() > 0 ? orderBy.toString() : defaultSort;
+        return "ORDER BY " + orderClause + " LIMIT " + size + " OFFSET " + (page - 1) * size;
     }
 }

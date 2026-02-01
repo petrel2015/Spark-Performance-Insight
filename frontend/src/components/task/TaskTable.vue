@@ -87,7 +87,7 @@
 
 <script setup>
 import { ref, onMounted, watch } from 'vue';
-import { getStageTasks } from '../api';
+import { getStageTasks } from '../../api';
 
 const props = defineProps({
   appId: String,
@@ -403,6 +403,11 @@ watch(() => props.stageId, () => {
 
 .styled-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .styled-table th, .styled-table td { padding: 12px 8px; text-align: left; border-bottom: 1px solid #eee; }
+
+.styled-table tbody tr:hover {
+  background-color: #f7fbff;
+}
+
 .styled-table th { background: #f8f9fa; color: #333; font-weight: 600; }
 .styled-table th.sortable { cursor: pointer; user-select: none; }
 .styled-table th.sortable:hover { background: #edf2f7; color: #3498db; }

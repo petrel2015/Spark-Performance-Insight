@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.spark.insight.mapper.JobMapper">
+
+    <update id="calculateJobMetrics">
+        UPDATE jobs
+        SET 
+            num_completed_stages = (
+                SELECT COUNT(*) 
+                FROM stages s 
+                WHERE s.app_id = jobs.app_id 
+                  AND s.completion_time IS NOT NULL 
+                  AND list_contains(string_split(jobs.stage_ids, ','), CAST(s.stage_id AS VARCHAR))
+            ),
+            num_completed_tasks = (
+                SELECT COUNT(*) 
+                FROM tasks t
+                WHERE t.app_id = jobs.app_id 
+                  AND t.status = 'SUCCESS'
+                  AND list_contains(string_split(jobs.stage_ids, ','), CAST(t.stage_id AS VARCHAR))
+            ),
+            num_failed_tasks = (
+                SELECT COUNT(*) 
+                FROM tasks t
+                WHERE t.app_id = jobs.app_id 
+                  AND t.status = 'FAILED'
+                  AND list_contains(string_split(jobs.stage_ids, ','), CAST(t.stage_id AS VARCHAR))
+            )
+        WHERE app_id = #{appId}
+    </update>
+
+</mapper>

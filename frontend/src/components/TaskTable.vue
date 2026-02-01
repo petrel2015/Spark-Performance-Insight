@@ -35,35 +35,29 @@
       </div>
     </div>
 
+    <!-- Active Sorts Display -->
+    <div v-if="sorts.length > 0" class="active-sorts-bar">
+      <span class="sort-label">Sort by:</span>
+      <div class="sort-tags">
+        <span v-for="(sort, index) in sorts" :key="sort.field" class="sort-tag">
+          {{ getColumnLabel(sort.field) }} 
+          <span class="sort-dir">{{ sort.dir === 'asc' ? 'ASC' : 'DESC' }}</span>
+          <span @click="removeSort(index)" class="remove-sort" title="Remove sort">×</span>
+        </span>
+      </div>
+      <button @click="clearSorts" class="clear-sort-btn">Clear All</button>
+      <small class="sort-hint">(Hold <b>Shift</b> + Click headers to sort by multiple columns)</small>
+    </div>
+
     <table class="styled-table">
       <thead>
         <tr>
-          <th @click="handleSort('taskId', $event)" class="sortable" style="width: 80px;">
-            ID {{ getSortIcon('taskId') }}
-          </th>
-          <th class="sortable" @click="handleSort('taskIndex', $event)" style="width: 80px;">
-            Index {{ getSortIcon('taskIndex') }}
-          </th>
-          <th @click="handleSort('host', $event)" class="sortable">
-            Host {{ getSortIcon('host') }}
-          </th>
-          <th @click="handleSort('executorId', $event)" class="sortable" style="width: 100px;">
-            Executor {{ getSortIcon('executorId') }}
-          </th>
-          <th @click="handleSort('duration', $event)" class="sortable" style="width: 120px;">
-            Duration {{ getSortIcon('duration') }}
-          </th>
-          <th @click="handleSort('gcTime', $event)" class="sortable" style="width: 120px;">
-            GC Time {{ getSortIcon('gcTime') }}
-          </th>
-          <th @click="handleSort('inputBytes', $event)" class="sortable" style="width: 120px;">
-            Input {{ getSortIcon('inputBytes') }}
-          </th>
-          <th @click="handleSort('shuffleReadBytes', $event)" class="sortable" style="width: 120px;">
-            Shuffle Read {{ getSortIcon('shuffleReadBytes') }}
-          </th>
-          <th @click="handleSort('status', $event)" class="sortable" style="width: 100px;">
-            Status {{ getSortIcon('status') }}
+          <th v-for="col in columns" 
+              :key="col.field"
+              @click="handleSort(col.field, $event)" 
+              class="sortable" 
+              :style="{ width: col.width }">
+            {{ col.label }} {{ getSortIcon(col.field) }}
           </th>
         </tr>
       </thead>
@@ -108,17 +102,27 @@ const pageSize = ref(20);
 const jumpPageInput = ref(1);
 const sorts = ref([]); // [{ field, dir }]
 
+const columns = [
+  { field: 'taskId', label: 'ID', width: '80px' },
+  { field: 'taskIndex', label: 'Index', width: '80px' },
+  { field: 'host', label: 'Host' },
+  { field: 'executorId', label: 'Executor', width: '100px' },
+  { field: 'duration', label: 'Duration', width: '120px' },
+  { field: 'gcTime', label: 'GC Time', width: '120px' },
+  { field: 'inputBytes', label: 'Input', width: '120px' },
+  { field: 'shuffleReadBytes', label: 'Shuffle Read', width: '120px' },
+  { field: 'status', label: 'Status', width: '100px' }
+];
+
 const fetchTasks = async () => {
   try {
     const sortStr = sorts.value.map(s => `${s.field},${s.dir}`).join(';');
     const res = await getStageTasks(props.appId, props.stageId, currentPage.value, pageSize.value, sortStr);
-    // 增加兼容性处理：判断返回的是 PageResponse 对象还是旧版的 List 数组
     if (res.data && res.data.items) {
       tasks.value = res.data.items;
       totalTasks.value = res.data.total;
       totalPages.value = res.data.totalPages;
     } else if (Array.isArray(res.data)) {
-      // 兼容旧版后端接口
       tasks.value = res.data;
       totalTasks.value = res.data.length;
       totalPages.value = 1;
@@ -180,10 +184,32 @@ const handleSort = (field, event) => {
   fetchTasks();
 };
 
+const removeSort = (index) => {
+  sorts.value.splice(index, 1);
+  currentPage.value = 1;
+  fetchTasks();
+};
+
+const clearSorts = () => {
+  sorts.value = [];
+  currentPage.value = 1;
+  fetchTasks();
+};
+
+const getColumnLabel = (field) => {
+  const col = columns.find(c => c.field === field);
+  return col ? col.label : field;
+};
+
 const getSortIcon = (field) => {
-  const s = sorts.value.find(x => x.field === field);
-  if (!s) return '↕';
-  return s.dir === 'asc' ? '↑' : '↓';
+  const index = sorts.value.findIndex(x => x.field === field);
+  if (index === -1) return '↕';
+  const s = sorts.value[index];
+  const icon = s.dir === 'asc' ? '↑' : '↓';
+  if (sorts.value.length > 1) {
+    return `${icon}${index + 1}`;
+  }
+  return icon;
 };
 
 const formatDuration = (ms) => {
@@ -202,7 +228,6 @@ const formatBytes = (bytes) => {
 
 onMounted(fetchTasks);
 
-// Re-fetch when stage changes
 watch(() => props.stageId, () => {
   currentPage.value = 1;
   fetchTasks();
@@ -222,13 +247,87 @@ watch(() => props.stageId, () => {
   display: flex; 
   justify-content: space-between; 
   align-items: center; 
-  margin-bottom: 1.5rem; 
+  margin-bottom: 1rem; 
   padding-bottom: 1rem;
   border-bottom: 1px solid #eee;
 }
 
 .header-left h4 { margin: 0; color: #2c3e50; }
 .header-left small { color: #7f8c8d; font-weight: normal; margin-left: 8px; }
+
+.active-sorts-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 1rem;
+  padding: 8px 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.sort-label {
+  font-weight: 600;
+  color: #555;
+}
+
+.sort-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sort-tag {
+  display: inline-flex;
+  align-items: center;
+  background: #e3f2fd;
+  color: #1565c0;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  border: 1px solid #bbdefb;
+}
+
+.sort-dir {
+  margin-left: 4px;
+  font-size: 0.7rem;
+  opacity: 0.8;
+  font-weight: bold;
+}
+
+.remove-sort {
+  margin-left: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  opacity: 0.6;
+}
+
+.remove-sort:hover {
+  opacity: 1;
+  color: #c62828;
+}
+
+.clear-sort-btn {
+  background: none;
+  border: none;
+  color: #666;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0 4px;
+}
+
+.clear-sort-btn:hover {
+  color: #d32f2f;
+}
+
+.sort-hint {
+  margin-left: auto;
+  color: #888;
+  font-style: italic;
+  font-size: 0.8rem;
+}
 
 .pagination-controls { 
   display: flex; 

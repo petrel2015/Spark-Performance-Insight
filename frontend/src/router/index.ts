@@ -7,7 +7,12 @@ const router = createRouter({
   routes: [
     { path: '/', component: AppList },
     { path: '/app/:id', component: AppDetail },
-    { path: '/app/:id/stage/:stageId', component: AppDetail } // 共享 AppDetail 组件，但带上 stageId
+    { path: '/app/:id/jobs', component: AppDetail },
+    { path: '/app/:id/stages', component: AppDetail },
+    { path: '/app/:id/executors', component: AppDetail },
+    { path: '/app/:id/environment', component: AppDetail },
+    { path: '/app/:id/job/:jobId', component: AppDetail },
+    { path: '/app/:id/stage/:stageId', component: AppDetail }
   ]
 })
 

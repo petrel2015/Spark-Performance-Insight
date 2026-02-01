@@ -8,8 +8,11 @@
         SET 
             gc_time_sum = m.total_gc,
             tasks_duration_sum = m.total_duration,
+            num_completed_tasks = m.done_tasks,
+            num_failed_tasks = m.failed_tasks,
             input_bytes = m.total_input,
             input_records = m.total_input_records,
+            output_bytes = m.total_output,
             shuffle_read_bytes = m.total_shuffle_read,
             shuffle_read_records = m.total_shuffle_read_records,
             shuffle_write_bytes = m.total_shuffle_write,
@@ -22,10 +25,13 @@
             SELECT 
                 app_id, 
                 stage_id,
+                count(case when status = 'SUCCESS' or status = 'SUCCEEDED' then 1 end) as done_tasks,
+                count(case when status = 'FAILED' then 1 end) as failed_tasks,
                 sum(gc_time) as total_gc,
                 sum(duration) as total_duration,
                 sum(input_bytes) as total_input,
                 sum(input_records) as total_input_records,
+                sum(output_bytes) as total_output,
                 sum(shuffle_read_bytes) as total_shuffle_read,
                 sum(shuffle_read_records) as total_shuffle_read_records,
                 sum(shuffle_write_bytes) as total_shuffle_write,
@@ -163,6 +169,31 @@
             sum(shuffle_write_time) as shuffleWriteTime
         FROM tasks
         WHERE app_id = #{appId} AND stage_id = #{stageId}
+        GROUP BY executor_id
+        ORDER BY executor_id ASC
+    </select>
+
+    <select id="getJobExecutorSummary" resultType="map">
+        SELECT 
+            executor_id as executorId,
+            count(*) as taskCount,
+            sum(executor_deserialize_time) as executorDeserializeTime,
+            sum(duration) as duration,
+            sum(gc_time) as gcTime,
+            sum(result_serialization_time) as resultSerializationTime,
+            sum(getting_result_time) as getting_result_time,
+            sum(scheduler_delay) as schedulerDelay,
+            max(peak_execution_memory) as peakExecutionMemory,
+            sum(memory_bytes_spilled) as memoryBytesSpilled,
+            sum(disk_bytes_spilled) as diskBytesSpilled,
+            sum(input_bytes) as inputBytes,
+            sum(input_records) as inputRecords,
+            sum(shuffle_write_bytes) as shuffleWriteBytes,
+            sum(shuffle_write_records) as shuffleWriteRecords,
+            sum(shuffle_write_time) as shuffleWriteTime
+        FROM tasks t
+        JOIN stages s ON t.app_id = s.app_id AND t.stage_id = s.stage_id
+        WHERE t.app_id = #{appId} AND s.job_id = #{jobId}
         GROUP BY executor_id
         ORDER BY executor_id ASC
     </select>

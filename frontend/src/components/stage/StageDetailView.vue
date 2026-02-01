@@ -11,10 +11,6 @@
         </h3>
         <span v-if="currentStage" class="stage-name-subtitle">{{ currentStage.stageName }}</span>
       </div>
-      <div class="stage-quick-stats" v-if="currentStage">
-        <div class="stat-pill"><strong>Tasks:</strong> {{ currentStage.numTasks }}</div>
-        <div class="stat-pill"><strong>Input:</strong> {{ formatBytes(currentStage.inputBytes) }}</div>
-      </div>
     </div>
 
     <!-- Stage Overview Card -->
@@ -133,14 +129,6 @@ const fetchStageDetails = async () => {
   }
 };
 
-const formatBytes = (bytes) => {
-  if (!bytes || bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-};
-
 onMounted(fetchStageDetails);
 
 watch(() => props.stageId, fetchStageDetails);
@@ -183,20 +171,6 @@ watch(() => props.stageId, fetchStageDetails);
 .stage-name-subtitle {
   font-size: 0.8rem;
   color: #7f8c8d;
-}
-
-.stage-quick-stats {
-  margin-left: auto;
-  display: flex;
-  gap: 15px;
-}
-
-.stat-pill {
-  background: #f1f3f5;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  color: #495057;
 }
 
 .metric-selector-card {

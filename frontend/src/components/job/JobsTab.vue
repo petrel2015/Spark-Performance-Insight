@@ -69,9 +69,9 @@
               <span v-if="job.jobGroup" class="job-group-badge">{{ job.jobGroup }}</span>
             </div>
           </td>
-          <td class="description-cell">
-            <a href="#" @click.prevent="$emit('view-job-stages', job)" :title="job.description">
-              {{ job.description || '(No Description)' }}
+          <td>
+            <a href="javascript:void(0)" @click="$emit('view-job-detail', job.jobId)" class="job-link">
+              {{ job.description || 'Job ' + job.jobId }}
             </a>
           </td>
           <td>{{ formatTime(job.submissionTime) }}</td>

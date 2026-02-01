@@ -17,4 +17,6 @@ public interface StageMapper extends BaseMapper<StageModel> {
     void insertTaskStats(@Param("appId") String appId);
 
     List<java.util.Map<String, Object>> getExecutorSummary(@Param("appId") String appId, @Param("stageId") Integer stageId);
+
+    List<java.util.Map<String, Object>> getJobExecutorSummary(@Param("appId") String appId, @Param("jobId") Integer jobId);
 }

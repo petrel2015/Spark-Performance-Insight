@@ -20,6 +20,9 @@ export const getStageStats = (appId: string, stageId: number, attemptId: number)
 export const getExecutorSummary = (appId: string, stageId: number) =>
   request.get(`/apps/${appId}/stages/${stageId}/executor-summary`);
 
+export const getJobExecutorSummary = (appId: string, jobId: number) =>
+  request.get(`/apps/${appId}/jobs/${jobId}/executor-summary`);
+
 export const getStageTimeline = (appId: string, stageId: number) => 
   request.get(`/apps/${appId}/stages/${stageId}/timeline`);
 

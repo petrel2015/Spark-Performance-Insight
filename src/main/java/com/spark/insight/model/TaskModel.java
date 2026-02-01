@@ -25,9 +25,11 @@ public class TaskModel {
     private Long resultSerializationTime;
     private Long executorCpuTime;
     private Long peakExecutionMemory;
-    private Long inputBytes;
-    private Long inputRecords;
-    private Long memoryBytesSpilled;
+    private Long inputBytes = 0L;
+    private Long inputRecords = 0L;
+    private Long outputBytes = 0L;
+    private Long outputRecords = 0L;
+    private Long memoryBytesSpilled = 0L;
     private Long diskBytesSpilled;
     private Long shuffleReadBytes;
     private Long shuffleReadRecords;

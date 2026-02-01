@@ -15,6 +15,8 @@ public class StageModel {
     private Integer attemptId;
     private String stageName;
     private Integer numTasks;
+    private Integer numCompletedTasks = 0;
+    private Integer numFailedTasks = 0;
     private LocalDateTime submissionTime;
     private LocalDateTime completionTime;
     private Long inputBytes = 0L;

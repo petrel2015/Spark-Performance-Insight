@@ -2,12 +2,20 @@
   <div class="app-detail">
     <div class="header-bar">
       <div class="tabs">
-        <button v-for="tab in tabList" :key="tab" :class="{ active: activeTab === tab }" @click="activeTab = tab">
+        <button v-for="tab in tabList" :key="tab" 
+                :class="{ active: activeTab === tab }" 
+                @click="navigateToTab(tab)">
           {{ tab }}
         </button>
       </div>
       <div class="app-info">
-        <h2>{{ app?.appName }} <small>{{ app?.appId }}</small></h2>
+        <h2>
+          {{ app?.appName }} 
+          <span v-if="app?.sparkVersion && app?.sparkVersion !== 'unknown'" class="spark-version-badge">
+            {{ app.sparkVersion }}
+          </span>
+          <small>{{ app?.appId }}</small>
+        </h2>
       </div>
     </div>
 
@@ -20,7 +28,21 @@
       </div>
 
       <!-- 2. Jobs Tab -->
-      <JobsTab v-if="activeTab === 'Jobs' && app" :app-id="app.appId" @view-job-stages="handleViewJobStages" />
+      <div v-if="activeTab === 'Jobs'" class="jobs-view">
+        <JobsTab 
+          v-if="selectedJobId === null && app" 
+          :app-id="app.appId" 
+          @view-job-detail="navigateToJob" 
+        />
+        
+        <JobDetailView
+          v-else-if="app"
+          :app-id="app.appId"
+          :job-id="selectedJobId"
+          @back="navigateBackToJobs"
+          @view-stage="navigateToStage"
+        />
+      </div>
 
       <!-- 3. Stages Tab -->
       <div v-if="activeTab === 'Stages'" class="stages-view">
@@ -49,11 +71,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { getAppStages, getDiagnosisReport, getAppExecutors, getApps, getAppEnvironment } from '../api';
+import { getDiagnosisReport, getAppExecutors, getApps, getAppEnvironment } from '../api';
 import { marked } from 'marked';
 import JobsTab from '../components/job/JobsTab.vue';
+import JobDetailView from '../components/job/JobDetailView.vue';
 import ExecutorsTab from '../components/executor/ExecutorsTab.vue';
 import StageTable from '../components/stage/StageTable.vue';
 import StageDetailView from '../components/stage/StageDetailView.vue';
@@ -62,42 +85,83 @@ import EnvironmentTab from '../components/environment/EnvironmentTab.vue';
 const route = useRoute();
 const router = useRouter();
 
-const activeTab = ref('Diagnosis');
-const selectedStageId = computed(() => {
-  return route.params.stageId ? parseInt(route.params.stageId) : null;
-});
-
-const tabList = ['Diagnosis', 'Jobs', 'Stages', 'Executors', 'Environment'];
-
 const app = ref(null);
 const executors = ref([]);
 const environment = ref([]);
 const report = ref('');
+const activeTab = ref('Diagnosis');
+
+const tabList = ['Diagnosis', 'Jobs', 'Stages', 'Executors', 'Environment'];
+
+const selectedStageId = computed(() => {
+  return route.params.stageId ? parseInt(route.params.stageId) : null;
+});
+
+const selectedJobId = computed(() => {
+  return route.params.jobId ? parseInt(route.params.jobId) : null;
+});
 
 const renderedReport = computed(() => marked(report.value));
 
+const syncTabWithRoute = () => {
+  const path = route.path;
+  if (path.includes('/stage/')) {
+    activeTab.value = 'Stages';
+  } else if (path.includes('/job/')) {
+    activeTab.value = 'Jobs';
+  } else if (path.endsWith('/jobs')) {
+    activeTab.value = 'Jobs';
+  } else if (path.endsWith('/stages')) {
+    activeTab.value = 'Stages';
+  } else if (path.endsWith('/executors')) {
+    activeTab.value = 'Executors';
+  } else if (path.endsWith('/environment')) {
+    activeTab.value = 'Environment';
+  } else {
+    activeTab.value = 'Diagnosis';
+  }
+};
+
+const navigateToTab = (tab) => {
+  const appId = route.params.id;
+  if (tab === 'Diagnosis') router.push(`/app/${appId}`);
+  else if (tab === 'Jobs') router.push(`/app/${appId}/jobs`);
+  else if (tab === 'Stages') router.push(`/app/${appId}/stages`);
+  else if (tab === 'Executors') router.push(`/app/${appId}/executors`);
+  else if (tab === 'Environment') router.push(`/app/${appId}/environment`);
+};
+
+const navigateToJob = (jobId) => {
+  router.push(`/app/${route.params.id}/job/${jobId}`);
+};
+
+const navigateBackToJobs = () => {
+  router.push(`/app/${route.params.id}/jobs`);
+};
+
 const navigateToStage = (stageId) => {
-  router.push(`/app/${app.value.appId}/stage/${stageId}`);
+  router.push(`/app/${route.params.id}/stage/${stageId}`);
 };
 
 const navigateBackToStages = () => {
-  router.push(`/app/${app.value.appId}`);
+  router.push(`/app/${route.params.id}/stages`);
 };
 
 const handleViewJobStages = (job) => {
-  activeTab.value = 'Stages';
+  navigateToTab('Stages');
 };
 
 const handleViewJob = (jobId) => {
-  activeTab.value = 'Jobs';
-  router.push(`/app/${app.value.appId}`); // 回退到 App 根路径（显示列表）
+  navigateToTab('Jobs');
 };
+
+watch(() => route.path, () => {
+  syncTabWithRoute();
+});
 
 onMounted(async () => {
   const appId = route.params.id;
-  if (route.params.stageId) {
-    activeTab.value = 'Stages';
-  }
+  syncTabWithRoute();
   
   const appsRes = await getApps();
   app.value = appsRes.data.find(a => a.appId === appId);
@@ -117,8 +181,18 @@ onMounted(async () => {
 <style scoped>
 .app-detail { padding: 0; display: flex; flex-direction: column; height: calc(100vh - 60px); }
 .header-bar { background: white; padding: 0 2rem; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; min-height: 50px; }
-.app-info h2 { margin: 0; font-size: 1.1rem; color: #333; }
-.app-info small { color: #999; font-weight: normal; margin-left: 8px; font-size: 0.8rem; }
+.app-info h2 { margin: 0; font-size: 1.1rem; color: #333; display: flex; align-items: center; gap: 8px; }
+.app-info small { color: #999; font-weight: normal; font-size: 0.8rem; }
+
+.spark-version-badge {
+  background-color: #e8f4f8;
+  color: #2980b9;
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid #d1e9f0;
+  font-weight: 600;
+}
 
 .tabs { display: flex; align-items: stretch; height: 50px; }
 .tabs button { background: none; border: none; padding: 0 1.2rem; cursor: pointer; font-weight: 600; color: #555; border-bottom: 3px solid transparent; height: 100%; transition: all 0.2s; font-size: 0.9rem; }

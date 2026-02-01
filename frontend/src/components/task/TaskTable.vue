@@ -46,7 +46,6 @@
         </span>
       </div>
       <button @click="clearSorts" class="clear-sort-btn">Clear All</button>
-      <small class="sort-hint">(Hold <b>Shift</b> + Click headers to sort by multiple columns)</small>
     </div>
 
     <div class="table-wrapper">
@@ -122,7 +121,7 @@ const totalPages = ref(0);
 const currentPage = ref(1);
 const pageSize = ref(20);
 const jumpPageInput = ref(1);
-const sorts = ref([]); // [{ field, dir }]
+const sorts = ref([{ field: 'taskId', dir: 'asc' }]); // Default sort by ID
 
 // 基础列（始终显示）
 const baseColumns = [
@@ -245,8 +244,11 @@ const clearSorts = () => {
 };
 
 const getColumnLabel = (field) => {
-  const col = columns.find(c => c.field === field);
-  return col ? col.label : field;
+  const col = columns.value.find(c => c.field === field);
+  if (col) return col.label;
+  // Fallback to searching in the map
+  const metricKey = Object.keys(metricColumnsMap).find(k => metricColumnsMap[k].field === field);
+  return metricKey ? metricColumnsMap[metricKey].label : field;
 };
 
 const getSortIcon = (field) => {

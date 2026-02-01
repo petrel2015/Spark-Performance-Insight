@@ -22,7 +22,12 @@
       <tbody>
         <tr v-for="app in apps" :key="app.appId">
           <td><input type="checkbox" :value="app.appId" v-model="selectedApps" :disabled="selectedApps.length >= 2 && !selectedApps.includes(app.appId)"></td>
-          <td>{{ app.appName }}</td>
+          <td class="name-cell">
+            <span class="app-name">{{ app.appName }}</span>
+            <span v-if="app.sparkVersion && app.sparkVersion !== 'unknown'" class="spark-version-badge">
+              {{ app.sparkVersion }}
+            </span>
+          </td>
           <td><code>{{ app.appId }}</code></td>
           <td>{{ app.userName }}</td>
           <td>{{ (app.duration / 1000).toFixed(1) }}</td>
@@ -64,4 +69,16 @@ const handleCompare = () => {
 .styled-table th, .styled-table td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; }
 .styled-table th { background-color: #f8f9fa; font-weight: bold; }
 .status-FINISHED { color: #27ae60; font-weight: bold; }
+
+.name-cell { display: flex; align-items: center; gap: 10px; }
+.spark-version-badge {
+  background-color: #e8f4f8;
+  color: #2980b9;
+  font-size: 0.7rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid #d1e9f0;
+  font-weight: 600;
+  white-space: nowrap;
+}
 </style>

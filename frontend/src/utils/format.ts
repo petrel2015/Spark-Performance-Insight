@@ -10,8 +10,7 @@ export const formatTime = (ms: number | null | undefined) => {
 };
 
 export const formatBytes = (bytes: number | null | undefined) => {
-  if (bytes === null || bytes === undefined) return '-';
-  if (bytes === 0) return '0 B';
+  if (bytes === null || bytes === undefined || bytes === 0) return '-';
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -19,16 +18,20 @@ export const formatBytes = (bytes: number | null | undefined) => {
 };
 
 export const formatCompactNum = (num: number | null | undefined) => {
-  if (num === null || num === undefined) return '';
+  if (num === null || num === undefined || num === 0) return '';
   if (num >= 1000000) return (num / 1000000).toFixed(1) + ' M';
   if (num >= 1000) return (num / 1000).toFixed(1) + ' K';
   return num.toString();
 };
 
 export const formatNum = (num: number | null | undefined) => {
-  if (num === null || num === undefined) return '-';
-  if (num === 0) return '0';
+  if (num === null || num === undefined || num === 0) return '-';
   const exact = num.toLocaleString();
   const compact = formatCompactNum(num);
   return compact && num >= 1000 ? `${exact} (${compact})` : exact;
+};
+
+export const formatDateTime = (t: string | null | undefined) => {
+  if (!t) return '-';
+  return new Date(t).toLocaleString();
 };

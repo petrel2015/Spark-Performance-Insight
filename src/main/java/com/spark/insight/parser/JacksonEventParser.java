@@ -47,70 +47,120 @@ public class JacksonEventParser implements EventParser {
             if (logFile.getName().endsWith(".zstd") || logFile.getName().endsWith(".zst")) {
                 is = new ZstdInputStream(is);
             }
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
-                String line;
-                String currentAppId = null;
-                List<TaskModel> taskBatch = new ArrayList<>();
-                List<EnvironmentConfigModel> envBatch = new ArrayList<>();
-                List<ExecutorModel> executorBatch = new ArrayList<>();
-                // 临时存储 Stage ID 到 Job ID 的映射
-                Map<Integer, Integer> stageToJobMap = new HashMap<>();
-                
-                while ((line = reader.readLine()) != null) {
-                    JsonNode node = objectMapper.readTree(line);
-                    if (!node.has("Event")) continue;
-                    String eventType = node.get("Event").asText();
-
-                    // ... (省略部分逻辑)
-                    if (currentAppId == null && eventType.equals("SparkListenerEnvironmentUpdate")) {
-                        // ... (现有逻辑保持不变)
-                    }
-
-                    switch (eventType) {
-                        case "SparkListenerApplicationStart":
-                            currentAppId = node.get("App ID").asText();
-                            handleAppStart(node, currentAppId);
-                            break;
-
-                        case "SparkListenerEnvironmentUpdate":
-                            if (currentAppId != null) {
-                                handleEnvUpdate(node, currentAppId, envBatch);
-                            }
-                            break;
-
-                        case "SparkListenerJobStart":
-                            if (currentAppId != null) handleJobStart(node, currentAppId, stageToJobMap);
-                            break;
-
-                        case "SparkListenerJobEnd":
-                            if (currentAppId != null) handleJobEnd(node, currentAppId);
-                            break;
-
-                        case "SparkListenerExecutorAdded":
-                            if (currentAppId != null) handleExecutorAdded(node, currentAppId, executorBatch);
-                            break;
-
-                        case "SparkListenerStageSubmitted":
-                            if (currentAppId != null) handleStageSubmitted(node, currentAppId, stageToJobMap);
-                            break;
-
-                        case "SparkListenerStageCompleted":
-                            if (currentAppId != null) handleStageCompleted(node, currentAppId);
-                            break;
-
-                        case "SparkListenerTaskEnd":
-                            if (currentAppId != null) {
-                                handleTaskEnd(node, currentAppId, taskBatch);
-                                if (taskBatch.size() >= 1000) {
-                                    saveDeduplicatedTasks(taskBatch);
-                                    taskBatch.clear();
+                        try (BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
+                            String line;
+                            String currentAppId = null;
+                            String versionFromLogStart = null;
+                            List<TaskModel> taskBatch = new ArrayList<>();
+                            List<EnvironmentConfigModel> envBatch = new ArrayList<>();
+                            List<ExecutorModel> executorBatch = new ArrayList<>();
+                            // 临时存储 Stage ID 到 Job ID 的映射
+                            Map<Integer, Integer> stageToJobMap = new HashMap<>();
+                            
+                            while ((line = reader.readLine()) != null) {
+                                try {
+                                    JsonNode node = objectMapper.readTree(line);
+                                    if (!node.has("Event")) continue;
+                                    String eventType = node.get("Event").asText();
+            
+                                    // 尝试从环境更新中提取 App ID (针对 Spark V2 日志)
+                                    if (currentAppId == null && eventType.equals("SparkListenerEnvironmentUpdate")) {
+                                        JsonNode sparkProps = node.get("Spark Properties");
+                                        if (sparkProps != null && sparkProps.has("spark.app.id")) {
+                                            currentAppId = sparkProps.get("spark.app.id").asText();
+                                            log.info("Detected App ID from EnvironmentUpdate: {}", currentAppId);
+                                            
+                                            // Ensure App exists
+                                            ApplicationModel app = applicationService.getById(currentAppId);
+                                            if (app == null) {
+                                                app = new ApplicationModel();
+                                                app.setAppId(currentAppId);
+                                                app.setAppName(sparkProps.has("spark.app.name") ? sparkProps.get("spark.app.name").asText() : "Unknown App");
+                                                app.setUserName(sparkProps.has("spark.user.name") ? sparkProps.get("spark.user.name").asText() : "unknown");
+                                                app.setStartTime(parseTimestamp(System.currentTimeMillis()));
+                                                app.setSparkVersion(versionFromLogStart != null ? versionFromLogStart : "unknown");
+                                                applicationService.saveOrUpdate(app);
+                                            } else if (versionFromLogStart != null && (app.getSparkVersion() == null || app.getSparkVersion().equals("unknown"))) {
+                                                app.setSparkVersion(versionFromLogStart);
+                                                applicationService.updateById(app);
+                                            }
+                                        }
+                                    }
+            
+                                    switch (eventType) {
+                                        case "SparkListenerLogStart":
+                                            if (node.has("Spark Version")) {
+                                                versionFromLogStart = node.get("Spark Version").asText();
+                                                log.info("Detected Spark Version from LogStart: {}", versionFromLogStart);
+                                                if (currentAppId != null) {
+                                                    ApplicationModel app = applicationService.getById(currentAppId);
+                                                    if (app != null) {
+                                                        app.setSparkVersion(versionFromLogStart);
+                                                        applicationService.updateById(app);
+                                                    }
+                                                }
+                                            }
+                                            break;
+                                                            case "SparkListenerApplicationStart":
+                                                    currentAppId = node.get("App ID").asText();
+                                                    handleAppStart(node, currentAppId);
+                                                    break;
+                                                    case "SparkListenerEnvironmentUpdate":
+                                if (currentAppId != null) {
+                                    handleEnvUpdate(node, currentAppId, envBatch);
                                 }
-                            }
-                            break;
+                                break;
 
-                        case "SparkListenerApplicationEnd":
-                            if (currentAppId != null) handleAppEnd(node, currentAppId);
-                            break;
+                            case "SparkListenerJobStart":
+                                if (currentAppId != null) handleJobStart(node, currentAppId, stageToJobMap);
+                                break;
+
+                            case "SparkListenerJobEnd":
+                                if (currentAppId != null) handleJobEnd(node, currentAppId);
+                                break;
+
+                                                    case "SparkListenerExecutorAdded":
+
+                                                        if (currentAppId != null) handleExecutorAdded(node, currentAppId, executorBatch);
+
+                                                        break;
+
+                            
+
+                                                    case "SparkListenerExecutorRemoved":
+
+                                                        if (currentAppId != null) handleExecutorRemoved(node, currentAppId);
+
+                                                        break;
+
+                            
+
+                                                    case "SparkListenerStageSubmitted":
+
+                            
+                                if (currentAppId != null) handleStageSubmitted(node, currentAppId, stageToJobMap);
+                                break;
+
+                            case "SparkListenerStageCompleted":
+                                if (currentAppId != null) handleStageCompleted(node, currentAppId);
+                                break;
+
+                            case "SparkListenerTaskEnd":
+                                if (currentAppId != null) {
+                                    handleTaskEnd(node, currentAppId, taskBatch);
+                                    if (taskBatch.size() >= 1000) {
+                                        saveDeduplicatedTasks(taskBatch);
+                                        taskBatch.clear();
+                                    }
+                                }
+                                break;
+
+                            case "SparkListenerApplicationEnd":
+                                if (currentAppId != null) handleAppEnd(node, currentAppId);
+                                break;
+                        }
+                    } catch (Exception lineEx) {
+                        log.warn("Failed to parse line in {}: {}", logFile.getName(), lineEx.getMessage());
                     }
                 }
                 // 扫尾
@@ -122,6 +172,7 @@ public class JacksonEventParser implements EventParser {
                     log.info("Starting post-calculation for App: {}", currentAppId);
                     stageService.calculateStageMetrics(currentAppId);
                     jobService.calculateJobMetrics(currentAppId);
+                    executorService.calculateExecutorMetrics(currentAppId);
                 }
             }
         } catch (Exception e) {
@@ -142,12 +193,20 @@ public class JacksonEventParser implements EventParser {
     }
 
     private void handleAppStart(JsonNode node, String appId) {
-        ApplicationModel app = new ApplicationModel();
-        app.setAppId(appId);
+        ApplicationModel app = applicationService.getById(appId);
+        if (app == null) {
+            app = new ApplicationModel();
+            app.setAppId(appId);
+        }
         app.setAppName(node.get("App Name").asText());
         app.setUserName(node.get("User").asText());
         app.setStartTime(parseTimestamp(node.get("Timestamp").asLong()));
-        app.setSparkVersion(node.has("Spark Version") ? node.get("Spark Version").asText() : "unknown");
+        
+        // Only set version if not already set by LogStart or others
+        if (app.getSparkVersion() == null || app.getSparkVersion().equals("unknown")) {
+            app.setSparkVersion(node.has("Spark Version") ? node.get("Spark Version").asText() : "unknown");
+        }
+        
         applicationService.saveOrUpdate(app);
     }
 
@@ -178,7 +237,7 @@ public class JacksonEventParser implements EventParser {
             for (JsonNode s : stageInfos) {
                 int sid = s.get("Stage ID").asInt();
                 sids.add(String.valueOf(sid));
-                stageToJobMap.put(sid, jobId); // 建立映射
+                stageToJobMap.put(sid, jobId);
                 if (s.has("Number of Tasks")) {
                     totalTasks += s.get("Number of Tasks").asInt();
                 }
@@ -202,27 +261,58 @@ public class JacksonEventParser implements EventParser {
     private void handleExecutorAdded(JsonNode node, String appId, List<ExecutorModel> batch) {
         String execId = node.get("Executor ID").asText();
         JsonNode info = node.get("Executor Info");
+        long timestamp = node.get("Timestamp").asLong();
+        
         ExecutorModel executor = new ExecutorModel();
         executor.setId(appId + ":" + execId);
         executor.setAppId(appId);
         executor.setExecutorId(execId);
         executor.setHost(info.get("Host").asText());
+        executor.setAddTime(parseTimestamp(timestamp));
         executor.setTotalCores(info.get("Total Cores").asInt());
         executor.setMemory(info.has("Memory") ? info.get("Memory").asLong() : 0L);
         executor.setIsActive(true);
         executorService.saveOrUpdate(executor);
     }
 
+    private void handleExecutorRemoved(JsonNode node, String appId) {
+        String execId = node.get("Executor ID").asText();
+        long timestamp = node.get("Timestamp").asLong();
+        
+        ExecutorModel executor = executorService.getById(appId + ":" + execId);
+        if (executor != null) {
+            executor.setRemoveTime(parseTimestamp(timestamp));
+            executor.setIsActive(false);
+            executor.setExecLossReason(node.has("Removed Reason") ? node.get("Removed Reason").asText() : "unknown");
+            executorService.updateById(executor);
+        }
+    }
+
     private void handleEnvUpdate(JsonNode node, String appId, List<EnvironmentConfigModel> batch) {
-        JsonNode sparkConf = node.get("Spark Properties");
-        if (sparkConf != null && sparkConf.isObject()) {
-            sparkConf.fields().forEachRemaining(entry -> {
+        // 1. Spark Properties
+        extractProps(node, "Spark Properties", "spark_conf", appId, batch);
+        // 2. JVM Information
+        extractProps(node, "JVM Information", "jvm_info", appId, batch);
+        // 3. Hadoop Properties
+        extractProps(node, "Hadoop Properties", "hadoop_conf", appId, batch);
+        // 4. System Properties
+        extractProps(node, "System Properties", "system_props", appId, batch);
+        // 5. Metrics Properties
+        extractProps(node, "Metrics Properties", "metrics_props", appId, batch);
+        // 6. Classpath Entries
+        extractProps(node, "Classpath Entries", "classpath_entries", appId, batch);
+    }
+
+    private void extractProps(JsonNode node, String fieldName, String category, String appId, List<EnvironmentConfigModel> batch) {
+        JsonNode props = node.get(fieldName);
+        if (props != null && props.isObject()) {
+            props.fields().forEachRemaining(entry -> {
                 EnvironmentConfigModel config = new EnvironmentConfigModel();
-                config.setId(appId + ":" + entry.getKey());
+                config.setId(appId + ":" + category + ":" + entry.getKey());
                 config.setAppId(appId);
                 config.setParamKey(entry.getKey());
                 config.setParamValue(entry.getValue().asText());
-                config.setCategory("spark_conf");
+                config.setCategory(category);
                 batch.add(config);
             });
         }
@@ -237,7 +327,7 @@ public class JacksonEventParser implements EventParser {
         stage.setAppId(appId);
         stage.setStageId(stageId);
         stage.setAttemptId(attemptId);
-        stage.setJobId(stageToJobMap.get(stageId)); // 设置所属 Job ID
+        stage.setJobId(stageToJobMap.get(stageId));
         stage.setStageName(info.get("Stage Name").asText());
         stage.setNumTasks(info.get("Number of Tasks").asInt());
         stage.setSubmissionTime(parseTimestamp(info.get("Submission Time").asLong()));
@@ -253,7 +343,6 @@ public class JacksonEventParser implements EventParser {
             if (info.has("Completion Time")) {
                 stage.setCompletionTime(parseTimestamp(info.get("Completion Time").asLong()));
             }
-            // 提取累加器指标（可选）
             stageService.updateById(stage);
         }
     }
@@ -267,6 +356,14 @@ public class JacksonEventParser implements EventParser {
         long taskId = info.has("Task ID") ? info.get("Task ID").asLong() : -1L;
         int taskIndex = info.has("Index") ? info.get("Index").asInt() : -1;
         
+        long launchTime = info.has("Launch Time") ? info.get("Launch Time").asLong() : 0L;
+        long finishTime = info.has("Finish Time") ? info.get("Finish Time").asLong() : 0L;
+        long duration = info.has("Duration") ? info.get("Duration").asLong() : 0L;
+        
+        if (duration <= 0 && finishTime > launchTime) {
+            duration = finishTime - launchTime;
+        }
+
         TaskModel task = new TaskModel();
         task.setId(appId + ":" + stageId + ":" + taskId);
         task.setAppId(appId);
@@ -275,20 +372,22 @@ public class JacksonEventParser implements EventParser {
         task.setTaskIndex(taskIndex);
         task.setExecutorId(info.has("Executor ID") ? info.get("Executor ID").asText() : "unknown");
         task.setHost(info.has("Host") ? info.get("Host").asText() : "unknown");
-        long launchTime = info.has("Launch Time") ? info.get("Launch Time").asLong() : 0L;
-        long finishTime = info.has("Finish Time") ? info.get("Finish Time").asLong() : 0L;
-        long duration = info.has("Duration") ? info.get("Duration").asLong() : 0L;
-        
-        // If duration is missing or zero, calculate it from timestamps
-        if (duration <= 0 && finishTime > launchTime) {
-            duration = finishTime - launchTime;
-        }
-
         task.setLaunchTime(launchTime);
         task.setFinishTime(finishTime);
         task.setDuration(duration);
         task.setSpeculative(info.has("Speculative") ? info.get("Speculative").asBoolean() : false);
-        task.setStatus(info.has("Status") ? info.get("Status").asText() : "unknown");
+        
+        // Correctly parse task status from Task End Reason
+        String status = "unknown";
+        if (node.has("Task End Reason")) {
+            JsonNode reason = node.get("Task End Reason");
+            if (reason.has("Reason") && reason.get("Reason").asText().equals("Success")) {
+                status = "SUCCESS";
+            } else {
+                status = "FAILED";
+            }
+        }
+        task.setStatus(status);
 
         if (metrics != null && !metrics.isNull()) {
             long executorDeserializeTime = metrics.has("Executor Deserialize Time") ? metrics.get("Executor Deserialize Time").asLong() : 0L;
@@ -314,6 +413,12 @@ public class JacksonEventParser implements EventParser {
             if (inputMetrics != null && !inputMetrics.isNull()) {
                 task.setInputBytes(inputMetrics.has("Bytes Read") ? inputMetrics.get("Bytes Read").asLong() : 0L);
                 task.setInputRecords(inputMetrics.has("Records Read") ? inputMetrics.get("Records Read").asLong() : 0L);
+            }
+
+            JsonNode outputMetrics = metrics.get("Output Metrics");
+            if (outputMetrics != null && !outputMetrics.isNull()) {
+                task.setOutputBytes(outputMetrics.has("Bytes Written") ? outputMetrics.get("Bytes Written").asLong() : 0L);
+                task.setOutputRecords(outputMetrics.has("Records Written") ? outputMetrics.get("Records Written").asLong() : 0L);
             }
 
             task.setMemoryBytesSpilled(metrics.has("Memory Bytes Spilled") ? metrics.get("Memory Bytes Spilled").asLong() : 0L);

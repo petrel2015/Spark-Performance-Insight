@@ -166,6 +166,12 @@ public class InsightController {
         return stageService.getExecutorSummary(appId, stageId);
     }
 
+    @GetMapping("/apps/{appId}/jobs/{jobId}/executor-summary")
+    public List<java.util.Map<String, Object>> getJobExecutorSummary(@PathVariable String appId,
+                                                                     @PathVariable Integer jobId) {
+        return stageService.getJobExecutorSummary(appId, jobId);
+    }
+
     /**
      * 获取单个 Application 的元数据
      */

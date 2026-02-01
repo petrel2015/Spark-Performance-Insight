@@ -1,8 +1,9 @@
 <template>
-  <div class="stage-table-view">
+  <div class="stage-table-view" :class="{ 'plain-mode': plain }">
     <div class="table-header">
       <div class="header-left">
-        <h4>Stages List <small>(Total: {{ totalStages }})</small></h4>
+        <h4 v-if="!hideTitle">Stages List <small>(Total: {{ totalStages }})</small></h4>
+        <span v-else class="total-count-text">Total: {{ totalStages }} stages</span>
       </div>
       
       <div class="pagination-controls">
@@ -69,13 +70,34 @@
               {{ stage.stageName }}
             </a>
           </td>
-          <td>{{ stage.numTasks }}</td>
+          <td>{{ formatDateTime(stage.submissionTime) }}</td>
+          <td>{{ formatDuration(stage.submissionTime, stage.completionTime) }}</td>
+          <td>
+            <div class="task-progress-wrapper">
+              <div class="progress-bar-container">
+                <div class="progress-bar-success" 
+                     :style="{ width: getProgressWidth(stage.numCompletedTasks, stage.numTasks) + '%' }">
+                </div>
+                <div class="progress-bar-failed" 
+                     :style="{ 
+                        width: getProgressWidth(stage.numFailedTasks, stage.numTasks) + '%',
+                        left: getProgressWidth(stage.numCompletedTasks, stage.numTasks) + '%' 
+                     }">
+                </div>
+              </div>
+              <span class="task-count-text">
+                {{ stage.numCompletedTasks }}/{{ stage.numTasks }}
+                <span v-if="stage.numFailedTasks > 0" class="failed-count"> ({{ stage.numFailedTasks }} failed)</span>
+              </span>
+            </div>
+          </td>
           <td>{{ formatBytes(stage.inputBytes) }}</td>
+          <td>{{ formatBytes(stage.outputBytes) }}</td>
           <td>{{ formatBytes(stage.shuffleReadBytes) }}</td>
-          <td>{{ stage.durationP95 }} ms</td>
+          <td>{{ formatBytes(stage.shuffleWriteBytes) }}</td>
         </tr>
         <tr v-if="stages.length === 0">
-          <td colspan="6" style="text-align: center; padding: 40px;">No stages found.</td>
+          <td :colspan="columns.length" style="text-align: center; padding: 40px;">No stages found.</td>
         </tr>
       </tbody>
     </table>
@@ -85,10 +107,13 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue';
 import { getAppStages } from '../../api';
+import { formatTime, formatBytes, formatDateTime } from '../../utils/format';
 
 const props = defineProps({
   appId: String,
-  jobId: Number // Optional filter
+  jobId: Number, // Optional filter
+  hideTitle: { type: Boolean, default: false },
+  plain: { type: Boolean, default: false }
 });
 
 const emit = defineEmits(['view-stage-detail']);
@@ -99,16 +124,30 @@ const totalPages = ref(0);
 const currentPage = ref(1);
 const pageSize = ref(20);
 const jumpPageInput = ref(1);
-const sorts = ref([]); // [{ field, dir }]
+const sorts = ref([{ field: 'stageId', dir: 'desc' }]); // Default sort by Stage Id DESC
 
 const columns = [
-  { field: 'stageId', label: 'ID', width: '80px' },
+  { field: 'stageId', label: 'Stage Id', width: '80px' },
   { field: 'stageName', label: 'Name' },
-  { field: 'numTasks', label: 'Tasks', width: '100px' },
-  { field: 'inputBytes', label: 'Input', width: '120px' },
+  { field: 'submissionTime', label: 'Submitted', width: '160px' },
+  { field: 'duration', label: 'Duration', width: '100px' },
+  { field: 'numTasks', label: 'Tasks: Succeeded/Total', width: '180px' },
+  { field: 'inputBytes', label: 'Input', width: '100px' },
+  { field: 'outputBytes', label: 'Output', width: '100px' },
   { field: 'shuffleReadBytes', label: 'Shuffle Read', width: '120px' },
-  { field: 'durationP95', label: 'P95 Duration', width: '120px' }
+  { field: 'shuffleWriteBytes', label: 'Shuffle Write', width: '120px' }
 ];
+
+const formatDuration = (start, end) => {
+  if (!start || !end) return '-';
+  const diff = new Date(end).getTime() - new Date(start).getTime();
+  return formatTime(diff);
+};
+
+const getProgressWidth = (current, total) => {
+  if (!total || total === 0) return 0;
+  return Math.min(100, (current / total) * 100);
+};
 
 const fetchStages = async () => {
   try {
@@ -221,14 +260,6 @@ const getSortIcon = (field) => {
   return icon;
 };
 
-const formatBytes = (bytes) => {
-  if (!bytes || bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-};
-
 onMounted(fetchStages);
 
 watch(() => props.appId, () => {
@@ -245,6 +276,13 @@ watch(() => props.appId, () => {
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
+.stage-table-view.plain-mode {
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+  border-radius: 0;
+}
+
 .table-header { 
   display: flex; 
   justify-content: space-between; 
@@ -256,6 +294,7 @@ watch(() => props.appId, () => {
 
 .header-left h4 { margin: 0; color: #2c3e50; }
 .header-left small { color: #7f8c8d; font-weight: normal; margin-left: 8px; }
+.total-count-text { color: #7f8c8d; font-size: 0.9rem; font-weight: 500; }
 
 /* Pagination & Sort Styles */
 .active-sorts-bar {
@@ -319,5 +358,46 @@ watch(() => props.appId, () => {
 .stage-link:hover {
   text-decoration: underline;
   color: #2980b9;
+}
+
+/* Task Progress Bar */
+.task-progress-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 150px;
+}
+
+.progress-bar-container {
+  height: 8px;
+  background: #eee;
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-bar-success {
+  height: 100%;
+  background: #27ae60;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.progress-bar-failed {
+  height: 100%;
+  background: #e74c3c;
+  position: absolute;
+  top: 0;
+}
+
+.task-count-text {
+  font-size: 0.75rem;
+  color: #666;
+}
+
+.failed-count {
+  color: #e74c3c;
+  font-weight: bold;
 }
 </style>

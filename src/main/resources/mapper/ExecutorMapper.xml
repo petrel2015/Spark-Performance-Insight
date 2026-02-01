@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.spark.insight.mapper.ExecutorMapper">
+
+    <update id="updateExecutorMetrics">
+        UPDATE executors e
+        SET 
+            completed_tasks = m.done_tasks,
+            total_tasks = m.total_t,
+            task_time_ms = m.total_duration,
+            gc_time_ms = m.total_gc,
+            input_bytes = m.total_input,
+            shuffle_read_bytes = m.total_shuffle_read,
+            shuffle_write_bytes = m.total_shuffle_write,
+            peak_execution_on_heap = m.peak_mem -- 暂简化，使用 peak_execution_memory
+        FROM (
+            SELECT 
+                app_id, 
+                executor_id,
+                count(*) as total_t,
+                sum(case when status = 'SUCCESS' or status = 'SUCCEEDED' then 1 else 0 end) as done_tasks,
+                sum(duration) as total_duration,
+                sum(gc_time) as total_gc,
+                sum(input_bytes) as total_input,
+                sum(shuffle_read_bytes) as total_shuffle_read,
+                sum(shuffle_write_bytes) as total_shuffle_write,
+                max(peak_execution_memory) as peak_mem
+            FROM tasks
+            WHERE app_id = #{appId}
+            GROUP BY app_id, executor_id
+        ) m
+        WHERE e.app_id = m.app_id AND e.executor_id = m.executor_id
+    </update>
+
+</mapper>

@@ -46,4 +46,8 @@ public class StageService extends ServiceImpl<StageMapper, StageModel> {
     public List<java.util.Map<String, Object>> getExecutorSummary(String appId, Integer stageId) {
         return baseMapper.getExecutorSummary(appId, stageId);
     }
+
+    public List<java.util.Map<String, Object>> getJobExecutorSummary(String appId, Integer jobId) {
+        return baseMapper.getJobExecutorSummary(appId, jobId);
+    }
 }

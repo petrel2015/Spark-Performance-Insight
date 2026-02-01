@@ -85,6 +85,46 @@
                 app_id, stage_id, 'shuffle_write_records',
                 min(shuffle_write_records), approx_quantile(shuffle_write_records, 0.25), approx_quantile(shuffle_write_records, 0.5), approx_quantile(shuffle_write_records, 0.75), approx_quantile(shuffle_write_records, 0.95), max(shuffle_write_records)
             FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, 'task_deserialization_time',
+                min(executor_deserialize_time), approx_quantile(executor_deserialize_time, 0.25), approx_quantile(executor_deserialize_time, 0.5), approx_quantile(executor_deserialize_time, 0.75), approx_quantile(executor_deserialize_time, 0.95), max(executor_deserialize_time)
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, 'result_serialization_time',
+                min(result_serialization_time), approx_quantile(result_serialization_time, 0.25), approx_quantile(result_serialization_time, 0.5), approx_quantile(result_serialization_time, 0.75), approx_quantile(result_serialization_time, 0.95), max(result_serialization_time)
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, 'getting_result_time',
+                min(getting_result_time), approx_quantile(getting_result_time, 0.25), approx_quantile(getting_result_time, 0.5), approx_quantile(getting_result_time, 0.75), approx_quantile(getting_result_time, 0.95), max(getting_result_time)
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, 'scheduler_delay',
+                min(scheduler_delay), approx_quantile(scheduler_delay, 0.25), approx_quantile(scheduler_delay, 0.5), approx_quantile(scheduler_delay, 0.75), approx_quantile(scheduler_delay, 0.95), max(scheduler_delay)
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, 'peak_execution_memory',
+                min(peak_execution_memory), approx_quantile(peak_execution_memory, 0.25), approx_quantile(peak_execution_memory, 0.5), approx_quantile(peak_execution_memory, 0.75), approx_quantile(peak_execution_memory, 0.95), max(peak_execution_memory)
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, 'input_bytes',
+                min(input_bytes), approx_quantile(input_bytes, 0.25), approx_quantile(input_bytes, 0.5), approx_quantile(input_bytes, 0.75), approx_quantile(input_bytes, 0.95), max(input_bytes)
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, 'input_records',
+                min(input_records), approx_quantile(input_records, 0.25), approx_quantile(input_records, 0.5), approx_quantile(input_records, 0.75), approx_quantile(input_records, 0.95), max(input_records)
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, 'shuffle_write_time',
+                min(shuffle_write_time), approx_quantile(shuffle_write_time, 0.25), approx_quantile(shuffle_write_time, 0.5), approx_quantile(shuffle_write_time, 0.75), approx_quantile(shuffle_write_time, 0.95), max(shuffle_write_time)
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
         )
         SELECT 
             app_id || ':' || stage_id || ':0:' || metric_name,

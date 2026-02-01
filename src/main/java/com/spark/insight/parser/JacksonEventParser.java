@@ -296,12 +296,30 @@ public class JacksonEventParser implements EventParser {
         task.setStatus(info.has("Status") ? info.get("Status").asText() : "unknown");
 
         if (metrics != null && !metrics.isNull()) {
+            long executorDeserializeTime = metrics.has("Executor Deserialize Time") ? metrics.get("Executor Deserialize Time").asLong() : 0L;
+            long executorRunTime = metrics.has("Executor Run Time") ? metrics.get("Executor Run Time").asLong() : 0L;
+            long resultSerializationTime = metrics.has("Result Serialization Time") ? metrics.get("Result Serialization Time").asLong() : 0L;
+            long executorCpuTime = metrics.has("Executor CPU Time") ? metrics.get("Executor CPU Time").asLong() : 0L;
+            
+            task.setExecutorDeserializeTime(executorDeserializeTime);
+            task.setExecutorRunTime(executorRunTime);
+            task.setResultSerializationTime(resultSerializationTime);
+            task.setExecutorCpuTime(executorCpuTime);
+
+            long gettingResultTime = info.has("Getting Result Time") ? info.get("Getting Result Time").asLong() : 0L;
+            task.setGettingResultTime(gettingResultTime);
+
+            long duration = task.getDuration();
+            long schedulerDelay = Math.max(0L, duration - executorDeserializeTime - executorRunTime - resultSerializationTime - gettingResultTime);
+            task.setSchedulerDelay(schedulerDelay);
+
             task.setGcTime(metrics.has("JVM GC Time") ? metrics.get("JVM GC Time").asLong() : 0L);
             task.setPeakExecutionMemory(metrics.has("Peak Execution Memory") ? metrics.get("Peak Execution Memory").asLong() : 0L);
             
             JsonNode inputMetrics = metrics.get("Input Metrics");
             if (inputMetrics != null && !inputMetrics.isNull()) {
                 task.setInputBytes(inputMetrics.has("Bytes Read") ? inputMetrics.get("Bytes Read").asLong() : 0L);
+                task.setInputRecords(inputMetrics.has("Records Read") ? inputMetrics.get("Records Read").asLong() : 0L);
             }
 
             task.setMemoryBytesSpilled(metrics.has("Memory Bytes Spilled") ? metrics.get("Memory Bytes Spilled").asLong() : 0L);
@@ -320,6 +338,7 @@ public class JacksonEventParser implements EventParser {
             if (swMetrics != null && !swMetrics.isNull()) {
                 task.setShuffleWriteBytes(swMetrics.has("Shuffle Bytes Written") ? swMetrics.get("Shuffle Bytes Written").asLong() : 0L);
                 task.setShuffleWriteRecords(swMetrics.has("Shuffle Records Written") ? swMetrics.get("Shuffle Records Written").asLong() : 0L);
+                task.setShuffleWriteTime(swMetrics.has("Shuffle Write Time") ? swMetrics.get("Shuffle Write Time").asLong() : 0L);
             }
         }
         batch.add(task);

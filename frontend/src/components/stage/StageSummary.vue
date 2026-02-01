@@ -15,14 +15,11 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="stat in stats" :key="stat.metricName">
-            <td class="metric-label">{{ formatMetricName(stat.metricName) }}</td>
-            <td>{{ formatMetricValue(stat.metricName, stat.minValue) }}</td>
-            <td>{{ formatMetricValue(stat.metricName, stat.p25) }}</td>
-            <td>{{ formatMetricValue(stat.metricName, stat.p50) }}</td>
-            <td>{{ formatMetricValue(stat.metricName, stat.p75) }}</td>
-            <td>{{ formatMetricValue(stat.metricName, stat.p95) }}</td>
-            <td>{{ formatMetricValue(stat.metricName, stat.maxValue) }}</td>
+          <tr v-for="row in displayRows" :key="row.label">
+            <td class="metric-label">{{ row.label }}</td>
+            <td v-for="key in ['minValue', 'p25', 'p50', 'p75', 'p95', 'maxValue']" :key="key">
+              {{ formatCell(row, key) }}
+            </td>
           </tr>
         </tbody>
       </table>
@@ -31,7 +28,9 @@
 </template>
 
 <script setup>
-defineProps({
+import { computed } from 'vue';
+
+const props = defineProps({
   stats: {
     type: Array,
     default: () => []
@@ -39,36 +38,85 @@ defineProps({
   stageId: [Number, String]
 });
 
-const formatMetricName = (name) => {
-  const map = {
-    'duration': 'Duration',
-    'gc_time': 'GC Time',
-    'memory_spill': 'Memory Spill',
-    'disk_spill': 'Disk Spill',
-    'shuffle_read': 'Shuffle Read Size',
-    'shuffle_read_records': 'Shuffle Read Records',
-    'shuffle_write': 'Shuffle Write Size',
-    'shuffle_write_records': 'Shuffle Write Records'
-  };
-  return map[name] || name;
-};
-
-const formatMetricValue = (metric, val) => {
-  if (val === null || val === undefined) return '-';
-  if (metric.endsWith('_records')) return val.toLocaleString();
-  if (metric === 'duration' || metric === 'gc_time') {
-    if (val < 1000) return `${val} ms`;
-    return `${(val / 1000).toFixed(1)} s`;
-  }
-  return formatBytes(val);
+const formatTime = (ms) => {
+  if (ms === null || ms === undefined) return '-';
+  if (ms < 1) return '0 ms'; // Round down small values
+  if (ms < 1000) return `${Math.round(ms)} ms`;
+  const s = ms / 1000;
+  if (s < 60) return `${s.toFixed(1)} s`;
+  const m = Math.floor(s / 60);
+  const rs = Math.round(s % 60);
+  return `${m} m ${rs} s`;
 };
 
 const formatBytes = (bytes) => {
-  if (!bytes || bytes === 0) return '0 B';
+  if (bytes === null || bytes === undefined) return '-';
+  if (bytes === 0) return '0 B';
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+};
+
+const formatNum = (num) => {
+  if (num === null || num === undefined) return '-';
+  if (num >= 1000000) return (num / 1000000).toFixed(1) + ' M';
+  if (num >= 1000) return (num / 1000).toFixed(1) + ' K';
+  return num.toString();
+};
+
+const getStat = (name) => props.stats.find(s => s.metricName === name);
+
+const displayRows = computed(() => {
+  const rows = [];
+  
+  const addRow = (name, label, type) => {
+    const s = getStat(name);
+    rows.push({ label, type, data: s || {} });
+  };
+
+  const addComposite = (nameBytes, nameRecords, label) => {
+    rows.push({
+      label,
+      type: 'composite',
+      bytes: getStat(nameBytes) || {},
+      records: getStat(nameRecords) || {}
+    });
+  };
+
+  addRow('task_deserialization_time', 'Task Deserialization Time', 'time');
+  addRow('duration', 'Duration', 'time');
+  addRow('gc_time', 'GC Time', 'time');
+  addRow('result_serialization_time', 'Result Serialization Time', 'time');
+  addRow('getting_result_time', 'Getting Result Time', 'time');
+  addRow('scheduler_delay', 'Scheduler Delay', 'time');
+  addRow('peak_execution_memory', 'Peak Execution Memory', 'bytes');
+  addRow('memory_spill', 'Spill (memory)', 'bytes');
+  addRow('disk_spill', 'Spill (disk)', 'bytes');
+  
+  addComposite('input_bytes', 'input_records', 'Input Size / Records');
+  addComposite('shuffle_write', 'shuffle_write_records', 'Shuffle Write Size / Records');
+  
+  addRow('shuffle_write_time', 'Shuffle Write Time', 'nanos');
+
+  return rows;
+});
+
+const formatCell = (row, key) => {
+  if (row.type === 'composite') {
+    const b = row.bytes[key];
+    const r = row.records[key];
+    if (b === undefined && r === undefined) return '-';
+    return `${formatBytes(b || 0)} / ${formatNum(r || 0)}`;
+  }
+  
+  const val = row.data[key];
+  if (val === undefined || val === null) return '-';
+  
+  if (row.type === 'time') return formatTime(val);
+  if (row.type === 'nanos') return formatTime(val / 1000000);
+  if (row.type === 'bytes') return formatBytes(val);
+  return val;
 };
 </script>
 

@@ -152,23 +152,7 @@ const getProgressWidth = (current, total) => {
 const fetchStages = async () => {
   try {
     const sortStr = sorts.value.map(s => `${s.field},${s.dir}`).join(';');
-    // Note: Filtering by jobId is not currently supported by backend 'listStages' directly with pagination 
-    // unless we add that filter to the backend. 
-    // For now, if jobId is present, we might need to filter client side OR update backend.
-    // Given the instructions, let's assume standard fetching first. 
-    // The previous implementation filtered client-side from all stages.
-    // If we want to keep jobId filtering, we should probably update backend or just fetch all and filter client side 
-    // BUT we are doing server side pagination now, so client side filtering is tricky without fetching all.
-    // Let's implement server-side pagination for ALL stages for now. 
-    // If filtering by Job is crucial, I should check if I need to add that to backend. 
-    // Looking at AppDetail.vue, there is a "Filtering by Job ID" feature.
-    // I'll skip the Job ID filter for now in the server call and just fetch all, 
-    // OR I can add jobId to the backend query. 
-    // Let's stick to the requested task: pagination and sorting. 
-    // I will ignore the jobId prop for the API call for this iteration unless I update the backend again.
-    // Actually, let's stick to basic functionality first.
-    
-    const res = await getAppStages(props.appId, currentPage.value, pageSize.value, sortStr);
+    const res = await getAppStages(props.appId, currentPage.value, pageSize.value, sortStr, props.jobId);
     
     if (res.data && res.data.items) {
       stages.value = res.data.items;

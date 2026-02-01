@@ -103,11 +103,22 @@ public class InsightController {
      */
     @GetMapping("/apps/{appId}/stages")
     public PageResponse<StageModel> listStages(@PathVariable String appId,
+                                               @RequestParam(required = false) Integer jobId,
                                                @RequestParam(defaultValue = "1") int page,
                                                @RequestParam(defaultValue = "20") int size,
                                                @RequestParam(required = false) String sort) {
-        long total = stageService.lambdaQuery().eq(StageModel::getAppId, appId).count();
+        var query = stageService.lambdaQuery().eq(StageModel::getAppId, appId);
+        if (jobId != null) {
+            query.eq(StageModel::getJobId, jobId);
+        }
+
+        long total = query.count();
+        
+        // 重新构建查询以应用分页和排序
         var listQuery = stageService.lambdaQuery().eq(StageModel::getAppId, appId);
+        if (jobId != null) {
+            listQuery.eq(StageModel::getJobId, jobId);
+        }
 
         listQuery.last(buildSqlSuffix(sort, page, size, "stage_id ASC"));
 

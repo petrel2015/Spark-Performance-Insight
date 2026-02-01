@@ -105,6 +105,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue';
 import { getAppJobs } from '../../api';
+import { formatTime as commonFormatTime } from '../../utils/format';
 
 const props = defineProps({
   appId: String
@@ -230,8 +231,8 @@ const formatTime = (t) => t ? new Date(t).toLocaleString() : '-';
 
 const calculateDuration = (s, e) => {
   if (!s || !e) return '-';
-  const diff = new Date(e) - new Date(s);
-  return (diff / 1000).toFixed(1) + 's';
+  const diff = new Date(e).getTime() - new Date(s).getTime();
+  return commonFormatTime(diff);
 };
 
 const calculatePercent = (val, total) => {
@@ -320,22 +321,14 @@ watch(() => props.appId, () => {
 .styled-table th.sortable { cursor: pointer; user-select: none; }
 .styled-table th.sortable:hover { background: #edf2f7; color: #3498db; }
 
-.description-cell {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 300px;
-  font-size: 0.9em;
-  color: #555;
-}
-
-.description-cell a, .job-id-cell a {
+.job-link {
   color: #3498db;
   text-decoration: none;
-  cursor: pointer;
+  font-weight: 600;
 }
-.description-cell a:hover, .job-id-cell a:hover {
+.job-link:hover {
   text-decoration: underline;
+  color: #2980b9;
 }
 
 .job-group-badge {

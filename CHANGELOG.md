@@ -4,6 +4,22 @@ English | [中文](./CHANGELOG.zh.md)
 
 All notable changes to this project will be documented in this file.
 
+## 0.8.0 - 2026-02-02
+
+### Features
+- **Advanced Event Timeline**: Completely refactored the timeline into a dual-chart view.
+    - **Active Tasks Trend**: A stacked area chart showing concurrency per executor over time.
+    - **Enhanced Gantt Chart**: Grouped by executor with 8-color metric breakdown (Scheduler Delay, GC, Computing, etc.).
+    - **Smart Interaction**: Unified crosshair pointers and floating tooltips with shared styles.
+- **RDD Lineage V2**: Enhanced the DAG visualization with Scope grouping (nesting RDDs within operators like WholeStageCodegen) and professional layout via Dagre.
+- **Interactivity Lock**: Introduced a global zoom lock mechanism for all complex charts (Timeline, DAG) to prevent accidental zooming during page scrolling.
+- **Universal Duration Sorting**: Fixed sorting by duration in both Job and Stage lists by persisting calculated duration in the database and optimizing SQL generation.
+- **Unified UI Componentry**: Moved action buttons (like Zoom Lock) into standard `CollapsibleCard` header slots for a cleaner look.
+
+### Improvements
+- **Layout Precision**: Standardized all grid margins and synchronized axis alignment across sub-charts.
+- **Dynamic Chart Sizing**: Improved row height calculation (50px/executor) and responsive width handling using `ResizeObserver`.
+
 ## 0.7.0 - 2026-02-02
 
 ### Features

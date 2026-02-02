@@ -279,8 +279,14 @@ public class JacksonEventParser implements EventParser {
         int jobId = node.get("Job ID").asInt();
         JobModel job = jobService.getById(appId + ":" + jobId);
         if (job != null) {
-            job.setCompletionTime(parseTimestamp(node.get("Completion Time").asLong()));
+            LocalDateTime completionTime = parseTimestamp(node.get("Completion Time").asLong());
+            job.setCompletionTime(completionTime);
             job.setStatus(node.get("Job Result").get("Result").asText().equals("JobSucceeded") ? "SUCCEEDED" : "FAILED");
+            
+            if (job.getSubmissionTime() != null && completionTime != null) {
+                job.setDuration(java.time.Duration.between(job.getSubmissionTime(), completionTime).toMillis());
+            }
+            
             jobService.updateById(job);
         }
     }
@@ -384,7 +390,12 @@ public class JacksonEventParser implements EventParser {
         StageModel stage = stageService.getById(appId + ":" + stageId + ":" + attemptId);
         if (stage != null) {
             if (info.has("Completion Time")) {
-                stage.setCompletionTime(parseTimestamp(info.get("Completion Time").asLong()));
+                LocalDateTime completionTime = parseTimestamp(info.get("Completion Time").asLong());
+                stage.setCompletionTime(completionTime);
+                
+                if (stage.getSubmissionTime() != null && completionTime != null) {
+                    stage.setDuration(java.time.Duration.between(stage.getSubmissionTime(), completionTime).toMillis());
+                }
             }
             stageService.updateById(stage);
         }

@@ -13,14 +13,30 @@
       </div>
     </div>
 
-    <!-- Timeline Chart -->
-    <CollapsibleCard v-if="currentStage" title="Event Timeline">
-      <StageTimeline :app-id="appId" :stage-id="stageId" />
+    <!-- RDD Lineage Visualization -->
+    <CollapsibleCard v-if="currentStage && currentStage.rddInfo" title="DAG Visualization (RDD Lineage)" :initial-collapsed="true">
+      <template #actions>
+        <button class="lock-btn" 
+                v-if="dagRef" 
+                @click="dagRef.toggleZoomLock()" 
+                :title="dagRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
+          {{ dagRef.isZoomLocked ? '🔒 Locked' : '🔓 Unlocked' }}
+        </button>
+      </template>
+      <StageDAG ref="dagRef" :stage="currentStage" />
     </CollapsibleCard>
 
-    <!-- RDD Lineage Visualization -->
-    <CollapsibleCard v-if="currentStage && currentStage.rddInfo" title="RDD Lineage">
-      <StageDAG :stage="currentStage" />
+    <!-- Timeline Chart -->
+    <CollapsibleCard v-if="currentStage" title="Event Timeline" :initial-collapsed="true">
+      <template #actions>
+        <button class="lock-btn" 
+                v-if="timelineRef" 
+                @click="timelineRef.toggleZoomLock()" 
+                :title="timelineRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
+          {{ timelineRef.isZoomLocked ? '🔒 Locked' : '🔓 Unlocked' }}
+        </button>
+      </template>
+      <StageTimeline ref="timelineRef" :app-id="appId" :stage-id="stageId" />
     </CollapsibleCard>
 
     <!-- Metric Visibility Selector -->
@@ -41,7 +57,7 @@
     </div>
 
     <!-- Summary Metrics Cards -->
-    <CollapsibleCard v-if="stageStats && stageStats.length > 0" :title="'Summary Metrics for Stage ' + stageId">
+    <CollapsibleCard v-if="stageStats && stageStats.length > 0" :title="`Summary Metrics for Stage ${stageId} (${currentStage?.numCompletedTasks || 0} completed tasks)`">
       <StageSummary 
         :stats="stageStats" 
         :stage-id="stageId" 
@@ -102,6 +118,9 @@ const stageStats = ref([]);
 const executorSummary = ref([]);
 const selectedMetrics = ref([...DEFAULT_METRICS]);
 
+const timelineRef = ref(null);
+const dagRef = ref(null);
+
 const selectAllMetrics = () => {
   selectedMetrics.value = AVAILABLE_METRICS.map(m => m.key);
 };
@@ -139,7 +158,7 @@ watch(() => props.stageId, fetchStageDetails);
 .stage-detail-container {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 .breadcrumb-nav {
@@ -228,4 +247,22 @@ watch(() => props.stageId, fetchStageDetails);
   transition: background 0.2s;
 }
 .back-btn:hover { background: #5a6268; }
+
+.lock-btn {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  color: #555;
+  transition: all 0.2s;
+  min-width: 80px;
+  text-align: center;
+}
+
+.lock-btn:hover {
+  background: #f0f0f0;
+  color: #333;
+}
 </style>

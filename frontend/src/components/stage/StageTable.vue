@@ -71,7 +71,7 @@
             </a>
           </td>
           <td>{{ formatDateTime(stage.submissionTime) }}</td>
-          <td>{{ formatDuration(stage.submissionTime, stage.completionTime) }}</td>
+          <td>{{ stage.duration ? formatTime(stage.duration) : formatDuration(stage.submissionTime, stage.completionTime) }}</td>
           <td>
             <div class="task-progress-wrapper">
               <div class="progress-bar-container">

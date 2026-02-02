@@ -75,7 +75,7 @@
             </a>
           </td>
           <td>{{ formatTime(job.submissionTime) }}</td>
-          <td>{{ calculateDuration(job.submissionTime, job.completionTime) }}</td>
+          <td>{{ job.duration ? commonFormatTime(job.duration) : calculateDuration(job.submissionTime, job.completionTime) }}</td>
           <td>
             <div class="progress-wrapper">
               <span class="progress-text">{{ job.numCompletedStages || 0 }}/{{ job.numStages }}</span>
@@ -124,7 +124,7 @@ const columns = [
   { field: 'jobId', label: 'Job ID', width: '80px', sortable: true },
   { field: 'description', label: 'Description', sortable: false },
   { field: 'submissionTime', label: 'Submission Time', width: '180px', sortable: true },
-  { field: 'duration', label: 'Duration', width: '100px', sortable: false },
+  { field: 'duration', label: 'Duration', width: '100px', sortable: true },
   { field: 'numStages', label: 'Stages: Succeeded/Total', width: '150px', sortable: true },
   { field: 'numTasks', label: 'Tasks: Succeeded/Total', width: '150px', sortable: true },
   { field: 'status', label: 'Status', width: '100px', sortable: true }

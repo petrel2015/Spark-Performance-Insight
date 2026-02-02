@@ -211,7 +211,7 @@ public class InsightController {
                     // 驼峰转蛇形: taskId -> task_id, taskIndex -> task_index
                     String column = field.replaceAll("([a-z])([A-Z])", "$1_$2").toLowerCase();
                     if (orderBy.length() > 0) orderBy.append(", ");
-                    orderBy.append(column).append(" ").append(dir);
+                    orderBy.append("\"").append(column).append("\"").append(" ").append(dir);
                 }
             }
         }

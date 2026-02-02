@@ -8,16 +8,23 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, onBeforeUnmount, computed } from 'vue';
+import { ref, onMounted, watch, onBeforeUnmount, computed, nextTick } from 'vue';
 import { Graph } from '@antv/x6';
-import dagre from 'dagre';
+import * as dagre from 'dagre';
 
 const props = defineProps({
   stage: { type: Object, required: true }
 });
 
 const graphContainer = ref(null);
+const isZoomLocked = ref(true); // Default locked
 let graph = null;
+let resizeObserver = null;
+
+defineExpose({
+  isZoomLocked,
+  toggleZoomLock: () => toggleZoomLock()
+});
 
 const hasRddInfo = computed(() => {
   return props.stage && props.stage.rddInfo;
@@ -28,11 +35,10 @@ const initGraph = () => {
 
   graph = new Graph({
     container: graphContainer.value,
-    width: graphContainer.value.offsetWidth || 800,
-    height: 600,
+    autoResize: true,
     background: { color: '#f8f9fa' },
-    panning: true,
-    mousewheel: true,
+    panning: !isZoomLocked.value,
+    mousewheel: !isZoomLocked.value,
     grid: true,
     connecting: {
       router: 'manhattan',
@@ -42,12 +48,29 @@ const initGraph = () => {
       dangling: false,
     },
     interacting: {
-      nodeMovable: true,
+      nodeMovable: !isZoomLocked.value,
     }
   });
 };
 
-const renderDAG = () => {
+const updateGraphInteraction = () => {
+  if (!graph) return;
+  if (isZoomLocked.value) {
+    graph.disablePanning();
+    graph.disableMouseWheel();
+  } else {
+    graph.enablePanning();
+    graph.enableMouseWheel();
+  }
+};
+
+const toggleZoomLock = () => {
+  isZoomLocked.value = !isZoomLocked.value;
+  updateGraphInteraction();
+};
+
+const renderDAG = async () => {
+  await nextTick();
   if (!graph) initGraph();
   if (!hasRddInfo.value) {
     if (graph) graph.clearCells();
@@ -58,129 +81,65 @@ const renderDAG = () => {
     const rddInfos = JSON.parse(props.stage.rddInfo);
     if (!Array.isArray(rddInfos) || rddInfos.length === 0) return;
 
-    // --- 1. Parse Scopes and RDDs ---
-    const scopeMap = new Map(); // scopeId -> scopeNodeData
+    const scopeMap = new Map();
     const nodes = [];
     const edges = [];
     const rddNodes = [];
 
-    // Helper to parse scope string
     const parseScope = (scopeStr) => {
       if (!scopeStr) return null;
-      try {
-        return JSON.parse(scopeStr);
-      } catch (e) {
-        return null;
-      }
+      try { return JSON.parse(scopeStr); } catch (e) { return null; }
     };
 
-    // Helper to get or create scope node
     const getOrCreateScope = (scopeObj) => {
       if (!scopeObj) return null;
       const id = scopeObj.id;
       if (scopeMap.has(id)) return scopeMap.get(id);
-
-      // Process parent recursively
       let parentId = null;
       if (scopeObj.parent) {
         const p = getOrCreateScope(scopeObj.parent);
         if (p) parentId = p.id;
       }
-
-      const scopeNode = {
-        id: `scope-${id}`,
-        label: scopeObj.name,
-        parentId: parentId ? `scope-${parentId}` : null,
-        children: []
-      };
-      
+      const scopeNode = { id: `scope-${id}`, label: scopeObj.name, parentId: parentId ? `scope-${parentId}` : null };
       scopeMap.set(id, scopeNode);
       return scopeNode;
     };
 
-    // First pass: Create RDD nodes and identify Scopes
     rddInfos.forEach(rdd => {
       const rddId = rdd['RDD ID'];
       const name = rdd['Name'];
       const callSite = rdd['Callsite'] || '';
       const scopeStr = rdd['Scope'];
-      
       let parentScopeId = null;
       if (scopeStr) {
         const scopeObj = parseScope(scopeStr);
         const s = getOrCreateScope(scopeObj);
         if (s) parentScopeId = s.id;
       }
-
-      rddNodes.push({
-        id: `rdd-${rddId}`,
-        rddId,
-        label: `[${rddId}] ${name}\n${callSite}`,
-        parentId: parentScopeId
-      });
+      rddNodes.push({ id: `rdd-${rddId}`, rddId, label: `[${rddId}] ${name}
+${callSite}`, parentId: parentScopeId });
     });
 
-    // Create Scope Nodes for X6
-    const scopeNodes = Array.from(scopeMap.values()).map(s => ({
-      id: s.id,
-      shape: 'rect',
-      // Initial size, layout will adjust
-      width: 100, 
-      height: 100,
-      parent: s.parentId, // X6 parent nesting
+    const scopeNodesData = Array.from(scopeMap.values()).map(s => ({
+      id: s.id, shape: 'rect', width: 100, height: 100, parent: s.parentId,
       attrs: {
-        body: {
-          fill: 'rgba(240, 240, 240, 0.5)',
-          stroke: '#999',
-          strokeWidth: 1,
-          strokeDasharray: '5 5',
-          rx: 4,
-          ry: 4,
-        },
-        label: {
-          text: s.label,
-          refY: -15, // Label above the box
-          fontSize: 10,
-          fill: '#666',
-          fontWeight: 'bold'
-        }
+        body: { fill: 'rgba(240, 240, 240, 0.4)', stroke: '#ccc', strokeWidth: 1, strokeDasharray: '5 5', rx: 4, ry: 4 },
+        label: { text: s.label, refY: -15, fontSize: 10, fill: '#999', fontWeight: 'bold' }
       },
       zIndex: 0
     }));
 
-    // Create RDD Nodes for X6
-    const finalRddNodes = rddNodes.map(r => ({
-      id: r.id,
-      shape: 'rect',
-      width: 220,
-      height: 80,
-      parent: r.parentId,
-      data: { rddId: r.rddId },
+    const rddNodesData = rddNodes.map(r => ({
+      id: r.id, shape: 'rect', width: 220, height: 80, parent: r.parentId, data: { rddId: r.rddId },
       attrs: {
-        body: {
-          fill: '#e3f2fd',
-          stroke: '#1565c0',
-          strokeWidth: 1,
-          rx: 6,
-          ry: 6,
-        },
-        label: {
-          text: r.label,
-          fill: '#333',
-          fontSize: 12,
-          textWrap: {
-            width: 200,
-            height: 70,
-            ellipsis: true
-          }
-        }
+        body: { fill: '#ffffff', stroke: '#1565c0', strokeWidth: 1, rx: 6, ry: 6 },
+        label: { text: r.label, fill: '#333', fontSize: 11, textWrap: { width: 200, height: 70, ellipsis: true } }
       },
       zIndex: 10
     }));
 
-    nodes.push(...scopeNodes, ...finalRddNodes);
+    const allNodes = [...scopeNodesData, ...rddNodesData];
 
-    // Build Edges
     rddInfos.forEach(rdd => {
       const rddId = rdd['RDD ID'];
       const parents = rdd['Parent IDs'];
@@ -188,15 +147,8 @@ const renderDAG = () => {
         parents.forEach(parentId => {
           if (rddInfos.find(r => r['RDD ID'] === parentId)) {
             edges.push({
-              source: `rdd-${parentId}`,
-              target: `rdd-${rddId}`,
-              attrs: {
-                line: {
-                  stroke: '#A2B1C3',
-                  strokeWidth: 1,
-                  targetMarker: 'classic',
-                },
-              },
+              source: `rdd-${parentId}`, target: `rdd-${rddId}`,
+              attrs: { line: { stroke: '#A2B1C3', strokeWidth: 1, targetMarker: 'classic' } },
               zIndex: 20
             });
           }
@@ -204,45 +156,44 @@ const renderDAG = () => {
       }
     });
 
-    // --- 2. Layout using Dagre ---
-    // Dagre needs a graph structure.
-    const g = new dagre.graphlib.Graph({ compound: true });
-    g.setGraph({ rankdir: 'LR', nodesep: 50, ranksep: 80 });
+    // --- Layout using Dagre ---
+    // Ensure graphlib exists (handle different import styles)
+    const GraphLib = dagre.graphlib ? dagre.graphlib.Graph : dagre.Graph;
+    if (!GraphLib) {
+        console.error("StageDAG: dagre.graphlib is undefined", dagre);
+        return;
+    }
+
+    const g = new GraphLib({ compound: true });
+    g.setGraph({ rankdir: 'LR', nodesep: 40, ranksep: 60 });
     g.setDefaultEdgeLabel(() => ({}));
-
-    // Add nodes to dagre
-    nodes.forEach(n => {
+    
+    allNodes.forEach(n => {
       g.setNode(n.id, { width: n.width, height: n.height, label: n.id });
-      if (n.parent) {
-        g.setParent(n.id, n.parent);
-      }
+      if (n.parent) g.setParent(n.id, n.parent);
     });
-
-    // Add edges to dagre
-    edges.forEach(e => {
-      g.setEdge(e.source, e.target);
-    });
-
-    // Calculate layout
+    edges.forEach(e => g.setEdge(e.source, e.target));
     dagre.layout(g);
 
-    // Apply positions back to X6 nodes
-    const x6Nodes = [];
-    nodes.forEach(n => {
+    // --- Convert to X6 Nodes (Flat Hierarchy for Stability) ---
+    const finalNodes = allNodes.map(n => {
       const dagreNode = g.node(n.id);
-      if (dagreNode) {
-        x6Nodes.push({
-          ...n,
-          x: dagreNode.x - dagreNode.width / 2,
-          y: dagreNode.y - dagreNode.height / 2,
-          width: dagreNode.width,
-          height: dagreNode.height
-        });
-      }
+      return {
+        ...n,
+        // Use absolute coordinates from Dagre directly
+        x: dagreNode.x - dagreNode.width / 2,
+        y: dagreNode.y - dagreNode.height / 2,
+        width: dagreNode.width,
+        height: dagreNode.height,
+        // Remove X6 parent linkage to avoid coordinate system confusion. 
+        // We rely on Dagre's absolute layout and zIndex for visual nesting.
+        parent: undefined 
+      };
     });
 
-    graph.fromJSON({ nodes: x6Nodes, edges });
-    graph.zoomToFit({ padding: 20 });
+    graph.fromJSON({ nodes: finalNodes, edges });
+    graph.zoomToFit({ padding: 40, maxScale: 1 });
+    updateGraphInteraction();
 
   } catch (err) {
     console.error("Failed to parse or render RDD DAG", err);
@@ -251,6 +202,16 @@ const renderDAG = () => {
 
 onMounted(() => {
   renderDAG();
+  resizeObserver = new ResizeObserver(() => {
+    if (graph && graphContainer.value) {
+      const width = graphContainer.value.offsetWidth;
+      if (width > 0) {
+        graph.resize(width, 600);
+        graph.zoomToFit({ padding: 40, maxScale: 1 });
+      }
+    }
+  });
+  if (graphContainer.value) resizeObserver.observe(graphContainer.value.parentElement);
 });
 
 watch(() => props.stage, () => {
@@ -258,6 +219,7 @@ watch(() => props.stage, () => {
 }, { deep: true });
 
 onBeforeUnmount(() => {
+  resizeObserver?.disconnect();
   if (graph) graph.dispose();
 });
 </script>

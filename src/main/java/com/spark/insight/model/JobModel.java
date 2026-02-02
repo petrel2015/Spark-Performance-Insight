@@ -14,6 +14,7 @@ public class JobModel {
     private Integer jobId;
     private LocalDateTime submissionTime;
     private LocalDateTime completionTime;
+    private Long duration;
     private String status;
     private Integer numStages;
     private Integer numTasks;

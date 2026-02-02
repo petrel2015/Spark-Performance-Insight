@@ -202,7 +202,7 @@
             executor_id as executorId,
             count(*) as taskCount,
             sum(executor_deserialize_time) as executorDeserializeTime,
-            sum(duration) as duration,
+            sum(t.duration) as duration,
             sum(gc_time) as gcTime,
             sum(result_serialization_time) as resultSerializationTime,
             sum(getting_result_time) as gettingResultTime,

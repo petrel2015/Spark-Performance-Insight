@@ -19,6 +19,7 @@ public class StageModel {
     private Integer numFailedTasks = 0;
     private LocalDateTime submissionTime;
     private LocalDateTime completionTime;
+    private Long duration;
     private Long inputBytes = 0L;
     private Long inputRecords = 0L;
     private Long outputBytes = 0L;

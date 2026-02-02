@@ -4,6 +4,22 @@ English | [中文](./CHANGELOG.zh.md)
 
 All notable changes to this project will be documented in this file.
 
+## 0.9.0 - 2026-02-02
+
+### Features
+- **RDD Lineage V3**: Complete visual overhaul of the DAG chart.
+    - **Spark UI Parity**: Matched color scheme (Scopes `#A0DFFF`, RDDs `#C3EBFF`, Edges `#444`) and style (solid borders, solid fills).
+    - **Robust Rendering**: Implemented a "Flattened X6 + Dagre" engine to solve coordinate drift and missing nodes issues.
+    - **Smart Loading**: Added an intelligent loading spinner with debounce logic to handle card expansion/collapse smoothly.
+- **Event Timeline V2**: 
+    - **Dynamic Sizing**: Row height increased to 50px for readability; container height now auto-scales with executor count.
+    - **Compact Layout**: Reduced vertical padding and removed redundant bottom status bars.
+    - **Integrated Legend**: Legends are now embedded within the card headers, maintaining a cleaner UI.
+
+### Bug Fixes
+- **Graph Visibility**: Fixed a critical bug where graphs would disappear or misalign when collapsing/expanding cards.
+- **DataZoom Sync**: Resolved performance issues by decoupling the zoom linkage between trend and gantt charts.
+
 ## 0.8.0 - 2026-02-02
 
 ### Features

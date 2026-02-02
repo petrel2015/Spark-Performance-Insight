@@ -4,7 +4,8 @@ const request = axios.create({
     baseURL: '/api'
 });
 
-export const getApps = () => request.get('/apps');
+export const getApps = (page = 1, size = 20, sort = '', search = '') => 
+    request.get(`/apps?page=${page}&size=${size}&sort=${sort}&search=${search}`);
 export const getAppStages = (appId: string, page = 1, size = 20, sort = '', jobId = null) => {
     let url = `/apps/${appId}/stages?page=${page}&size=${size}&sort=${sort}`;
     if (jobId !== null) url += `&jobId=${jobId}`;
@@ -33,6 +34,7 @@ export const getStageTimeline = (appId: string, stageId: number) =>
 export const getJobStages = (appId: string, jobId: number) =>
   request.get(`/apps/${appId}/jobs/${jobId}/stages`);
 
+export const getApp = (appId: string) => request.get(`/apps/${appId}`);
 export const getDiagnosisReport = (appId: string) => request.get(`/apps/${appId}/report`);
 export const compareApps = (appId1: string, appId2: string) => 
     request.get(`/compare?appId1=${appId1}&appId2=${appId2}`);

@@ -42,7 +42,7 @@ const initGraph = () => {
   graph = new Graph({
     container: graphContainer.value,
     width: graphContainer.value.offsetWidth,
-    height: 600, // Explicit height matching CSS
+    height: 300, // Explicit height matching CSS
     background: { color: '#f8f9fa' },
     panning: !isZoomLocked.value,
     mousewheel: !isZoomLocked.value,
@@ -212,7 +212,7 @@ ${callSite}`, parentId: parentScopeId });
     
     // Explicitly update size and zoom
     if (graphContainer.value) {
-        graph.resize(graphContainer.value.offsetWidth, 600);
+        graph.resize(graphContainer.value.offsetWidth, 300);
     }
     
     setTimeout(() => {
@@ -268,7 +268,7 @@ onBeforeUnmount(() => {
 
 .graph-container {
   width: 100%;
-  height: 600px;
+  height: 300px;
 }
 
 .no-data-msg {
@@ -286,7 +286,7 @@ onBeforeUnmount(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255, 255, 255, 0.8);
+  background: white;
   display: flex;
   flex-direction: column;
   justify-content: center;

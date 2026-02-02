@@ -14,7 +14,7 @@
     </div>
 
     <!-- RDD Lineage Visualization -->
-    <CollapsibleCard v-if="currentStage && currentStage.rddInfo" title="DAG Visualization (RDD Lineage)">
+    <CollapsibleCard v-if="currentStage && currentStage.rddInfo" title="DAG Visualization (RDD Lineage)" :initial-collapsed="true">
       <template #actions>
         <button class="lock-btn" 
                 v-if="dagRef" 

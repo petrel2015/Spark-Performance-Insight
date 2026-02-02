@@ -18,22 +18,27 @@
       </div>
     </div>
 
-    <!-- 2. Active Sorts Display (Identical to TaskTable) -->
-    <div v-if="sorts.length > 0" class="active-sorts-bar">
-      <span class="sort-label">Sort by:</span>
-      <div class="sort-tags">
-        <span v-for="(sort, index) in sorts" :key="sort.field" class="sort-tag">
-          {{ getColumnLabel(sort.field) }} 
-          <span class="sort-dir">{{ sort.dir === 'asc' ? 'ASC' : 'DESC' }}</span>
-          <span @click="removeSort(index)" class="remove-sort" title="Remove sort">×</span>
-        </span>
-      </div>
-      <button @click="clearSorts" class="clear-sort-btn">Clear All</button>
-      <small class="sort-hint">(Hold <b>Shift</b> + Click headers to sort by multiple columns)</small>
-    </div>
+    <!-- 2.5. Executor Timeline Card -->
+    <CollapsibleCard title="Executor Lifecycle Timeline" :initial-collapsed="false">
+      <ExecutorTimeline :executors="executors" />
+    </CollapsibleCard>
 
     <!-- 3. Executors List Card -->
     <CollapsibleCard title="Executors List">
+      <!-- Active Sorts Display (Inside the card now) -->
+      <div v-if="sorts.length > 0" class="active-sorts-bar">
+        <span class="sort-label">Sort by:</span>
+        <div class="sort-tags">
+          <span v-for="(sort, index) in sorts" :key="sort.field" class="sort-tag">
+            {{ getColumnLabel(sort.field) }} 
+            <span class="sort-dir">{{ sort.dir === 'asc' ? 'ASC' : 'DESC' }}</span>
+            <span @click="removeSort(index)" class="remove-sort" title="Remove sort">×</span>
+          </span>
+        </div>
+        <button @click="clearSorts" class="clear-sort-btn">Clear All</button>
+        <small class="sort-hint">(Hold <b>Shift</b> + Click headers to sort by multiple columns)</small>
+      </div>
+
       <div class="table-wrapper">
         <table class="styled-table">
           <thead>
@@ -116,6 +121,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import CollapsibleCard from '../common/CollapsibleCard.vue';
+import ExecutorTimeline from './ExecutorTimeline.vue';
 import { formatBytes, formatTime, formatNum, formatDateTime } from '../../utils/format';
 
 const props = defineProps({
@@ -253,7 +259,7 @@ const selectDefault = () => { selectedFields.value = ['executorId', 'host', 'sta
   white-space: nowrap;
 }
 
-/* Active Sorts Bar (Sync from TaskTable) */
+/* Active Sorts Bar */
 .active-sorts-bar {
   display: flex;
   flex-wrap: wrap;

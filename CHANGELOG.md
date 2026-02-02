@@ -4,6 +4,19 @@ English | [中文](./CHANGELOG.zh.md)
 
 All notable changes to this project will be documented in this file.
 
+## 0.10.0 - 2026-02-02
+
+### Features
+- **Case-insensitive Search**: The application search box now supports case-insensitive matching for App Name, App ID, and User Name.
+- **Executor Timeline**: Added a new visual timeline for executors to track task execution across the cluster.
+- **UI Normalization**: 
+    - Simplified the Application list by removing the "Action" column and making "App Name" clickable for navigation.
+    - Unified table link styles and hover behaviors across Jobs, Stages, and Applications lists.
+    - Enhanced Stage DAG and Detail views with more robust rendering and improved spacing.
+
+### Refactor
+- **Code Cleanup**: Streamlined backend `listApps` logic to reduce redundancy and improve database query efficiency using DuckDB's `ILIKE`.
+
 ## 0.9.0 - 2026-02-02
 
 ### Features

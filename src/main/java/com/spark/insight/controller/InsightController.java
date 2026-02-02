@@ -94,8 +94,25 @@ public class InsightController {
      * 获取所有已导入的 Application 列表
      */
     @GetMapping("/apps")
-    public List<ApplicationModel> listApps() {
-        return applicationService.list();
+    public PageResponse<ApplicationModel> listApps(@RequestParam(defaultValue = "1") int page,
+                                                   @RequestParam(defaultValue = "20") int size,
+                                                   @RequestParam(required = false) String sort,
+                                                   @RequestParam(required = false) String search) {
+        var query = applicationService.lambdaQuery();
+        if (search != null && !search.isBlank()) {
+            String searchPattern = "%" + search + "%";
+            query.and(q -> q.apply("app_name ILIKE {0}", searchPattern)
+                    .or().apply("app_id ILIKE {0}", searchPattern)
+                    .or().apply("user_name ILIKE {0}", searchPattern));
+        }
+
+        long total = query.count();
+
+        query.last(buildSqlSuffix(sort, page, size, "start_time DESC"));
+
+        List<ApplicationModel> items = query.list();
+        int totalPages = (int) Math.ceil((double) total / size);
+        return new PageResponse<>(items, total, page, size, totalPages);
     }
 
     /**

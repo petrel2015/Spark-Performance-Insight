@@ -84,11 +84,12 @@
                         left: getProgressWidth(stage.numCompletedTasks, stage.numTasks) + '%' 
                      }">
                 </div>
+                <!-- Text moved inside -->
+                <div class="task-count-overlay">
+                  {{ stage.numCompletedTasks }}/{{ stage.numTasks }}
+                  <span v-if="stage.numFailedTasks > 0" class="failed-count"> ({{ stage.numFailedTasks }} failed)</span>
+                </div>
               </div>
-              <span class="task-count-text">
-                {{ stage.numCompletedTasks }}/{{ stage.numTasks }}
-                <span v-if="stage.numFailedTasks > 0" class="failed-count"> ({{ stage.numFailedTasks }} failed)</span>
-              </span>
             </div>
           </td>
           <td>{{ formatBytes(stage.inputBytes) }}</td>
@@ -353,11 +354,14 @@ watch(() => props.appId, () => {
 }
 
 .progress-bar-container {
-  height: 8px;
+  height: 16px;
   background: #eee;
   border-radius: 4px;
   position: relative;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .progress-bar-success {
@@ -366,6 +370,7 @@ watch(() => props.appId, () => {
   position: absolute;
   left: 0;
   top: 0;
+  z-index: 1;
 }
 
 .progress-bar-failed {
@@ -373,15 +378,20 @@ watch(() => props.appId, () => {
   background: #e74c3c;
   position: absolute;
   top: 0;
+  z-index: 1;
 }
 
-.task-count-text {
-  font-size: 0.75rem;
-  color: #666;
+.task-count-overlay {
+  position: relative;
+  z-index: 2;
+  font-size: 0.7rem;
+  font-weight: bold;
+  color: #333;
+  text-shadow: 0 0 2px rgba(255,255,255,0.8);
+  white-space: nowrap;
 }
 
 .failed-count {
-  color: #e74c3c;
-  font-weight: bold;
+  color: #8b0000;
 }
 </style>

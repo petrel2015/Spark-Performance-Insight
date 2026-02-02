@@ -73,7 +73,7 @@
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { getDiagnosisReport, getAppExecutors, getApps, getAppEnvironment } from '../api';
+import { getDiagnosisReport, getAppExecutors, getApp, getAppEnvironment } from '../api';
 import { marked } from 'marked';
 import JobsTab from '../components/job/JobsTab.vue';
 import JobDetailView from '../components/job/JobDetailView.vue';
@@ -163,15 +163,14 @@ onMounted(async () => {
   const appId = route.params.id;
   syncTabWithRoute();
   
-  const appsRes = await getApps();
-  app.value = appsRes.data.find(a => a.appId === appId);
-
-  const [reportRes, execRes, envRes] = await Promise.all([
+  const [appRes, reportRes, execRes, envRes] = await Promise.all([
+    getApp(appId),
     getDiagnosisReport(appId),
     getAppExecutors(appId),
     getAppEnvironment(appId)
   ]);
 
+  app.value = appRes.data;
   report.value = reportRes.data;
   executors.value = execRes.data;
   environment.value = envRes.data;

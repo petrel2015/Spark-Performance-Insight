@@ -78,17 +78,17 @@
           <td>{{ job.duration ? commonFormatTime(job.duration) : calculateDuration(job.submissionTime, job.completionTime) }}</td>
           <td>
             <div class="progress-wrapper">
-              <span class="progress-text">{{ job.numCompletedStages || 0 }}/{{ job.numStages }}</span>
               <div class="progress-track" v-if="job.numStages > 0">
                 <div class="progress-fill" :style="{ width: calculatePercent(job.numCompletedStages, job.numStages) + '%' }"></div>
+                <div class="progress-text-overlay">{{ job.numCompletedStages || 0 }}/{{ job.numStages }}</div>
               </div>
             </div>
           </td>
           <td>
             <div class="progress-wrapper">
-              <span class="progress-text">{{ job.numCompletedTasks || 0 }}/{{ job.numTasks }}</span>
               <div class="progress-track" v-if="job.numTasks > 0">
                 <div class="progress-fill tasks-fill" :style="{ width: calculatePercent(job.numCompletedTasks, job.numTasks) + '%' }"></div>
+                <div class="progress-text-overlay">{{ job.numCompletedTasks || 0 }}/{{ job.numTasks }}</div>
               </div>
             </div>
           </td>
@@ -347,30 +347,42 @@ watch(() => props.appId, () => {
 .progress-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-}
-
-.progress-text {
-  font-size: 0.85em;
-  color: #666;
 }
 
 .progress-track {
   width: 100%;
-  height: 6px;
+  height: 16px;
   background-color: #e9ecef;
-  border-radius: 3px;
+  border-radius: 4px;
   overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .progress-fill {
   height: 100%;
   background-color: #3498db; /* Blue for Stages */
   transition: width 0.3s ease;
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 1;
 }
 
 .tasks-fill {
-  background-color: #2ecc71; /* Green for Tasks */
+  background-color: #27ae60; /* Green for Tasks */
+}
+
+.progress-text-overlay {
+  position: relative;
+  z-index: 2;
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: #333;
+  text-shadow: 0 0 2px rgba(255,255,255,0.8);
+  white-space: nowrap;
 }
 
 .status-SUCCEEDED { color: #27ae60; font-weight: bold; background-color: rgba(39, 174, 96, 0.1); padding: 4px 8px; border-radius: 4px; font-size: 0.85em; }

@@ -22,16 +22,17 @@
             <th @click="handleSort('p25', $event)" class="sortable">25th Pct {{ getSortIcon('p25') }}</th>
             <th @click="handleSort('p50', $event)" class="sortable">Median {{ getSortIcon('p50') }}</th>
             <th @click="handleSort('p75', $event)" class="sortable">75th Pct {{ getSortIcon('p75') }}</th>
-            <th @click="handleSort('p95', $event)" class="sortable">95th Pct {{ getSortIcon('p95') }}</th>
             <th @click="handleSort('maxValue', $event)" class="sortable">Max {{ getSortIcon('maxValue') }}</th>
+            <th class="total-col">Total</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="row in sortedRows" :key="row.label">
             <td class="metric-label">{{ row.label }}</td>
-            <td v-for="key in ['minValue', 'p25', 'p50', 'p75', 'p95', 'maxValue']" :key="key">
+            <td v-for="key in ['minValue', 'p25', 'p50', 'p75', 'maxValue']" :key="key">
               {{ formatCell(row, key) }}
             </td>
+            <td class="total-cell">{{ formatTotal(row) }}</td>
           </tr>
         </tbody>
       </table>
@@ -46,10 +47,11 @@ import { formatTime, formatBytes, formatNum } from '../../utils/format';
 const props = defineProps({
   stats: { type: Array, default: () => [] },
   stageId: [Number, String],
-  visibleMetrics: { type: Array, default: () => [] }
+  visibleMetrics: { type: Array, default: () => [] },
+  stage: { type: Object, default: () => ({}) }
 });
 
-const sorts = ref([]); // Multi-column sort state
+const sorts = ref([]);
 
 const getStat = (name) => props.stats.find(s => s.metricName === name);
 
@@ -77,6 +79,8 @@ const allPossibleRows = computed(() => {
   addRow('memory_spill', 'Spill (memory)', 'bytes');
   addRow('disk_spill', 'Spill (disk)', 'bytes');
   addComposite('input', 'input_bytes', 'input_records', 'Input Size / Records');
+  addComposite('output', 'output_bytes', 'output_records', 'Output Size / Records');
+  addComposite('shuffle_read', 'shuffle_read_bytes', 'shuffle_read_records', 'Shuffle Read Size / Records');
   addComposite('shuffle_write', 'shuffle_write_bytes', 'shuffle_write_records', 'Shuffle Write Size / Records');
   addRow('shuffle_write_time', 'Shuffle Write Time', 'nanos');
 
@@ -95,7 +99,6 @@ const sortedRows = computed(() => {
         valA = a.label;
         valB = b.label;
       } else {
-        // 对于复合指标，取字节值进行排序比较
         valA = a.type === 'composite' ? a.bytes[sort.field] : a.data[sort.field];
         valB = b.type === 'composite' ? b.bytes[sort.field] : b.data[sort.field];
       }
@@ -133,7 +136,7 @@ const getSortIcon = (field) => {
   return sorts.value.length > 1 ? `${icon}${index + 1}` : icon;
 };
 const getColumnLabel = (field) => {
-  const labels = { label: 'Metric', minValue: 'Min', p25: '25th Pct', p50: 'Median', p75: '75th Pct', p95: '95th Pct', maxValue: 'Max' };
+  const labels = { label: 'Metric', minValue: 'Min', p25: '25th Pct', p50: 'Median', p75: '75th Pct', maxValue: 'Max' };
   return labels[field] || field;
 };
 
@@ -151,6 +154,28 @@ const formatCell = (row, key) => {
   if (row.type === 'bytes') return formatBytes(val);
   return val;
 };
+
+const formatTotal = (row) => {
+  if (!props.stage) return '-';
+  const s = props.stage;
+  switch (row.key) {
+    case 'duration': return formatTime(s.tasksDurationSum || 0);
+    case 'gc_time': return formatTime(s.gcTimeSum || 0);
+    case 'task_deserialization_time': return formatTime(s.executorDeserializeTimeSum || 0);
+    case 'result_serialization_time': return formatTime(s.resultSerializationTimeSum || 0);
+    case 'getting_result_time': return formatTime(s.gettingResultTimeSum || 0);
+    case 'scheduler_delay': return formatTime(s.schedulerDelaySum || 0);
+    case 'shuffle_write_time': return formatTime((s.shuffleWriteTimeSum || 0) / 1000000);
+    case 'peak_execution_memory': return formatBytes(s.peakExecutionMemorySum || 0);
+    case 'memory_spill': return formatBytes(s.memoryBytesSpilledSum || 0);
+    case 'disk_spill': return formatBytes(s.diskBytesSpilledSum || 0);
+    case 'input': return `${formatBytes(s.inputBytes || 0)} / ${formatNum(s.inputRecords || 0)}`;
+    case 'output': return `${formatBytes(s.outputBytes || 0)} / ${formatNum(s.outputRecords || 0)}`;
+    case 'shuffle_read': return `${formatBytes(s.shuffleReadBytes || 0)} / ${formatNum(s.shuffleReadRecords || 0)}`;
+    case 'shuffle_write': return `${formatBytes(s.shuffleWriteBytes || 0)} / ${formatNum(s.shuffleWriteRecords || 0)}`;
+    default: return '-';
+  }
+};
 </script>
 
 <style scoped>
@@ -163,6 +188,9 @@ const formatCell = (row, key) => {
 .matrix-table tbody tr:hover { background-color: #f7fbff; }
 .matrix-table th:first-child { text-align: left; }
 .matrix-table .metric-label { text-align: left; font-weight: bold; color: #2c3e50; }
+
+.total-col { background: #f8f9fa; font-weight: bold; color: #1565c0; border-left: 2px solid #e3f2fd; }
+.total-cell { background: #fbfcfe; font-weight: 600; color: #1565c0; border-left: 2px solid #e3f2fd; }
 
 /* Active Sorts Bar (Sync style) */
 .active-sorts-bar {

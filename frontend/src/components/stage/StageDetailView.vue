@@ -2,7 +2,7 @@
   <div class="stage-detail-container">
     <div class="breadcrumb-nav">
       <button @click="$emit('back')" class="back-btn">← Back to Stages</button>
-      <div class="stage-title">
+    <div class="stage-title">
         <h3>
           Details for Stage {{ stageId }} 
           <small v-if="currentStage?.jobId">
@@ -13,9 +13,14 @@
       </div>
     </div>
 
-    <!-- Stage Overview Card -->
-    <CollapsibleCard v-if="currentStage" title="Stage Overview">
-      <StageOverview :stage="currentStage" />
+    <!-- Timeline Chart -->
+    <CollapsibleCard v-if="currentStage" title="Event Timeline">
+      <StageTimeline :app-id="appId" :stage-id="stageId" />
+    </CollapsibleCard>
+
+    <!-- RDD Lineage Visualization -->
+    <CollapsibleCard v-if="currentStage && currentStage.rddInfo" title="RDD Lineage">
+      <StageDAG :stage="currentStage" />
     </CollapsibleCard>
 
     <!-- Metric Visibility Selector -->
@@ -41,6 +46,7 @@
         :stats="stageStats" 
         :stage-id="stageId" 
         :visible-metrics="selectedMetrics"
+        :stage="currentStage"
       />
     </CollapsibleCard>
     
@@ -54,11 +60,6 @@
         :summary="executorSummary"
         :visible-metrics="selectedMetrics"
       />
-    </CollapsibleCard>
-
-    <!-- Timeline Chart -->
-    <CollapsibleCard v-if="currentStage" title="Event Timeline">
-      <StageTimeline :app-id="appId" :stage-id="stageId" />
     </CollapsibleCard>
 
     <!-- Task Details Section -->
@@ -77,11 +78,11 @@ import { ref, onMounted, watch } from 'vue';
 import { getStage, getStageStats, getExecutorSummary } from '../../api';
 import { AVAILABLE_METRICS, DEFAULT_METRICS } from '../../constants/metrics';
 import CollapsibleCard from '../common/CollapsibleCard.vue';
-import StageOverview from './StageOverview.vue';
 import StageSummary from './StageSummary.vue';
 import ExecutorSummary from './ExecutorSummary.vue';
 import StageTimeline from './StageTimeline.vue';
 import TaskTable from '../task/TaskTable.vue';
+import StageDAG from './StageDAG.vue';
 
 const props = defineProps({
   appId: {
@@ -199,9 +200,9 @@ watch(() => props.stageId, fetchStageDetails);
 .selector-actions button:hover { border-color: #3498db; color: #3498db; }
 
 .checkbox-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px 15px;
 }
 
 .checkbox-item {
@@ -211,6 +212,7 @@ watch(() => props.stageId, fetchStageDetails);
   font-size: 0.85rem;
   color: #555;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .checkbox-item input { cursor: pointer; }

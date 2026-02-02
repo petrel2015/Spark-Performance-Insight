@@ -16,3 +16,10 @@
 - [ ] **Structured Storage Engine:** Implement streaming parsing and structured ingestion of EventLog.
 - [ ] **Deep Comparator:** Support Job and Stage dimensions full comparison.
 - [ ] **Visualization:** Add ECharts timelines for Task execution (Gantt chart style).
+- [ ] **Visualization:** 甘特图重新画
+- [ ] **Visualization:** dag图
+- [ ] **Visualization:** job详情能够有一个dag图对应他接下里的stage
+- [ ] **Visualization:** stage详情能够显示跟他关联的上下游stage图
+- [ ] **Visualization:** stage对比红绿灯
+- [ ] **Visualization:** 诊断页面，让gemini pro根据论文给出“专家模型”的思路，然后让gemini-cli根据设计去补充接口和展示，显示出一份报告。
+- [ ] **Visualization:** 具备单个job/stage性能瓶颈分析，多个job/stage对比分析劣化点

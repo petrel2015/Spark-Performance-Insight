@@ -75,18 +75,20 @@ const props = defineProps({
 const sorts = ref([{ field: 'executorId', dir: 'asc' }]);
 
 const columnDefs = [
-  { key: 'task_deserialization_time', field: 'executorDeserializeTime', label: 'Deserialization', type: 'time', width: '100px' },
+  { key: 'task_deserialization_time', field: 'executorDeserializeTime', label: 'Task Deserialization Time', type: 'time', width: '150px' },
   { key: 'duration', field: 'duration', label: 'Duration', type: 'time', width: '100px' },
   { key: 'gc_time', field: 'gcTime', label: 'GC Time', type: 'time', width: '90px' },
-  { key: 'result_serialization_time', field: 'resultSerializationTime', label: 'Result Ser', type: 'time', width: '100px' },
-  { key: 'getting_result_time', field: 'getting_result_time', label: 'Getting Result', type: 'time', width: '110px' },
-  { key: 'scheduler_delay', field: 'schedulerDelay', label: 'Scheduler Delay', type: 'time', width: '110px' },
-  { key: 'peak_execution_memory', field: 'peakExecutionMemory', label: 'Peak Memory', type: 'bytes', width: '100px' },
-  { key: 'memory_spill', field: 'memoryBytesSpilled', label: 'Spill (mem)', type: 'bytes', width: '90px' },
-  { key: 'disk_spill', field: 'diskBytesSpilled', label: 'Spill (disk)', type: 'bytes', width: '90px' },
+  { key: 'result_serialization_time', field: 'resultSerializationTime', label: 'Result Serialization Time', type: 'time', width: '160px' },
+  { key: 'getting_result_time', field: 'gettingResultTime', label: 'Getting Result Time', type: 'time', width: '130px' },
+  { key: 'scheduler_delay', field: 'schedulerDelay', label: 'Scheduler Delay', type: 'time', width: '130px' },
+  { key: 'peak_execution_memory', field: 'peakExecutionMemory', label: 'Peak Execution Memory', type: 'bytes', width: '150px' },
+  { key: 'memory_spill', field: 'memoryBytesSpilled', label: 'Spill (memory)', type: 'bytes', width: '110px' },
+  { key: 'disk_spill', field: 'diskBytesSpilled', label: 'Spill (disk)', type: 'bytes', width: '110px' },
   { key: 'input', field: 'inputBytes', label: 'Input Size / Records', type: 'composite', subFields: ['inputBytes', 'inputRecords'], width: '200px' },
+  { key: 'output', field: 'outputBytes', label: 'Output Size / Records', type: 'composite', subFields: ['outputBytes', 'outputRecords'], width: '200px' },
+  { key: 'shuffle_read', field: 'shuffleReadBytes', label: 'Shuffle Read Size / Records', type: 'composite', subFields: ['shuffleReadBytes', 'shuffleReadRecords'], width: '220px' },
   { key: 'shuffle_write', field: 'shuffleWriteBytes', label: 'Shuffle Write Size / Records', type: 'composite', subFields: ['shuffleWriteBytes', 'shuffleWriteRecords'], width: '220px' },
-  { key: 'shuffle_write_time', field: 'shuffleWriteTime', label: 'Shuffle Write Time', type: 'nanos', width: '120px' }
+  { key: 'shuffle_write_time', field: 'shuffleWriteTime', label: 'Shuffle Write Time', type: 'nanos', width: '130px' }
 ];
 
 const visibleCols = computed(() => {

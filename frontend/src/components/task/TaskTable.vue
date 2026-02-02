@@ -83,6 +83,12 @@
               <template v-else-if="col.field === 'input'">
                 {{ formatBytes(task.inputBytes) }} / {{ formatNum(task.inputRecords) }}
               </template>
+              <template v-else-if="col.field === 'output'">
+                {{ formatBytes(task.outputBytes) }} / {{ formatNum(task.outputRecords) }}
+              </template>
+              <template v-else-if="col.field === 'shuffle_read'">
+                {{ formatBytes(task.shuffleReadBytes) }} / {{ formatNum(task.shuffleReadRecords) }}
+              </template>
               <template v-else-if="col.field === 'shuffle_write'">
                 {{ formatBytes(task.shuffleWriteBytes) }} / {{ formatNum(task.shuffleWriteRecords) }}
               </template>
@@ -133,18 +139,20 @@ const baseColumns = [
 
 // 动态指标列映射
 const metricColumnsMap = {
-  'task_deserialization_time': { field: 'executorDeserializeTime', label: 'Deserialization', width: '100px', type: 'time' },
-  'duration': { field: 'duration', label: 'Duration', width: '90px', type: 'time' },
-  'gc_time': { field: 'gcTime', label: 'GC Time', width: '80px', type: 'time' },
-  'result_serialization_time': { field: 'resultSerializationTime', label: 'Result Ser', width: '100px', type: 'time' },
-  'getting_result_time': { field: 'gettingResultTime', label: 'Getting Result', width: '110px', type: 'time' },
-  'scheduler_delay': { field: 'schedulerDelay', label: 'Scheduler Delay', width: '110px', type: 'time' },
-  'peak_execution_memory': { field: 'peakExecutionMemory', label: 'Peak Memory', width: '100px', type: 'bytes' },
-  'memory_spill': { field: 'memoryBytesSpilled', label: 'Spill (mem)', width: '90px', type: 'bytes' },
-  'disk_spill': { field: 'diskBytesSpilled', label: 'Spill (disk)', width: '90px', type: 'bytes' },
+  'task_deserialization_time': { field: 'executorDeserializeTime', label: 'Task Deserialization Time', width: '150px', type: 'time' },
+  'duration': { field: 'duration', label: 'Duration', width: '100px', type: 'time' },
+  'gc_time': { field: 'gcTime', label: 'GC Time', width: '90px', type: 'time' },
+  'result_serialization_time': { field: 'resultSerializationTime', label: 'Result Serialization Time', width: '160px', type: 'time' },
+  'getting_result_time': { field: 'gettingResultTime', label: 'Getting Result Time', width: '130px', type: 'time' },
+  'scheduler_delay': { field: 'schedulerDelay', label: 'Scheduler Delay', width: '130px', type: 'time' },
+  'peak_execution_memory': { field: 'peakExecutionMemory', label: 'Peak Execution Memory', width: '150px', type: 'bytes' },
+  'memory_spill': { field: 'memoryBytesSpilled', label: 'Spill (memory)', width: '110px', type: 'bytes' },
+  'disk_spill': { field: 'diskBytesSpilled', label: 'Spill (disk)', width: '110px', type: 'bytes' },
   'input': { field: 'input', label: 'Input Size / Records', width: '200px', type: 'composite' },
+  'output': { field: 'output', label: 'Output Size / Records', width: '200px', type: 'composite' },
+  'shuffle_read': { field: 'shuffle_read', label: 'Shuffle Read Size / Records', width: '220px', type: 'composite' },
   'shuffle_write': { field: 'shuffle_write', label: 'Shuffle Write Size / Records', width: '220px', type: 'composite' },
-  'shuffle_write_time': { field: 'shuffleWriteTime', label: 'Shuffle Write Time', width: '120px', type: 'nanos' }
+  'shuffle_write_time': { field: 'shuffleWriteTime', label: 'Shuffle Write Time', width: '130px', type: 'nanos' }
 };
 
 const columns = computed(() => {

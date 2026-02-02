@@ -237,8 +237,21 @@ const selectDefault = () => { selectedFields.value = ['executorId', 'host', 'sta
 .selector-actions button { background: none; border: 1px solid #ddd; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; color: #666; }
 .selector-actions button:hover { border-color: #3498db; color: #3498db; }
 
-.checkbox-group { display: flex; flex-wrap: wrap; gap: 10px 20px; }
-.checkbox-item { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: #555; cursor: pointer; }
+.checkbox-group { 
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px 15px;
+}
+
+.checkbox-item { 
+  display: flex; 
+  align-items: center; 
+  gap: 6px; 
+  font-size: 0.8rem; 
+  color: #555; 
+  cursor: pointer; 
+  white-space: nowrap;
+}
 
 /* Active Sorts Bar (Sync from TaskTable) */
 .active-sorts-bar {

@@ -17,6 +17,8 @@ export const AVAILABLE_METRICS: MetricDef[] = [
   { key: 'memory_spill', label: 'Spill (memory)', type: 'bytes' },
   { key: 'disk_spill', label: 'Spill (disk)', type: 'bytes' },
   { key: 'input', label: 'Input Size / Records', type: 'composite', subKeys: ['input_bytes', 'input_records'] },
+  { key: 'output', label: 'Output Size / Records', type: 'composite', subKeys: ['output_bytes', 'output_records'] },
+  { key: 'shuffle_read', label: 'Shuffle Read Size / Records', type: 'composite', subKeys: ['shuffle_read_bytes', 'shuffle_read_records'] },
   { key: 'shuffle_write', label: 'Shuffle Write Size / Records', type: 'composite', subKeys: ['shuffle_write_bytes', 'shuffle_write_records'] },
   { key: 'shuffle_write_time', label: 'Shuffle Write Time', type: 'nanos' }
 ];

@@ -8,13 +8,13 @@
           {{ tab }}
         </button>
       </div>
-      <div class="app-info">
+      <div class="app-info" v-if="app">
         <h2>
-          {{ app?.appName }} 
-          <span v-if="app?.sparkVersion && app?.sparkVersion !== 'unknown'" class="spark-version-badge">
+          {{ app.appName }} 
+          <span v-if="app.sparkVersion && app.sparkVersion !== 'unknown'" class="spark-version-badge">
             {{ app.sparkVersion }}
           </span>
-          <small>{{ app?.appId }}</small>
+          <small>{{ app.appId }}</small>
         </h2>
       </div>
     </div>
@@ -53,7 +53,7 @@
 
         <!-- Detail View -->
         <StageDetailView 
-          v-else 
+          v-else-if="app" 
           :app-id="app.appId" 
           :stage-id="selectedStageId" 
           @back="navigateBackToStages" 

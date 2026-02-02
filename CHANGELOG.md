@@ -4,6 +4,19 @@ English | [中文](./CHANGELOG.zh.md)
 
 All notable changes to this project will be documented in this file.
 
+## 0.7.0 - 2026-02-02
+
+### Features
+- **RDD DAG Visualization**: Implemented a transformation graph for stages using AntV X6 and Dagre. Supports RDD lineage, operation scope grouping (e.g., WholeStageCodegen), and call site display.
+- **Enhanced Stage Summary**: Integrated Stage Overview into the Summary Metrics matrix. Added a `Total` column showing aggregated resource consumption (sums/max) for all metrics.
+- **Improved Metric Selection**: Refactored the metric selector with a responsive grid layout. Columns are now equal-width and adaptively adjust their count based on screen resolution.
+- **Full Metric Coverage**: Supplemented missing metrics (Output, Shuffle Read) and unified naming conventions across all views.
+- **Backend Analytics Upgrade**: Enhanced the Stage analytics engine to calculate 10+ additional aggregated metrics during log parsing.
+
+### Bug Fixes
+- **UI Resilience**: Fixed a critical `TypeError` when navigating to details before data is loaded.
+- **Layout Consistency**: Restored missing CSS styles and ensured proper text wrapping for long metric labels.
+
 ## 0.6.0 - 2026-02-01
 
 ### Features

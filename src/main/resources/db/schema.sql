@@ -99,13 +99,25 @@ CREATE TABLE IF NOT EXISTS stages (
     shuffle_read_records BIGINT DEFAULT 0,
     shuffle_write_bytes BIGINT DEFAULT 0,
     shuffle_write_records BIGINT DEFAULT 0,
+    output_records BIGINT DEFAULT 0,
     gc_time_sum BIGINT DEFAULT 0,
     tasks_duration_sum BIGINT DEFAULT 0,
+    executor_deserialize_time_sum BIGINT DEFAULT 0,
+    result_serialization_time_sum BIGINT DEFAULT 0,
+    getting_result_time_sum BIGINT DEFAULT 0,
+    scheduler_delay_sum BIGINT DEFAULT 0,
+    peak_execution_memory_max BIGINT DEFAULT 0,
+    peak_execution_memory_sum BIGINT DEFAULT 0,
+    memory_bytes_spilled_sum BIGINT DEFAULT 0,
+    disk_bytes_spilled_sum BIGINT DEFAULT 0,
+    shuffle_write_time_sum BIGINT DEFAULT 0,
     duration_p50 BIGINT DEFAULT 0,
     duration_p75 BIGINT DEFAULT 0,
     duration_p95 BIGINT DEFAULT 0,
     duration_p99 BIGINT DEFAULT 0,
-    is_skewed BOOLEAN DEFAULT FALSE
+    is_skewed BOOLEAN DEFAULT FALSE,
+    parent_stage_ids TEXT,
+    rdd_info TEXT
 );
 
 -- Task 细节

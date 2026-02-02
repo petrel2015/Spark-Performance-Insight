@@ -358,6 +358,22 @@ public class JacksonEventParser implements EventParser {
         stage.setStageName(info.get("Stage Name").asText());
         stage.setNumTasks(info.get("Number of Tasks").asInt());
         stage.setSubmissionTime(parseTimestamp(info.get("Submission Time").asLong()));
+        
+        if (info.has("Parent IDs")) {
+            JsonNode parents = info.get("Parent IDs");
+            if (parents.isArray() && parents.size() > 0) {
+                List<String> pIds = new ArrayList<>();
+                for (JsonNode p : parents) {
+                    pIds.add(p.asText());
+                }
+                stage.setParentStageIds(String.join(",", pIds));
+            }
+        }
+
+        if (info.has("RDD Info")) {
+            stage.setRddInfo(info.get("RDD Info").toString());
+        }
+        
         stageService.saveOrUpdate(stage);
     }
 

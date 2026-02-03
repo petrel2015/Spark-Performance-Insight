@@ -44,6 +44,7 @@ public class StageModel {
     private Long durationP75 = 0L;
     private Long durationP95 = 0L;
     private Long durationP99 = 0L;
+    private Long maxTaskDuration = 0L;
     private Boolean isSkewed = false;
     private String parentStageIds;
     private String rddInfo; // JSON string of RDD Lineage

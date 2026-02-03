@@ -30,6 +30,7 @@
             duration_p50 = m.p50,
             duration_p95 = m.p95,
             duration_p99 = m.p99,
+            max_task_duration = m.max_dur,
             is_skewed = (CASE WHEN m.max_dur > m.p50 * 2 THEN TRUE ELSE FALSE END)
         FROM (
             SELECT 

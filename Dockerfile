@@ -8,7 +8,7 @@ WORKDIR /app
 
 # Copy the built JAR file
 # Note: Ensure you run 'mvn clean package' before building this image
-COPY target/spark-performance-insight-*.jar /app/app.jar
+COPY ./target/spark-performance-insight-*.jar /app/app.jar
 
 # Create directories for data and logs with correct permissions
 RUN mkdir -p /data /eventlogs && \

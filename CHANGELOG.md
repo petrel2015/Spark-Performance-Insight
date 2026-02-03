@@ -4,6 +4,16 @@ English | [中文](./CHANGELOG.zh.md)
 
 All notable changes to this project will be documented in this file.
 
+## 0.13.0 - 2026-02-03
+
+### Features
+- **Scheduled EventLog Parsing**: Implemented `EventLogWatcherService` to periodically (default 10s) scan and incrementally parse new or modified EventLog files.
+- **Enhanced Diagnosis Rules**: Updated diagnosis logic for Data Skew and GC Pressure to include configurable absolute thresholds (e.g., max task duration > 1s, single task GC > 800ms) in addition to relative statistical checks.
+- **Docker Support**: Added `Dockerfile` based on Bitnami Spark 3.5 and `docker-compose.yml` for integrated deployment with Spark History Server.
+
+### Improvements
+- **UI Fixes**: Restored missing metrics cards in Stage Detail view and corrected "of Job" link navigation.
+
 ## 0.12.1 - 2026-02-03
 
 ### Improvements

@@ -119,6 +119,7 @@ CREATE TABLE IF NOT EXISTS stages (
     duration_p75 BIGINT DEFAULT 0,
     duration_p95 BIGINT DEFAULT 0,
     duration_p99 BIGINT DEFAULT 0,
+    max_task_duration BIGINT DEFAULT 0,
     is_skewed BOOLEAN DEFAULT FALSE,
     parent_stage_ids TEXT,
     rdd_info TEXT
@@ -186,4 +187,14 @@ CREATE TABLE IF NOT EXISTS stage_statistics (
     p75 BIGINT,
     p95 BIGINT,
     max_value BIGINT
+);
+
+-- EventLog 文件解析状态记录
+CREATE TABLE IF NOT EXISTS parsed_event_logs (
+    file_path VARCHAR PRIMARY KEY,
+    last_modified BIGINT,
+    file_size BIGINT,
+    file_hash VARCHAR,
+    parsed_at TIMESTAMP,
+    status VARCHAR
 );

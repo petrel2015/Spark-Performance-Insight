@@ -40,7 +40,44 @@
       <StageTimeline ref="timelineRef" :app-id="appId" :stage-id="stageId" :attempt-id="currentStage?.attemptId" />
     </CollapsibleCard>
     
-    <!-- ... (middle content) ... -->
+    <!-- Metric Visibility Selector -->
+    <div class="metric-selector-card">
+      <div class="selector-header">
+        <strong>Select Metrics to Display:</strong>
+        <div class="selector-actions">
+          <button @click="selectAllMetrics">Select All</button>
+          <button @click="clearAllMetrics">Clear All</button>
+        </div>
+      </div>
+      <div class="checkbox-group">
+        <label v-for="m in AVAILABLE_METRICS" :key="m.key" class="checkbox-item">
+          <input type="checkbox" :value="m.key" v-model="selectedMetrics">
+          {{ m.label }}
+        </label>
+      </div>
+    </div>
+
+    <!-- Summary Metrics Cards -->
+    <CollapsibleCard v-if="stageStats && stageStats.length > 0" :title="`Summary Metrics for Stage ${stageId} (${currentStage?.numCompletedTasks || 0} completed tasks)`">
+      <StageSummary 
+        :stats="stageStats" 
+        :stage-id="stageId" 
+        :visible-metrics="selectedMetrics"
+        :stage="currentStage"
+      />
+    </CollapsibleCard>
+    
+    <div v-else-if="currentStage" style="color: #999; padding: 10px;">
+      No detailed statistics available.
+    </div>
+
+    <!-- Executor Summary Card -->
+    <CollapsibleCard v-if="executorSummary && executorSummary.length > 0" title="Aggregated Metrics by Executor">
+      <ExecutorSummary
+        :summary="executorSummary"
+        :visible-metrics="selectedMetrics"
+      />
+    </CollapsibleCard>
 
     <!-- Task Details Section -->
     <CollapsibleCard v-if="currentStage" title="Tasks List">

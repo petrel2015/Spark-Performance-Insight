@@ -1,5 +1,6 @@
 package com.spark.insight.service;
 
+import com.spark.insight.config.DiagnosisProperties;
 import com.spark.insight.model.ApplicationModel;
 import com.spark.insight.model.StageModel;
 import com.spark.insight.model.TaskModel;
@@ -17,6 +18,7 @@ public class DiagnosisService {
     private final ApplicationService applicationService;
     private final StageService stageService;
     private final TaskService taskService;
+    private final DiagnosisProperties properties;
 
     /**
      * 为指定的 Application 生成 Markdown 格式的诊断报告
@@ -61,19 +63,38 @@ public class DiagnosisService {
             }
             
             // Rule 1: Data Skew
-            if (Boolean.TRUE.equals(stage.getIsSkewed())) {
-                stageIssues.append("  - **检测到数据倾斜:** 最大任务 (Task) 耗时显著高于中位数。\n");
+            // Only report skew if absolute duration is significant (e.g. > 1s)
+            if (Boolean.TRUE.equals(stage.getIsSkewed()) && 
+                stage.getMaxTaskDuration() != null && 
+                stage.getMaxTaskDuration() > properties.getSkewMinDurationMs()) {
+                stageIssues.append("  - **检测到数据倾斜:** 最大任务 (Task) 耗时显著高于中位数，且绝对耗时超过 ")
+                           .append(properties.getSkewMinDurationMs()).append("ms。\n");
             }
 
             // Rule 2: GC Pressure
+            boolean gcIssueFound = false;
+            // 2.1 Ratio Check
             if (stage.getGcTimeSum() != null && stage.getGcTimeSum() > 0 && stage.getNumTasks() != null && stage.getNumTasks() > 0) {
                  Long p50 = stage.getDurationP50();
                  if (p50 != null && p50 > 0) {
                      long totalExecutionTime = p50 * stage.getNumTasks();
                      if (totalExecutionTime > 0 && (double) stage.getGcTimeSum() / totalExecutionTime > 0.1) {
-                         stageIssues.append("  - **GC 压力过大:** JVM GC 时间占比超过预估总任务时间的 10%。\n");
+                         stageIssues.append("  - **GC 压力过大 (整体):** JVM GC 时间占比超过预估总任务时间的 10%。\n");
+                         gcIssueFound = true;
                      }
                  }
+            }
+            // 2.2 Absolute Check (Single Task)
+            long highGcTaskCount = taskService.lambdaQuery()
+                    .eq(TaskModel::getAppId, appId)
+                    .eq(TaskModel::getStageId, stage.getStageId())
+                    .gt(TaskModel::getGcTime, properties.getGcMinDurationMs())
+                    .count();
+            
+            if (highGcTaskCount > 0) {
+                stageIssues.append("  - **GC 压力过大 (单任务):** 有 ").append(highGcTaskCount)
+                           .append(" 个任务单次 GC 时间超过 ").append(properties.getGcMinDurationMs()).append("ms。\n");
+                gcIssueFound = true;
             }
 
             // Rule 3: Memory Spill

@@ -169,7 +169,7 @@ const handleViewJobStages = (job) => {
 };
 
 const handleViewJob = (jobId) => {
-  navigateToTab('Jobs');
+  navigateToJob(jobId);
 };
 
 watch(() => route.path, () => {

@@ -7,7 +7,9 @@ CREATE TABLE IF NOT EXISTS applications (
     end_time TIMESTAMP,
     duration BIGINT,
     spark_version VARCHAR,
-    status VARCHAR
+    status VARCHAR,
+    data_quality_status VARCHAR DEFAULT 'GOOD',
+    data_quality_note TEXT
 );
 
 -- 环境配置

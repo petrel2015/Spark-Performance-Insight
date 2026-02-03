@@ -17,4 +17,6 @@ public class ApplicationModel {
     private Long duration;
     private String sparkVersion;
     private String status;
+    private String dataQualityStatus;
+    private String dataQualityNote;
 }

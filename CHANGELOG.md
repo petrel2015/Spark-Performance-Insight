@@ -4,12 +4,16 @@ English | [中文](./CHANGELOG.zh.md)
 
 All notable changes to this project will be documented in this file.
 
-## 0.10.1 - 2026-02-03
+## 0.11.0 - 2026-02-03
+
+### Features
+- **Data Quality Ingestion**: `JacksonEventParser` now proactively detects and marks incomplete applications (e.g., missing `ApplicationEnd` events) in the database.
+- **Robust Diagnosis Reporting**: The Markdown diagnosis report now gracefully handles missing timing data and displays visible warnings for "bad data points".
 
 ### Bug Fixes
-- **Large JSON Support**: Fixed `JacksonEventParser` to support JSON lines larger than 20MB (default Jackson limit) by relaxing `StreamReadConstraints`. This resolves parsing failures for extremely large event logs.
+- **Large JSON Support**: (v0.10.1) Fixed parsing failures for event log lines exceeding 20MB.
 
-## 0.10.0 - 2026-02-02
+## 0.10.1 - 2026-02-03
 
 ### Features
 - **Case-insensitive Search**: The application search box now supports case-insensitive matching for App Name, App ID, and User Name.

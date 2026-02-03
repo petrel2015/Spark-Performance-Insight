@@ -179,10 +179,37 @@ public class JacksonEventParser implements EventParser {
                     stageService.calculateStageMetrics(currentAppId);
                     jobService.calculateJobMetrics(currentAppId);
                     executorService.calculateExecutorMetrics(currentAppId);
+                    
+                    // Finalize Data Quality Check
+                    finalizeAppQuality(currentAppId);
                 }
             }
         } catch (Exception e) {
             log.error("Error parsing " + logFile.getPath(), e);
+        }
+    }
+
+    private void finalizeAppQuality(String appId) {
+        ApplicationModel app = applicationService.getById(appId);
+        if (app != null) {
+            boolean isUpdated = false;
+            // Check if App finished normally
+            if (app.getEndTime() == null) {
+                app.setDataQualityStatus("INCOMPLETE");
+                app.setDataQualityNote("Missing ApplicationEnd event. Log might be truncated.");
+                isUpdated = true;
+            } else {
+                // You can add more checks here (e.g. check if all stages have completion time)
+                if (app.getDataQualityStatus() == null) {
+                    app.setDataQualityStatus("GOOD");
+                    isUpdated = true;
+                }
+            }
+            
+            if (isUpdated) {
+                applicationService.updateById(app);
+                log.info("Updated App Data Quality for {}: Status={}", appId, app.getDataQualityStatus());
+            }
         }
     }
 

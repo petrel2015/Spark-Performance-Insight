@@ -156,7 +156,7 @@ const hasRetries = (stageId) => {
 };
 
 const columns = [
-  { field: 'stageId', label: 'Stage Id', width: '80px' },
+  { field: 'stageId', label: 'Stage Id', width: '140px' },
   { field: 'stageName', label: 'Name' },
   { field: 'submissionTime', label: 'Submitted', width: '160px' },
   { field: 'duration', label: 'Duration', width: '100px' },

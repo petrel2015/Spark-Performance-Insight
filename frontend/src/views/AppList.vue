@@ -94,7 +94,7 @@
                             {{ app.sparkVersion }}
                           </span>
                         </td>
-                        <td><code>{{ app.appId }}</code></td>              <td>{{ app.userName }}</td>
+                        <td><code class="app-id-code">{{ app.appId }}</code></td>              <td>{{ app.userName }}</td>
               <td>{{ formatDateTime(app.startTime) }}</td>
               <td>{{ (app.duration / 1000).toFixed(1) }} s</td>
               <td><span :class="'status-' + app.status">{{ app.status }}</span></td>
@@ -127,7 +127,7 @@ const selectedApps = ref([]);
 const columns = [
   { field: 'appName', label: 'App Name' },
   { field: 'sparkVersion', label: 'Version', width: '100px' },
-  { field: 'appId', label: 'App ID', width: '220px' },
+  { field: 'appId', label: 'App ID', width: '280px' },
   { field: 'userName', label: 'User', width: '120px' },
   { field: 'startTime', label: 'Submitted', width: '180px' },
   { field: 'duration', label: 'Duration', width: '120px' },
@@ -433,5 +433,16 @@ onMounted(fetchApps);
 .app-link:hover {
   text-decoration: underline;
   color: #2980b9;
+}
+
+.app-id-code {
+  word-break: break-all;
+  white-space: normal;
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: #c7254e;
+  background-color: #f9f2f4;
+  padding: 2px 4px;
+  border-radius: 3px;
 }
 </style>

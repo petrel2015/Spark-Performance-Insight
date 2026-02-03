@@ -66,7 +66,8 @@
         <tr v-for="stage in stages" :key="stage.id">
           <td>
             {{ stage.stageId }} 
-            <span v-if="stage.attemptId > 0" class="attempt-badge">(Attempt {{ stage.attemptId }})</span>
+            <span v-if="hasRetries(stage.stageId)" class="attempt-badge">(Attempt {{ stage.attemptId }})</span>
+            <span v-if="isExpired(stage)" class="expired-badge">Expired</span>
           </td>
           <td>
             <a href="javascript:void(0)" @click="$emit('view-stage-detail', { stageId: stage.stageId, attemptId: stage.attemptId })" class="stage-link">
@@ -109,7 +110,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import { getAppStages } from '../../api';
 import { formatTime, formatBytes, formatDateTime } from '../../utils/format';
 
@@ -129,6 +130,30 @@ const currentPage = ref(1);
 const pageSize = ref(20);
 const jumpPageInput = ref(1);
 const sorts = ref([{ field: 'stageId', dir: 'desc' }]); // Default sort by Stage Id DESC
+
+// Compute max attempt ID per stage to detect retries and expiration
+const stageAttemptsMap = computed(() => {
+  const map = {};
+  stages.value.forEach(s => {
+    if (!map[s.stageId]) map[s.stageId] = [];
+    map[s.stageId].push(s.attemptId);
+  });
+  return map;
+});
+
+const isExpired = (stage) => {
+  const attempts = stageAttemptsMap.value[stage.stageId];
+  if (!attempts) return false;
+  return Math.max(...attempts) > stage.attemptId;
+};
+
+const hasRetries = (stageId) => {
+  const attempts = stageAttemptsMap.value[stageId];
+  // Show if multiple attempts exist OR if the only attempt is > 0 (implies previous attempts existed)
+  if (attempts && attempts.length > 1) return true;
+  if (attempts && attempts.length === 1 && attempts[0] > 0) return true;
+  return false;
+};
 
 const columns = [
   { field: 'stageId', label: 'Stage Id', width: '80px' },
@@ -396,5 +421,21 @@ watch(() => props.appId, () => {
 
 .failed-count {
   color: #8b0000;
+}
+
+.expired-badge {
+  font-size: 0.75rem;
+  background-color: #999;
+  color: white;
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.attempt-badge {
+  font-size: 0.8rem;
+  color: #666;
+  margin-left: 4px;
 }
 </style>

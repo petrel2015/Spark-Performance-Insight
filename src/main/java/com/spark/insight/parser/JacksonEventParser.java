@@ -1,5 +1,7 @@
 package com.spark.insight.parser;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.luben.zstd.ZstdInputStream;
@@ -17,7 +19,7 @@ import java.util.*;
 @Component
 public class JacksonEventParser implements EventParser {
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
     private final ApplicationService applicationService;
     private final StageService stageService;
     private final TaskService taskService;
@@ -31,6 +33,10 @@ public class JacksonEventParser implements EventParser {
                               EnvironmentConfigService envService,
                               JobService jobService,
                               ExecutorService executorService) {
+        JsonFactory factory = JsonFactory.builder()
+                .streamReadConstraints(StreamReadConstraints.builder().maxStringLength(Integer.MAX_VALUE).build())
+                .build();
+        this.objectMapper = new ObjectMapper(factory);
         this.applicationService = applicationService;
         this.stageService = stageService;
         this.taskService = taskService;

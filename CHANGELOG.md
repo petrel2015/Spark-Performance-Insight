@@ -4,6 +4,11 @@ English | [中文](./CHANGELOG.zh.md)
 
 All notable changes to this project will be documented in this file.
 
+## 0.10.1 - 2026-02-03
+
+### Bug Fixes
+- **Large JSON Support**: Fixed `JacksonEventParser` to support JSON lines larger than 20MB (default Jackson limit) by relaxing `StreamReadConstraints`. This resolves parsing failures for extremely large event logs.
+
 ## 0.10.0 - 2026-02-02
 
 ### Features

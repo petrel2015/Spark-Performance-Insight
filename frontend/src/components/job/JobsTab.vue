@@ -118,7 +118,7 @@ const totalPages = ref(0);
 const currentPage = ref(1);
 const pageSize = ref(20);
 const jumpPageInput = ref(1);
-const sorts = ref([]); // [{ field, dir }]
+const sorts = ref([{ field: 'jobId', dir: 'desc' }]); // Default sort by Job ID DESC
 
 const columns = [
   { field: 'jobId', label: 'Job ID', width: '80px', sortable: true },

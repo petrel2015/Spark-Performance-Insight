@@ -5,6 +5,7 @@
     <div class="stage-title">
         <h3>
           Details for Stage {{ stageId }} 
+          <span v-if="currentStage?.attemptId > 0" class="attempt-badge">(Attempt {{ currentStage.attemptId }})</span>
           <small v-if="currentStage?.jobId">
             of Job <a href="#" class="job-link" @click.prevent="$emit('view-job', currentStage.jobId)">{{ currentStage.jobId }}</a>
           </small>
@@ -36,53 +37,17 @@
           {{ timelineRef.isZoomLocked ? '🔒 Locked' : '🔓 Unlocked' }}
         </button>
       </template>
-      <StageTimeline ref="timelineRef" :app-id="appId" :stage-id="stageId" />
-    </CollapsibleCard>
-
-    <!-- Metric Visibility Selector -->
-    <div class="metric-selector-card">
-      <div class="selector-header">
-        <strong>Select Metrics to Display:</strong>
-        <div class="selector-actions">
-          <button @click="selectAllMetrics">Select All</button>
-          <button @click="clearAllMetrics">Clear All</button>
-        </div>
-      </div>
-      <div class="checkbox-group">
-        <label v-for="m in AVAILABLE_METRICS" :key="m.key" class="checkbox-item">
-          <input type="checkbox" :value="m.key" v-model="selectedMetrics">
-          {{ m.label }}
-        </label>
-      </div>
-    </div>
-
-    <!-- Summary Metrics Cards -->
-    <CollapsibleCard v-if="stageStats && stageStats.length > 0" :title="`Summary Metrics for Stage ${stageId} (${currentStage?.numCompletedTasks || 0} completed tasks)`">
-      <StageSummary 
-        :stats="stageStats" 
-        :stage-id="stageId" 
-        :visible-metrics="selectedMetrics"
-        :stage="currentStage"
-      />
+      <StageTimeline ref="timelineRef" :app-id="appId" :stage-id="stageId" :attempt-id="currentStage?.attemptId" />
     </CollapsibleCard>
     
-    <div v-else-if="currentStage" style="color: #999; padding: 10px;">
-      No detailed statistics available.
-    </div>
-
-    <!-- Executor Summary Card -->
-    <CollapsibleCard v-if="executorSummary && executorSummary.length > 0" title="Aggregated Metrics by Executor">
-      <ExecutorSummary
-        :summary="executorSummary"
-        :visible-metrics="selectedMetrics"
-      />
-    </CollapsibleCard>
+    <!-- ... (middle content) ... -->
 
     <!-- Task Details Section -->
     <CollapsibleCard v-if="currentStage" title="Tasks List">
       <TaskTable 
         :app-id="appId" 
         :stage-id="stageId" 
+        :attempt-id="currentStage?.attemptId"
         :visible-metrics="selectedMetrics"
       />
     </CollapsibleCard>
@@ -108,6 +73,10 @@ const props = defineProps({
   stageId: {
     type: Number,
     required: true
+  },
+  attemptId: {
+    type: Number,
+    default: null
   }
 });
 
@@ -132,15 +101,22 @@ const clearAllMetrics = () => {
 const fetchStageDetails = async () => {
   if (!props.stageId || !props.appId) return;
   try {
-    const [stageRes, statsRes, execSummaryRes] = await Promise.all([
-      getStage(props.appId, props.stageId),
-      getStageStats(props.appId, props.stageId, 0),
-      getExecutorSummary(props.appId, props.stageId)
-    ]);
+    // 1. Get Stage info first to determine attemptId if not provided
+    const stageRes = await getStage(props.appId, props.stageId, props.attemptId);
     currentStage.value = stageRes.data;
-    stageStats.value = statsRes.data;
-    executorSummary.value = execSummaryRes.data;
-    console.log("Stage Details Loaded:", { stage: currentStage.value, stats: stageStats.value });
+    
+    if (currentStage.value) {
+        // Use the actual attemptId from the fetched stage (it might be the latest one if props.attemptId was null)
+        const actualAttemptId = currentStage.value.attemptId || 0;
+        
+        const [statsRes, execSummaryRes] = await Promise.all([
+          getStageStats(props.appId, props.stageId, actualAttemptId),
+          getExecutorSummary(props.appId, props.stageId, actualAttemptId)
+        ]);
+        stageStats.value = statsRes.data;
+        executorSummary.value = execSummaryRes.data;
+        console.log("Stage Details Loaded:", { stage: currentStage.value, stats: stageStats.value });
+    }
   } catch (err) {
     console.error("Failed to fetch stage details:", err);
     console.error("AppID:", props.appId, "StageID:", props.stageId);

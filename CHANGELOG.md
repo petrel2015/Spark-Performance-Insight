@@ -4,6 +4,13 @@ English | [中文](./CHANGELOG.zh.md)
 
 All notable changes to this project will be documented in this file.
 
+## 0.12.0 - 2026-02-03
+
+### Features
+- **Stage Retry Support**: Fully supports displaying multiple attempts for the same Stage ID.
+    - **Backend**: Updated schema to track `attempt_id` for tasks and stages. Fixed `TooManyResultsException` by defaulting to the latest attempt or allowing specific attempt selection.
+    - **Frontend**: Stage list now indicates `(Attempt X)` and allows navigation to specific attempts. Stage Details, Timeline, and Task List now strictly filter data by attempt ID.
+
 ## 0.11.0 - 2026-02-03
 
 ### Features

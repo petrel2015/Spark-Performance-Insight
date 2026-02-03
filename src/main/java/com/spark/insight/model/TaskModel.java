@@ -10,6 +10,7 @@ public class TaskModel {
     private String id;
     private String appId;
     private Integer stageId;
+    private Integer attemptId;
     private Long taskId;
     private Integer taskIndex;
     private String executorId;

@@ -45,7 +45,8 @@ import { formatTime } from '../../utils/format';
 
 const props = defineProps({
   appId: { type: String, required: true },
-  stageId: { type: Number, required: true }
+  stageId: { type: Number, required: true },
+  attemptId: { type: Number, default: null }
 });
 
 const chartDom = ref(null);
@@ -91,7 +92,7 @@ const fetchAndRender = async () => {
   if (trendChart) trendChart.showLoading();
 
   try {
-    const res = await getStageTimeline(props.appId, props.stageId);
+    const res = await getStageTimeline(props.appId, props.stageId, props.attemptId);
     const tasks = res.data || [];
     if (tasks.length === 0) return;
 

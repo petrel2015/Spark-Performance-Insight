@@ -69,19 +69,22 @@ public class InsightController {
     @GetMapping("/apps/{appId}/stages/{stageId}/tasks")
     public PageResponse<TaskModel> listTasks(@PathVariable String appId,
                                              @PathVariable Integer stageId,
+                                             @RequestParam(required = false) Integer attemptId,
                                              @RequestParam(defaultValue = "1") int page,
                                              @RequestParam(defaultValue = "20") int size,
                                              @RequestParam(required = false) String sort) {
         // 1. 获取总数 (使用独立的 QueryWrapper)
-        long total = taskService.lambdaQuery()
+        var countQuery = taskService.lambdaQuery()
                 .eq(TaskModel::getAppId, appId)
-                .eq(TaskModel::getStageId, stageId)
-                .count();
+                .eq(TaskModel::getStageId, stageId);
+        if (attemptId != null) countQuery.eq(TaskModel::getAttemptId, attemptId);
+        long total = countQuery.count();
 
         // 2. 获取列表 (使用新的 QueryWrapper)
         var listQuery = taskService.lambdaQuery()
                 .eq(TaskModel::getAppId, appId)
                 .eq(TaskModel::getStageId, stageId);
+        if (attemptId != null) listQuery.eq(TaskModel::getAttemptId, attemptId);
 
         listQuery.last(buildSqlSuffix(sort, page, size, "task_index ASC"));
 
@@ -156,11 +159,21 @@ public class InsightController {
      * 获取单个 Stage 的元数据
      */
     @GetMapping("/apps/{appId}/stages/{stageId}")
-    public StageModel getStage(@PathVariable String appId, @PathVariable Integer stageId) {
-        return stageService.lambdaQuery()
+    public StageModel getStage(@PathVariable String appId, 
+                               @PathVariable Integer stageId,
+                               @RequestParam(required = false) Integer attemptId) {
+        var query = stageService.lambdaQuery()
                 .eq(StageModel::getAppId, appId)
-                .eq(StageModel::getStageId, stageId)
-                .one();
+                .eq(StageModel::getStageId, stageId);
+        
+        if (attemptId != null) {
+            query.eq(StageModel::getAttemptId, attemptId);
+        } else {
+            query.orderByDesc(StageModel::getAttemptId);
+            query.last("LIMIT 1");
+        }
+        
+        return query.one();
     }
 
     /**
@@ -185,12 +198,15 @@ public class InsightController {
      * 获取 Stage 的所有 Task 数据 (用于 Timeline 可视化)
      */
     @GetMapping("/apps/{appId}/stages/{stageId}/timeline")
-    public List<TaskModel> getStageTimeline(@PathVariable String appId, @PathVariable Integer stageId) {
-        return taskService.lambdaQuery()
+    public List<TaskModel> getStageTimeline(@PathVariable String appId, 
+                                            @PathVariable Integer stageId,
+                                            @RequestParam(required = false) Integer attemptId) {
+        var query = taskService.lambdaQuery()
                 .eq(TaskModel::getAppId, appId)
-                .eq(TaskModel::getStageId, stageId)
-                .orderByAsc(TaskModel::getLaunchTime)
-                .list();
+                .eq(TaskModel::getStageId, stageId);
+        if (attemptId != null) query.eq(TaskModel::getAttemptId, attemptId);
+        
+        return query.orderByAsc(TaskModel::getLaunchTime).list();
     }
 
     /**

@@ -129,6 +129,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     id VARCHAR PRIMARY KEY,
     app_id VARCHAR,
     stage_id INT,
+    attempt_id INT DEFAULT 0,
     task_id BIGINT,
     task_index INT,
     executor_id VARCHAR,

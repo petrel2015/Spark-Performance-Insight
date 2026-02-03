@@ -115,6 +115,10 @@ import { computed } from 'vue';
 const props = defineProps({
   appId: String,
   stageId: Number,
+  attemptId: {
+    type: Number,
+    default: null
+  },
   visibleMetrics: {
     type: Array,
     default: () => []
@@ -172,7 +176,7 @@ const getMetricType = (field) => columns.value.find(c => c.field === field)?.typ
 const fetchTasks = async () => {
   try {
     const sortStr = sorts.value.map(s => `${s.field},${s.dir}`).join(';');
-    const res = await getStageTasks(props.appId, props.stageId, currentPage.value, pageSize.value, sortStr);
+    const res = await getStageTasks(props.appId, props.stageId, currentPage.value, pageSize.value, sortStr, props.attemptId);
     if (res.data && res.data.items) {
       tasks.value = res.data.items;
       totalTasks.value = res.data.total;

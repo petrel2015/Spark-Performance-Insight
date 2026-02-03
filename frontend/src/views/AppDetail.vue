@@ -56,6 +56,7 @@
           v-else-if="app" 
           :app-id="app.appId" 
           :stage-id="selectedStageId" 
+          :attempt-id="selectedAttemptId"
           @back="navigateBackToStages" 
           @view-job="handleViewJob"
         />
@@ -95,6 +96,10 @@ const tabList = ['Diagnosis', 'Jobs', 'Stages', 'Executors', 'Environment'];
 
 const selectedStageId = computed(() => {
   return route.params.stageId ? parseInt(route.params.stageId) : null;
+});
+
+const selectedAttemptId = computed(() => {
+  return route.query.attemptId ? parseInt(route.query.attemptId) : null;
 });
 
 const selectedJobId = computed(() => {
@@ -139,8 +144,20 @@ const navigateBackToJobs = () => {
   router.push(`/app/${route.params.id}/jobs`);
 };
 
-const navigateToStage = (stageId) => {
-  router.push(`/app/${route.params.id}/stage/${stageId}`);
+const navigateToStage = (payload) => {
+  let stageId, attemptId;
+  if (typeof payload === 'object') {
+    stageId = payload.stageId;
+    attemptId = payload.attemptId;
+  } else {
+    stageId = payload;
+  }
+  
+  if (attemptId !== undefined && attemptId !== null) {
+    router.push({ path: `/app/${route.params.id}/stage/${stageId}`, query: { attemptId } });
+  } else {
+    router.push(`/app/${route.params.id}/stage/${stageId}`);
+  }
 };
 
 const navigateBackToStages = () => {

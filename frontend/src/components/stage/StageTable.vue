@@ -63,10 +63,13 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="stage in stages" :key="stage.stageId">
-          <td>{{ stage.stageId }}</td>
+        <tr v-for="stage in stages" :key="stage.id">
           <td>
-            <a href="javascript:void(0)" @click="$emit('view-stage-detail', stage.stageId)" class="stage-link">
+            {{ stage.stageId }} 
+            <span v-if="stage.attemptId > 0" class="attempt-badge">(Attempt {{ stage.attemptId }})</span>
+          </td>
+          <td>
+            <a href="javascript:void(0)" @click="$emit('view-stage-detail', { stageId: stage.stageId, attemptId: stage.attemptId })" class="stage-link">
               {{ stage.stageName }}
             </a>
           </td>

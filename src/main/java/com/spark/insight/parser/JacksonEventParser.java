@@ -440,6 +440,7 @@ public class JacksonEventParser implements EventParser {
         if (info == null || info.isNull()) return;
 
         int stageId = node.has("Stage ID") ? node.get("Stage ID").asInt() : -1;
+        int attemptId = node.has("Stage Attempt ID") ? node.get("Stage Attempt ID").asInt() : 0;
         long taskId = info.has("Task ID") ? info.get("Task ID").asLong() : -1L;
         int taskIndex = info.has("Index") ? info.get("Index").asInt() : -1;
         
@@ -455,6 +456,7 @@ public class JacksonEventParser implements EventParser {
         task.setId(appId + ":" + stageId + ":" + taskId);
         task.setAppId(appId);
         task.setStageId(stageId);
+        task.setAttemptId(attemptId);
         task.setTaskId(taskId);
         task.setTaskIndex(taskIndex);
         task.setExecutorId(info.has("Executor ID") ? info.get("Executor ID").asText() : "unknown");

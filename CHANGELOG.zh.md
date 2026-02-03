@@ -4,6 +4,13 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## 0.12.0 - 2026-02-03
+
+### 新功能
+- **Stage 重试支持**: 完美支持同一 Stage ID 的多次 Attempt 展示与区分。
+    - **后端升级**: 更新数据库 Schema 以追踪 Task 和 Stage 的 `attempt_id`。修复了多 Attempt 导致的 `TooManyResultsException`，API 现在默认返回最新 Attempt 或支持指定 Attempt。
+    - **前端适配**: Stage 列表现显示 `(Attempt X)` 标识。详情页、时间轴和任务列表实现了严格的 Attempt 隔离，避免数据混淆。
+
 ## 0.11.0 - 2026-02-03
 
 ### 新功能

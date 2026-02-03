@@ -35,6 +35,7 @@
             SELECT 
                 app_id, 
                 stage_id,
+                attempt_id,
                 count(case when status = 'SUCCESS' or status = 'SUCCEEDED' then 1 end) as done_tasks,
                 count(case when status = 'FAILED' then 1 end) as failed_tasks,
                 sum(gc_time) as total_gc,
@@ -62,9 +63,9 @@
                 max(duration) as max_dur
             FROM tasks
             WHERE app_id = #{appId}
-            GROUP BY app_id, stage_id
+            GROUP BY app_id, stage_id, attempt_id
         ) m
-        WHERE s.app_id = m.app_id AND s.stage_id = m.stage_id
+        WHERE s.app_id = m.app_id AND s.stage_id = m.stage_id AND s.attempt_id = m.attempt_id
     </update>
 
     <delete id="deleteStageStats">
@@ -78,6 +79,7 @@
             SELECT 
                 app_id, 
                 stage_id,
+                attempt_id,
                 'duration' as metric_name,
                 min(duration) as min_v,
                 approx_quantile(duration, 0.25) as p25,
@@ -85,86 +87,86 @@
                 approx_quantile(duration, 0.75) as p75,
                 approx_quantile(duration, 0.95) as p95,
                 max(duration) as max_v
-            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
             UNION ALL
             SELECT 
-                app_id, stage_id, 'gc_time',
+                app_id, stage_id, attempt_id, 'gc_time',
                 min(gc_time), approx_quantile(gc_time, 0.25), approx_quantile(gc_time, 0.5), approx_quantile(gc_time, 0.75), approx_quantile(gc_time, 0.95), max(gc_time)
-            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
             UNION ALL
             SELECT 
-                app_id, stage_id, 'memory_spill',
+                app_id, stage_id, attempt_id, 'memory_spill',
                 min(memory_bytes_spilled), approx_quantile(memory_bytes_spilled, 0.25), approx_quantile(memory_bytes_spilled, 0.5), approx_quantile(memory_bytes_spilled, 0.75), approx_quantile(memory_bytes_spilled, 0.95), max(memory_bytes_spilled)
-            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
             UNION ALL
             SELECT 
-                app_id, stage_id, 'disk_spill',
+                app_id, stage_id, attempt_id, 'disk_spill',
                 min(disk_bytes_spilled), approx_quantile(disk_bytes_spilled, 0.25), approx_quantile(disk_bytes_spilled, 0.5), approx_quantile(disk_bytes_spilled, 0.75), approx_quantile(disk_bytes_spilled, 0.95), max(disk_bytes_spilled)
-            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
             UNION ALL
             SELECT 
-                app_id, stage_id, 'shuffle_read',
+                app_id, stage_id, attempt_id, 'shuffle_read',
                 min(shuffle_read_bytes), approx_quantile(shuffle_read_bytes, 0.25), approx_quantile(shuffle_read_bytes, 0.5), approx_quantile(shuffle_read_bytes, 0.75), approx_quantile(shuffle_read_bytes, 0.95), max(shuffle_read_bytes)
-            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
             UNION ALL
             SELECT 
-                app_id, stage_id, 'shuffle_read_records',
+                app_id, stage_id, attempt_id, 'shuffle_read_records',
                 min(shuffle_read_records), approx_quantile(shuffle_read_records, 0.25), approx_quantile(shuffle_read_records, 0.5), approx_quantile(shuffle_read_records, 0.75), approx_quantile(shuffle_read_records, 0.95), max(shuffle_read_records)
-            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
             UNION ALL
             SELECT 
-                app_id, stage_id, 'shuffle_write',
+                app_id, stage_id, attempt_id, 'shuffle_write',
                 min(shuffle_write_bytes), approx_quantile(shuffle_write_bytes, 0.25), approx_quantile(shuffle_write_bytes, 0.5), approx_quantile(shuffle_write_bytes, 0.75), approx_quantile(shuffle_write_bytes, 0.95), max(shuffle_write_bytes)
-            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
             UNION ALL
             SELECT 
-                app_id, stage_id, 'shuffle_write_records',
+                app_id, stage_id, attempt_id, 'shuffle_write_records',
                 min(shuffle_write_records), approx_quantile(shuffle_write_records, 0.25), approx_quantile(shuffle_write_records, 0.5), approx_quantile(shuffle_write_records, 0.75), approx_quantile(shuffle_write_records, 0.95), max(shuffle_write_records)
-            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
             UNION ALL
             SELECT 
-                app_id, stage_id, 'task_deserialization_time',
+                app_id, stage_id, attempt_id, 'task_deserialization_time',
                 min(executor_deserialize_time), approx_quantile(executor_deserialize_time, 0.25), approx_quantile(executor_deserialize_time, 0.5), approx_quantile(executor_deserialize_time, 0.75), approx_quantile(executor_deserialize_time, 0.95), max(executor_deserialize_time)
-            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
             UNION ALL
             SELECT 
-                app_id, stage_id, 'result_serialization_time',
+                app_id, stage_id, attempt_id, 'result_serialization_time',
                 min(result_serialization_time), approx_quantile(result_serialization_time, 0.25), approx_quantile(result_serialization_time, 0.5), approx_quantile(result_serialization_time, 0.75), approx_quantile(result_serialization_time, 0.95), max(result_serialization_time)
-            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
             UNION ALL
             SELECT 
-                app_id, stage_id, 'getting_result_time',
+                app_id, stage_id, attempt_id, 'getting_result_time',
                 min(getting_result_time), approx_quantile(getting_result_time, 0.25), approx_quantile(getting_result_time, 0.5), approx_quantile(getting_result_time, 0.75), approx_quantile(getting_result_time, 0.95), max(getting_result_time)
-            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
             UNION ALL
             SELECT 
-                app_id, stage_id, 'scheduler_delay',
+                app_id, stage_id, attempt_id, 'scheduler_delay',
                 min(scheduler_delay), approx_quantile(scheduler_delay, 0.25), approx_quantile(scheduler_delay, 0.5), approx_quantile(scheduler_delay, 0.75), approx_quantile(scheduler_delay, 0.95), max(scheduler_delay)
-            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
             UNION ALL
             SELECT 
-                app_id, stage_id, 'peak_execution_memory',
+                app_id, stage_id, attempt_id, 'peak_execution_memory',
                 min(peak_execution_memory), approx_quantile(peak_execution_memory, 0.25), approx_quantile(peak_execution_memory, 0.5), approx_quantile(peak_execution_memory, 0.75), approx_quantile(peak_execution_memory, 0.95), max(peak_execution_memory)
-            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
             UNION ALL
             SELECT 
-                app_id, stage_id, 'input_bytes',
+                app_id, stage_id, attempt_id, 'input_bytes',
                 min(input_bytes), approx_quantile(input_bytes, 0.25), approx_quantile(input_bytes, 0.5), approx_quantile(input_bytes, 0.75), approx_quantile(input_bytes, 0.95), max(input_bytes)
-            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
             UNION ALL
             SELECT 
-                app_id, stage_id, 'input_records',
+                app_id, stage_id, attempt_id, 'input_records',
                 min(input_records), approx_quantile(input_records, 0.25), approx_quantile(input_records, 0.5), approx_quantile(input_records, 0.75), approx_quantile(input_records, 0.95), max(input_records)
-            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
             UNION ALL
             SELECT 
-                app_id, stage_id, 'shuffle_write_time',
+                app_id, stage_id, attempt_id, 'shuffle_write_time',
                 min(shuffle_write_time), approx_quantile(shuffle_write_time, 0.25), approx_quantile(shuffle_write_time, 0.5), approx_quantile(shuffle_write_time, 0.75), approx_quantile(shuffle_write_time, 0.95), max(shuffle_write_time)
-            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id
+            FROM tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
         )
         SELECT 
-            app_id || ':' || stage_id || ':0:' || metric_name,
-            app_id, stage_id, 0, metric_name, min_v, p25, p50, p75, p95, max_v
+            app_id || ':' || stage_id || ':' || attempt_id || ':' || metric_name,
+            app_id, stage_id, attempt_id, metric_name, min_v, p25, p50, p75, p95, max_v
         FROM task_stats
     </insert>
 
@@ -193,6 +195,9 @@
             sum(shuffle_write_time) as shuffleWriteTime
         FROM tasks
         WHERE app_id = #{appId} AND stage_id = #{stageId}
+        <if test="attemptId != null">
+            AND attempt_id = #{attemptId}
+        </if>
         GROUP BY executor_id
         ORDER BY executor_id ASC
     </select>
@@ -220,7 +225,7 @@
             sum(shuffle_write_records) as shuffleWriteRecords,
             sum(shuffle_write_time) as shuffleWriteTime
         FROM tasks t
-        JOIN stages s ON t.app_id = s.app_id AND t.stage_id = s.stage_id
+        JOIN stages s ON t.app_id = s.app_id AND t.stage_id = s.stage_id AND t.attempt_id = s.attempt_id
         WHERE t.app_id = #{appId} AND s.job_id = #{jobId}
         GROUP BY executor_id
         ORDER BY executor_id ASC

@@ -121,7 +121,7 @@ const jumpPageInput = ref(1);
 const sorts = ref([{ field: 'jobId', dir: 'desc' }]); // Default sort by Job ID DESC
 
 const columns = [
-  { field: 'jobId', label: 'Job ID', width: '80px', sortable: true },
+  { field: 'jobId', label: 'Job ID (Job Group)', width: '180px', sortable: true },
   { field: 'description', label: 'Description', sortable: false },
   { field: 'submissionTime', label: 'Submission Time', width: '180px', sortable: true },
   { field: 'duration', label: 'Duration', width: '100px', sortable: true },
@@ -331,17 +331,22 @@ watch(() => props.appId, () => {
   color: #2980b9;
 }
 
+.job-id-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
 .job-group-badge {
-  display: block;
+  display: inline-block;
   font-size: 0.75em;
   background-color: #e9ecef;
   color: #666;
-  padding: 2px 4px;
+  padding: 2px 6px;
   border-radius: 4px;
   margin-top: 4px;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  word-break: break-all;
+  white-space: normal;
 }
 
 .progress-wrapper {

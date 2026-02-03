@@ -23,6 +23,10 @@ public class DiagnosisService {
      */
     public String generateMarkdownReport(String appId) {
         ApplicationModel app = applicationService.getById(appId);
+        if (app == null) {
+            return "Application not found for ID: " + appId;
+        }
+        
         List<StageModel> stages = stageService.lambdaQuery().eq(StageModel::getAppId, appId).list();
 
         StringBuilder sb = new StringBuilder();
@@ -30,14 +34,31 @@ public class DiagnosisService {
         sb.append("## 1. Basic Information\n");
         sb.append("- **App Name:** ").append(app.getAppName()).append("\n");
         sb.append("- **App ID:** ").append(app.getAppId()).append("\n");
-        sb.append("- **Duration:** ").append(app.getDuration() / 1000).append("s\n");
-        sb.append("- **Spark Version:** ").append(app.getSparkVersion()).append("\n\n");
+        
+        // Null-safe duration
+        Long duration = app.getDuration();
+        if (duration != null) {
+            sb.append("- **Duration:** ").append(duration / 1000).append("s\n");
+        } else {
+            sb.append("- **Duration:** <span style=\"color:red\">N/A (Missing Data)</span> ⚠️\n");
+        }
+        
+        sb.append("- **Spark Version:** ").append(app.getSparkVersion() != null ? app.getSparkVersion() : "Unknown").append("\n\n");
 
         sb.append("## 2. Performance Issues (Anomalies)\n\n");
 
         boolean hasIssues = false;
+        int incompleteStages = 0;
+
         for (StageModel stage : stages) {
             StringBuilder stageIssues = new StringBuilder();
+            boolean isDataIncomplete = false;
+
+            // Rule 0: Data Integrity Check
+            if (stage.getSubmissionTime() == null || stage.getCompletionTime() == null) {
+                incompleteStages++;
+                isDataIncomplete = true;
+            }
             
             // Rule 1: Data Skew
             if (Boolean.TRUE.equals(stage.getIsSkewed())) {
@@ -45,17 +66,19 @@ public class DiagnosisService {
             }
 
             // Rule 2: GC Pressure
-            double gcRatio = (double) stage.getGcTimeSum() / (stage.getCompletionTime().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() - stage.getSubmissionTime().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli());
-            // 简化判断：如果总 GC 时间超过该 Stage 运行时间的 10% (近似估算)
-            if (stage.getGcTimeSum() > 0 && stage.getNumTasks() > 0) {
-                 // 实际上应该用所有 task 耗时总和作为分母，这里简化为总耗时*并发度
-                 long totalExecutionTime = stage.getDurationP50() * stage.getNumTasks();
-                 if (totalExecutionTime > 0 && (double) stage.getGcTimeSum() / totalExecutionTime > 0.1) {
-                     stageIssues.append("  - **High GC Pressure:** JVM GC time accounts for more than 10% of total task time.\n");
+            // Skip precise time calculation if data is incomplete, fall back to rough estimate if possible or skip
+            if (stage.getGcTimeSum() != null && stage.getGcTimeSum() > 0 && stage.getNumTasks() != null && stage.getNumTasks() > 0) {
+                 // Use p50 duration safely
+                 Long p50 = stage.getDurationP50();
+                 if (p50 != null && p50 > 0) {
+                     long totalExecutionTime = p50 * stage.getNumTasks();
+                     if (totalExecutionTime > 0 && (double) stage.getGcTimeSum() / totalExecutionTime > 0.1) {
+                         stageIssues.append("  - **High GC Pressure:** JVM GC time accounts for more than 10% of estimated total task time.\n");
+                     }
                  }
             }
 
-            // Rule 3: Memory Spill (需查询 Task 表获取详情)
+            // Rule 3: Memory Spill
             List<TaskModel> spillTasks = taskService.lambdaQuery()
                     .eq(TaskModel::getAppId, appId)
                     .eq(TaskModel::getStageId, stage.getStageId())
@@ -66,9 +89,13 @@ public class DiagnosisService {
                 stageIssues.append("  - **Disk Spill Detected:** Total ").append(totalSpill / 1024 / 1024).append(" MB data spilled to disk.\n");
             }
 
+            // Report issues
             if (stageIssues.length() > 0) {
                 hasIssues = true;
                 sb.append("### Stage ").append(stage.getStageId()).append(": ").append(stage.getStageName()).append("\n");
+                if (isDataIncomplete) {
+                    sb.append("  - ⚠️ <span style=\"color:orange\">Warning: Incomplete timing data for this stage. Analysis may be inaccurate.</span>\n");
+                }
                 sb.append(stageIssues.toString()).append("\n");
             }
         }
@@ -76,8 +103,21 @@ public class DiagnosisService {
         if (!hasIssues) {
             sb.append("No significant performance issues detected in this application.\n");
         }
+        
+        // Data Quality Section
+        if (incompleteStages > 0 || app.getDuration() == null) {
+            sb.append("\n## ⚠️ Data Quality Warning\n");
+            sb.append("Some metrics could not be calculated due to missing event logs:\n");
+            if (app.getDuration() == null) {
+                sb.append("- **App Duration:** Missing application end event.\n");
+            }
+            if (incompleteStages > 0) {
+                sb.append("- **Incomplete Stages:** ").append(incompleteStages)
+                  .append(" stages are missing submission or completion times. (Marked as Bad Data Points)\n");
+            }
+        }
 
-        sb.append("## 3. Optimization Suggestions (For LLM)\n");
+        sb.append("\n## 3. Optimization Suggestions (For LLM)\n");
         sb.append("Based on the detected issues, consider the following actions:\n");
         sb.append("- For **Data Skew**: Check the join/grouping keys and consider using `salting` or increasing `spark.sql.shuffle.partitions`.\n");
         sb.append("- For **High GC**: Increase executor memory or tune `spark.memory.fraction`.\n");

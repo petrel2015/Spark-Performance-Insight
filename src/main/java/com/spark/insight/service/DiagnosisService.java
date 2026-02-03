@@ -24,28 +24,28 @@ public class DiagnosisService {
     public String generateMarkdownReport(String appId) {
         ApplicationModel app = applicationService.getById(appId);
         if (app == null) {
-            return "Application not found for ID: " + appId;
+            return "未找到 ID 为 " + appId + " 的应用。";
         }
         
         List<StageModel> stages = stageService.lambdaQuery().eq(StageModel::getAppId, appId).list();
 
         StringBuilder sb = new StringBuilder();
-        sb.append("# Spark Performance Diagnosis Report\n\n");
-        sb.append("## 1. Basic Information\n");
-        sb.append("- **App Name:** ").append(app.getAppName()).append("\n");
-        sb.append("- **App ID:** ").append(app.getAppId()).append("\n");
+        sb.append("# Spark 性能诊断报告\n\n");
+        sb.append("## 1. 基本信息\n");
+        sb.append("- **应用名称:** ").append(app.getAppName()).append("\n");
+        sb.append("- **应用 ID:** ").append(app.getAppId()).append("\n");
         
         // Null-safe duration
         Long duration = app.getDuration();
         if (duration != null) {
-            sb.append("- **Duration:** ").append(duration / 1000).append("s\n");
+            sb.append("- **运行时长:** ").append(duration / 1000).append(" 秒\n");
         } else {
-            sb.append("- **Duration:** <span style=\"color:red\">N/A (Missing Data)</span> ⚠️\n");
+            sb.append("- **运行时长:** <span style=\"color:red\">暂无数据 (日志缺失)</span> ⚠️\n");
         }
         
-        sb.append("- **Spark Version:** ").append(app.getSparkVersion() != null ? app.getSparkVersion() : "Unknown").append("\n\n");
+        sb.append("- **Spark 版本:** ").append(app.getSparkVersion() != null ? app.getSparkVersion() : "未知").append("\n\n");
 
-        sb.append("## 2. Performance Issues (Anomalies)\n\n");
+        sb.append("## 2. 性能问题 (异常指标)\n\n");
 
         boolean hasIssues = false;
         int incompleteStages = 0;
@@ -62,18 +62,16 @@ public class DiagnosisService {
             
             // Rule 1: Data Skew
             if (Boolean.TRUE.equals(stage.getIsSkewed())) {
-                stageIssues.append("  - **Data Skew Detected:** Max Task duration is significantly higher than median.\n");
+                stageIssues.append("  - **检测到数据倾斜:** 最大任务 (Task) 耗时显著高于中位数。\n");
             }
 
             // Rule 2: GC Pressure
-            // Skip precise time calculation if data is incomplete, fall back to rough estimate if possible or skip
             if (stage.getGcTimeSum() != null && stage.getGcTimeSum() > 0 && stage.getNumTasks() != null && stage.getNumTasks() > 0) {
-                 // Use p50 duration safely
                  Long p50 = stage.getDurationP50();
                  if (p50 != null && p50 > 0) {
                      long totalExecutionTime = p50 * stage.getNumTasks();
                      if (totalExecutionTime > 0 && (double) stage.getGcTimeSum() / totalExecutionTime > 0.1) {
-                         stageIssues.append("  - **High GC Pressure:** JVM GC time accounts for more than 10% of estimated total task time.\n");
+                         stageIssues.append("  - **GC 压力过大:** JVM GC 时间占比超过预估总任务时间的 10%。\n");
                      }
                  }
             }
@@ -86,7 +84,7 @@ public class DiagnosisService {
                     .list();
             if (!spillTasks.isEmpty()) {
                 long totalSpill = spillTasks.stream().mapToLong(TaskModel::getDiskBytesSpilled).sum();
-                stageIssues.append("  - **Disk Spill Detected:** Total ").append(totalSpill / 1024 / 1024).append(" MB data spilled to disk.\n");
+                stageIssues.append("  - **检测到磁盘溢写:** 共有 ").append(totalSpill / 1024 / 1024).append(" MB 数据溢写至磁盘。\n");
             }
 
             // Report issues
@@ -94,34 +92,34 @@ public class DiagnosisService {
                 hasIssues = true;
                 sb.append("### Stage ").append(stage.getStageId()).append(": ").append(stage.getStageName()).append("\n");
                 if (isDataIncomplete) {
-                    sb.append("  - ⚠️ <span style=\"color:orange\">Warning: Incomplete timing data for this stage. Analysis may be inaccurate.</span>\n");
+                    sb.append("  - ⚠️ <span style=\"color:orange\">警告：此阶段时间数据不完整，分析结果可能存在偏差。</span>\n");
                 }
                 sb.append(stageIssues.toString()).append("\n");
             }
         }
 
         if (!hasIssues) {
-            sb.append("No significant performance issues detected in this application.\n");
+            sb.append("在此应用中未检测到显著的性能问题。\n");
         }
         
         // Data Quality Section
         if (incompleteStages > 0 || app.getDuration() == null) {
-            sb.append("\n## ⚠️ Data Quality Warning\n");
-            sb.append("Some metrics could not be calculated due to missing event logs:\n");
+            sb.append("\n## ⚠️ 数据质量警告\n");
+            sb.append("由于事件日志缺失，部分指标无法准确计算：\n");
             if (app.getDuration() == null) {
-                sb.append("- **App Duration:** Missing application end event.\n");
+                sb.append("- **应用时长:** 缺失 ApplicationEnd 事件。\n");
             }
             if (incompleteStages > 0) {
-                sb.append("- **Incomplete Stages:** ").append(incompleteStages)
-                  .append(" stages are missing submission or completion times. (Marked as Bad Data Points)\n");
+                sb.append("- **不完整的阶段:** 共有 ").append(incompleteStages)
+                  .append(" 个阶段缺失提交或完成时间（已标记为坏点数据）。\n");
             }
         }
 
-        sb.append("\n## 3. Optimization Suggestions (For LLM)\n");
-        sb.append("Based on the detected issues, consider the following actions:\n");
-        sb.append("- For **Data Skew**: Check the join/grouping keys and consider using `salting` or increasing `spark.sql.shuffle.partitions`.\n");
-        sb.append("- For **High GC**: Increase executor memory or tune `spark.memory.fraction`.\n");
-        sb.append("- For **Spill**: Increase `spark.executor.memory` or reduce `spark.memory.storageFraction` to allow more execution memory.\n");
+        sb.append("\n## 3. 优化建议 (供 LLM 参考)\n");
+        sb.append("针对检测到的问题，建议考虑以下优化措施：\n");
+        sb.append("- **针对数据倾斜**: 检查 Join 或 Grouping 的 Key，考虑使用“加盐”策略或增加 `spark.sql.shuffle.partitions`。\n");
+        sb.append("- **针对高 GC 压力**: 增加 Executor 内存，或调整 `spark.memory.fraction` 以优化内存管理。\n");
+        sb.append("- **针对溢写**: 增加 `spark.executor.memory` 或减少 `spark.memory.storageFraction` 以留出更多执行内存。\n");
 
         return sb.toString();
     }

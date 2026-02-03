@@ -4,6 +4,15 @@ English | [中文](./CHANGELOG.zh.md)
 
 All notable changes to this project will be documented in this file.
 
+## 0.12.1 - 2026-02-03
+
+### Improvements
+- **Spark Web UI Parity**: 
+    - The Job list is now sorted by `Job ID` descending by default.
+    - Updated Job list column to "Job ID (Job Group)" with better badge styling for long group names.
+- **UI Polish**:
+    - Enhanced App List to gracefully handle extremely long App IDs with word wrapping and wider columns.
+
 ## 0.12.0 - 2026-02-03
 
 ### Features

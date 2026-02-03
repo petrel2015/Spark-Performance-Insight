@@ -8,6 +8,19 @@
       </div>
     </div>
 
+    <!-- 0. Job DAG Visualization -->
+    <CollapsibleCard v-if="currentJob" title="Job DAG Visualization" :initial-collapsed="false">
+      <template #actions>
+        <button class="lock-btn" 
+                v-if="dagRef" 
+                @click="dagRef.toggleZoomLock()" 
+                :title="dagRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
+          {{ dagRef.isZoomLocked ? '🔒 Locked' : '🔓 Unlocked' }}
+        </button>
+      </template>
+      <JobDAG ref="dagRef" :app-id="appId" :job-id="jobId" />
+    </CollapsibleCard>
+
     <!-- 1. Aggregated Metrics by Executor -->
     <CollapsibleCard v-if="executorSummary && executorSummary.length > 0" title="Aggregated Metrics by Executor (Job Level)">
       <ExecutorSummary
@@ -35,6 +48,7 @@ import { getJobExecutorSummary, getJob } from '../../api';
 import CollapsibleCard from '../common/CollapsibleCard.vue';
 import StageTable from '../stage/StageTable.vue';
 import ExecutorSummary from '../stage/ExecutorSummary.vue';
+import JobDAG from './JobDAG.vue';
 import { DEFAULT_METRICS } from '../../constants/metrics';
 
 const props = defineProps({
@@ -46,6 +60,7 @@ const emit = defineEmits(['back', 'view-stage']);
 
 const currentJob = ref(null);
 const executorSummary = ref([]);
+const dagRef = ref(null);
 
 const fetchJobDetails = async () => {
   try {
@@ -74,4 +89,22 @@ watch(() => props.jobId, fetchJobDetails);
 .job-title h3 { margin: 0; font-size: 1.1rem; color: #2c3e50; }
 .job-description-subtitle { font-size: 0.8rem; color: #7f8c8d; }
 .back-btn { background: #6c757d; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+
+.lock-btn {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  color: #555;
+  transition: all 0.2s;
+  min-width: 80px;
+  text-align: center;
+}
+
+.lock-btn:hover {
+  background: #f0f0f0;
+  color: #333;
+}
 </style>

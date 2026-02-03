@@ -205,31 +205,31 @@
 
     <select id="getJobExecutorSummary" resultType="map">
         SELECT 
-            executor_id as executorId,
+            t.executor_id as executorId,
             count(*) as taskCount,
-            sum(executor_deserialize_time) as executorDeserializeTime,
+            sum(t.executor_deserialize_time) as executorDeserializeTime,
             sum(t.duration) as duration,
-            sum(gc_time) as gcTime,
-            sum(result_serialization_time) as resultSerializationTime,
-            sum(getting_result_time) as gettingResultTime,
-            sum(scheduler_delay) as schedulerDelay,
-            max(peak_execution_memory) as peakExecutionMemory,
-            sum(memory_bytes_spilled) as memoryBytesSpilled,
-            sum(disk_bytes_spilled) as diskBytesSpilled,
-            sum(input_bytes) as inputBytes,
-            sum(input_records) as inputRecords,
-            sum(output_bytes) as outputBytes,
-            sum(output_records) as outputRecords,
-            sum(shuffle_read_bytes) as shuffleReadBytes,
-            sum(shuffle_read_records) as shuffleReadRecords,
-            sum(shuffle_write_bytes) as shuffleWriteBytes,
-            sum(shuffle_write_records) as shuffleWriteRecords,
-            sum(shuffle_write_time) as shuffleWriteTime
+            sum(t.gc_time) as gcTime,
+            sum(t.result_serialization_time) as resultSerializationTime,
+            sum(t.getting_result_time) as gettingResultTime,
+            sum(t.scheduler_delay) as schedulerDelay,
+            max(t.peak_execution_memory) as peakExecutionMemory,
+            sum(t.memory_bytes_spilled) as memoryBytesSpilled,
+            sum(t.disk_bytes_spilled) as diskBytesSpilled,
+            sum(t.input_bytes) as inputBytes,
+            sum(t.input_records) as inputRecords,
+            sum(t.output_bytes) as outputBytes,
+            sum(t.output_records) as outputRecords,
+            sum(t.shuffle_read_bytes) as shuffleReadBytes,
+            sum(t.shuffle_read_records) as shuffleReadRecords,
+            sum(t.shuffle_write_bytes) as shuffleWriteBytes,
+            sum(t.shuffle_write_records) as shuffleWriteRecords,
+            sum(t.shuffle_write_time) as shuffleWriteTime
         FROM tasks t
         JOIN stages s ON t.app_id = s.app_id AND t.stage_id = s.stage_id AND t.attempt_id = s.attempt_id
         WHERE t.app_id = #{appId} AND s.job_id = #{jobId}
-        GROUP BY executor_id
-        ORDER BY executor_id ASC
+        GROUP BY t.executor_id
+        ORDER BY t.executor_id ASC
     </select>
 
 </mapper>

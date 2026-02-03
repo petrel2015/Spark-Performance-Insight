@@ -4,6 +4,14 @@ English | [中文](./CHANGELOG.zh.md)
 
 All notable changes to this project will be documented in this file.
 
+## 0.14.0 - 2026-02-03
+
+### Features
+- **Job DAG Visualization**: Added a comprehensive DAG view at the Job level. Individual Stage DAGs are now stitched together, grouped by Stage boxes, and connected via RDD dependencies.
+
+### Bug Fixes
+- **SQL Ambiguity Fix**: Resolved a `Binder Error` in `getJobExecutorSummary` caused by ambiguous column references between `tasks` and `stages` tables.
+
 ## 0.13.0 - 2026-02-03
 
 ### Features

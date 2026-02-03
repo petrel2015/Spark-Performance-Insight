@@ -224,6 +224,15 @@ public class InsightController {
         return stageService.getJobExecutorSummary(appId, jobId);
     }
 
+    @GetMapping("/apps/{appId}/jobs/{jobId}/stages")
+    public List<StageModel> getJobStages(@PathVariable String appId, @PathVariable Integer jobId) {
+        return stageService.lambdaQuery()
+                .eq(StageModel::getAppId, appId)
+                .eq(StageModel::getJobId, jobId)
+                .orderByAsc(StageModel::getStageId)
+                .list();
+    }
+
     /**
      * 获取单个 Application 的元数据
      */

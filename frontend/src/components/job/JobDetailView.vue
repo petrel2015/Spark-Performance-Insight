@@ -38,9 +38,26 @@
     <CollapsibleCard v-if="executorSummary && executorSummary.length > 0" title="Aggregated Metrics by Executor (Job Level)">
       <ExecutorSummary
         :summary="executorSummary"
-        :visible-metrics="DEFAULT_METRICS"
+        :visible-metrics="selectedMetrics"
       />
     </CollapsibleCard>
+
+    <!-- 1.5. Metric Visibility Selector -->
+    <div class="metric-selector-card">
+      <div class="selector-header">
+        <strong>Select Metrics to Display:</strong>
+        <div class="selector-actions">
+          <button @click="selectAllMetrics">Select All</button>
+          <button @click="clearAllMetrics">Clear All</button>
+        </div>
+      </div>
+      <div class="checkbox-group">
+        <label v-for="m in AVAILABLE_METRICS" :key="m.key" class="checkbox-item">
+          <input type="checkbox" :value="m.key" v-model="selectedMetrics">
+          {{ m.label }}
+        </label>
+      </div>
+    </div>
 
     <!-- 2. Job Stages List -->
     <CollapsibleCard title="Stages">
@@ -49,6 +66,7 @@
         :job-id="jobId" 
         :hide-title="true" 
         :plain="true"
+        :visible-metrics="selectedMetrics"
         @view-stage-detail="onViewStage" 
       />
     </CollapsibleCard>
@@ -63,7 +81,7 @@ import StageTable from '../stage/StageTable.vue';
 import ExecutorSummary from '../stage/ExecutorSummary.vue';
 import JobDAG from './JobDAG.vue';
 import JobTimeline from './JobTimeline.vue';
-import { DEFAULT_METRICS } from '../../constants/metrics';
+import { AVAILABLE_METRICS, DEFAULT_METRICS } from '../../constants/metrics';
 
 const props = defineProps({
   appId: { type: String, required: true },
@@ -76,6 +94,15 @@ const currentJob = ref(null);
 const executorSummary = ref([]);
 const dagRef = ref(null);
 const timelineRef = ref(null);
+const selectedMetrics = ref([...DEFAULT_METRICS]);
+
+const selectAllMetrics = () => {
+  selectedMetrics.value = AVAILABLE_METRICS.map(m => m.key);
+};
+
+const clearAllMetrics = () => {
+  selectedMetrics.value = [];
+};
 
 const fetchJobDetails = async () => {
   try {
@@ -104,6 +131,49 @@ watch(() => props.jobId, fetchJobDetails);
 .job-title h3 { margin: 0; font-size: 1.1rem; color: #2c3e50; }
 .job-description-subtitle { font-size: 0.8rem; color: #7f8c8d; }
 .back-btn { background: #6c757d; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+
+.metric-selector-card {
+  background: white;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 8px;
+}
+
+.selector-header strong { font-size: 0.9rem; color: #2c3e50; }
+
+.selector-actions { display: flex; gap: 10px; }
+.selector-actions button { 
+  background: none; border: 1px solid #ddd; padding: 2px 8px; border-radius: 4px; 
+  font-size: 0.75rem; cursor: pointer; color: #666;
+}
+.selector-actions button:hover { border-color: #3498db; color: #3498db; }
+
+.checkbox-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px 15px;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #555;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.checkbox-item input { cursor: pointer; }
 
 .lock-btn {
   background: white;

@@ -64,47 +64,69 @@
       </thead>
       <tbody>
         <tr v-for="stage in stages" :key="stage.id">
-          <td>
-            {{ stage.stageId }} 
-            <span v-if="hasRetries(stage.stageId)" class="attempt-badge">(Attempt {{ stage.attemptId }})</span>
-            <span v-if="isExpired(stage)" class="expired-badge">Expired</span>
-          </td>
-          <td>
-            <a href="javascript:void(0)" @click="$emit('view-job-detail', stage.jobId)" class="stage-link">
-              {{ stage.jobId }}
-            </a>
-          </td>
-          <td>
-            <a href="javascript:void(0)" @click="$emit('view-stage-detail', { stageId: stage.stageId, attemptId: stage.attemptId })" class="stage-link">
-              {{ stage.stageName }}
-            </a>
-          </td>
-          <td>{{ formatDateTime(stage.submissionTime) }}</td>
-          <td>{{ stage.duration ? formatTime(stage.duration) : formatDuration(stage.submissionTime, stage.completionTime) }}</td>
-          <td>
-            <div class="task-progress-wrapper">
-              <div class="progress-bar-container">
-                <div class="progress-bar-success" 
-                     :style="{ width: getProgressWidth(stage.numCompletedTasks, stage.numTasks) + '%' }">
-                </div>
-                <div class="progress-bar-failed" 
-                     :style="{ 
-                        width: getProgressWidth(stage.numFailedTasks, stage.numTasks) + '%',
-                        left: getProgressWidth(stage.numCompletedTasks, stage.numTasks) + '%' 
-                     }">
-                </div>
-                <!-- Text moved inside -->
-                <div class="task-count-overlay">
-                  {{ stage.numCompletedTasks }}/{{ stage.numTasks }}
-                  <span v-if="stage.numFailedTasks > 0" class="failed-count"> ({{ stage.numFailedTasks }} failed)</span>
+          <td v-for="col in columns" :key="col.field">
+            <!-- 1. Stage ID & Attempts -->
+            <template v-if="col.field === 'stageId'">
+              {{ stage.stageId }} 
+              <span v-if="hasRetries(stage.stageId)" class="attempt-badge">(Attempt {{ stage.attemptId }})</span>
+              <span v-if="isExpired(stage)" class="expired-badge">Expired</span>
+            </template>
+
+            <!-- 2. Job ID Link -->
+            <template v-else-if="col.field === 'jobId'">
+              <a href="javascript:void(0)" @click="$emit('view-job-detail', stage.jobId)" class="stage-link">
+                {{ stage.jobId }}
+              </a>
+            </template>
+
+            <!-- 3. Stage Name Link -->
+            <template v-else-if="col.field === 'stageName'">
+              <a href="javascript:void(0)" @click="$emit('view-stage-detail', { stageId: stage.stageId, attemptId: stage.attemptId })" class="stage-link">
+                {{ stage.stageName }}
+              </a>
+            </template>
+
+            <!-- 4. Submission Time -->
+            <template v-else-if="col.field === 'submissionTime'">
+              {{ formatDateTime(stage.submissionTime) }}
+            </template>
+
+            <!-- 5. Duration -->
+            <template v-else-if="col.field === 'duration'">
+              {{ stage.duration ? formatTime(stage.duration) : formatDuration(stage.submissionTime, stage.completionTime) }}
+            </template>
+
+            <!-- 6. Tasks Progress Bar -->
+            <template v-else-if="col.field === 'numTasks'">
+              <div class="task-progress-wrapper">
+                <div class="progress-bar-container">
+                  <div class="progress-bar-success" 
+                       :style="{ width: getProgressWidth(stage.numCompletedTasks, stage.numTasks) + '%' }">
+                  </div>
+                  <div class="progress-bar-failed" 
+                       :style="{ 
+                          width: getProgressWidth(stage.numFailedTasks, stage.numTasks) + '%',
+                          left: getProgressWidth(stage.numCompletedTasks, stage.numTasks) + '%' 
+                       }">
+                  </div>
+                  <div class="task-count-overlay">
+                    {{ stage.numCompletedTasks }}/{{ stage.numTasks }}
+                    <span v-if="stage.numFailedTasks > 0" class="failed-count"> ({{ stage.numFailedTasks }} failed)</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            </template>
+
+            <!-- 7. Dynamic Metric Columns (Bytes) -->
+            <template v-else-if="col.type === 'bytes'">
+              {{ formatBytes(stage[col.field]) }}
+            </template>
+
+            <!-- Fallback -->
+            <template v-else>
+              {{ stage[col.field] }}
+            </template>
           </td>
-          <td>{{ formatBytes(stage.inputBytes) }}</td>
-          <td>{{ formatBytes(stage.outputBytes) }}</td>
-          <td>{{ formatBytes(stage.shuffleReadBytes) }}</td>
-          <td>{{ formatBytes(stage.shuffleWriteBytes) }}</td>
         </tr>
         <tr v-if="stages.length === 0">
           <td :colspan="columns.length" style="text-align: center; padding: 40px;">No stages found.</td>
@@ -123,7 +145,8 @@ const props = defineProps({
   appId: String,
   jobId: Number, // Optional filter
   hideTitle: { type: Boolean, default: false },
-  plain: { type: Boolean, default: false }
+  plain: { type: Boolean, default: false },
+  visibleMetrics: { type: Array, default: null } // If null, show all default columns
 });
 
 const emit = defineEmits(['view-stage-detail', 'view-job-detail']);
@@ -160,18 +183,41 @@ const hasRetries = (stageId) => {
   return false;
 };
 
-const columns = [
+const baseColumns = [
   { field: 'stageId', label: 'Stage Id', width: '140px', sortable: true },
   { field: 'jobId', label: 'Job Id', width: '80px', sortable: true },
   { field: 'stageName', label: 'Name', sortable: true },
   { field: 'submissionTime', label: 'Submitted', width: '160px', sortable: true },
   { field: 'duration', label: 'Duration', width: '100px', sortable: true },
-  { field: 'numTasks', label: 'Tasks: Succeeded/Total', width: '180px', sortable: true },
-  { field: 'inputBytes', label: 'Input', width: '100px', sortable: true },
-  { field: 'outputBytes', label: 'Output', width: '100px', sortable: true },
-  { field: 'shuffleReadBytes', label: 'Shuffle Read', width: '120px', sortable: true },
-  { field: 'shuffleWriteBytes', label: 'Shuffle Write', width: '120px', sortable: true }
+  { field: 'numTasks', label: 'Tasks: Succeeded/Total', width: '180px', sortable: true }
 ];
+
+const metricColumnsMap = {
+  'input': { field: 'inputBytes', label: 'Input', width: '100px', sortable: true, type: 'bytes' },
+  'output': { field: 'outputBytes', label: 'Output', width: '100px', sortable: true, type: 'bytes' },
+  'shuffle_read': { field: 'shuffleReadBytes', label: 'Shuffle Read', width: '120px', sortable: true, type: 'bytes' },
+  'shuffle_write': { field: 'shuffleWriteBytes', label: 'Shuffle Write', width: '120px', sortable: true, type: 'bytes' }
+};
+
+const columns = computed(() => {
+  if (!props.visibleMetrics) {
+    return [
+      ...baseColumns,
+      metricColumnsMap['input'],
+      metricColumnsMap['output'],
+      metricColumnsMap['shuffle_read'],
+      metricColumnsMap['shuffle_write']
+    ];
+  }
+  
+  const cols = [...baseColumns];
+  props.visibleMetrics.forEach(key => {
+    if (metricColumnsMap[key]) {
+      cols.push(metricColumnsMap[key]);
+    }
+  });
+  return cols;
+});
 
 const formatDuration = (start, end) => {
   if (!start || !end) return '-';

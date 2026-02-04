@@ -19,6 +19,8 @@ import java.util.*;
 @Component
 public class JacksonEventParser implements EventParser {
 
+    private static final java.util.regex.Pattern APP_ID_PATTERN = java.util.regex.Pattern.compile("(spark-[a-zA-Z0-9\\-]+)");
+
     private final ObjectMapper objectMapper;
     private final ApplicationService applicationService;
     private final StageService stageService;
@@ -26,14 +28,16 @@ public class JacksonEventParser implements EventParser {
     private final EnvironmentConfigService envService;
     private final JobService jobService;
     private final ExecutorService executorService;
-    private final java.util.concurrent.ExecutorService dbExecutor = java.util.concurrent.Executors.newFixedThreadPool(8); // DB IO Thread Pool
+    private final javax.sql.DataSource dataSource;
+    private final java.util.concurrent.ExecutorService dbExecutor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor(); // Use Virtual Threads for IO
 
     public JacksonEventParser(ApplicationService applicationService,
                               StageService stageService,
                               TaskService taskService,
                               EnvironmentConfigService envService,
                               JobService jobService,
-                              ExecutorService executorService) {
+                              ExecutorService executorService,
+                              javax.sql.DataSource dataSource) {
         JsonFactory factory = JsonFactory.builder()
                 .streamReadConstraints(StreamReadConstraints.builder().maxStringLength(Integer.MAX_VALUE).build())
                 .build();
@@ -44,6 +48,7 @@ public class JacksonEventParser implements EventParser {
         this.envService = envService;
         this.jobService = jobService;
         this.executorService = executorService;
+        this.dataSource = dataSource;
     }
 
     @Override
@@ -57,7 +62,7 @@ public class JacksonEventParser implements EventParser {
 
         // 尝试从文件名推断 App ID (支持滚动日志)
         String inferredAppId = null;
-        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("(spark-[a-zA-Z0-9\\-]+)").matcher(logFile.getName());
+        java.util.regex.Matcher matcher = APP_ID_PATTERN.matcher(logFile.getName());
         if (matcher.find()) {
             inferredAppId = matcher.group(1);
         }
@@ -248,7 +253,76 @@ public class JacksonEventParser implements EventParser {
     private void saveDeduplicatedTasks(List<TaskModel> batch) {
         Map<String, TaskModel> unique = new HashMap<>();
         for (TaskModel t : batch) unique.put(t.getId(), t);
-        taskService.saveOrUpdateBatch(unique.values());
+        
+        try {
+            fastBatchInsertTasks(new ArrayList<>(unique.values()));
+        } catch (Exception e) {
+            log.error("Fast batch insert failed, falling back to Service saveBatch. Error: {}", e.getMessage());
+            taskService.saveOrUpdateBatch(unique.values());
+        }
+    }
+
+    private void fastBatchInsertTasks(List<TaskModel> tasks) throws java.sql.SQLException {
+        if (tasks.isEmpty()) return;
+
+        String sql = "INSERT OR REPLACE INTO tasks (" +
+                "id, app_id, stage_id, attempt_id, task_id, task_index, executor_id, host, " +
+                "launch_time, finish_time, duration, gc_time, scheduler_delay, getting_result_time, " +
+                "executor_deserialize_time, executor_run_time, result_serialization_time, executor_cpu_time, " +
+                "peak_execution_memory, input_bytes, input_records, output_bytes, output_records, " +
+                "memory_bytes_spilled, disk_bytes_spilled, shuffle_read_bytes, shuffle_read_records, " +
+                "shuffle_fetch_wait_time, shuffle_write_bytes, shuffle_write_time, shuffle_write_records, " +
+                "shuffle_remote_read, speculative, status" +
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        try (java.sql.Connection conn = dataSource.getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+            
+            conn.setAutoCommit(false); // Optimize for batch
+
+            for (TaskModel t : tasks) {
+                int idx = 1;
+                ps.setString(idx++, t.getId());
+                ps.setString(idx++, t.getAppId());
+                ps.setInt(idx++, t.getStageId());
+                ps.setInt(idx++, t.getAttemptId());
+                ps.setLong(idx++, t.getTaskId());
+                ps.setInt(idx++, t.getTaskIndex());
+                ps.setString(idx++, t.getExecutorId());
+                ps.setString(idx++, t.getHost());
+                ps.setLong(idx++, t.getLaunchTime());
+                ps.setLong(idx++, t.getFinishTime());
+                ps.setLong(idx++, t.getDuration());
+                ps.setLong(idx++, t.getGcTime());
+                ps.setLong(idx++, t.getSchedulerDelay());
+                ps.setLong(idx++, t.getGettingResultTime());
+                ps.setLong(idx++, t.getExecutorDeserializeTime());
+                ps.setLong(idx++, t.getExecutorRunTime());
+                ps.setLong(idx++, t.getResultSerializationTime());
+                ps.setLong(idx++, t.getExecutorCpuTime());
+                ps.setLong(idx++, t.getPeakExecutionMemory());
+                ps.setLong(idx++, t.getInputBytes());
+                ps.setLong(idx++, t.getInputRecords());
+                ps.setLong(idx++, t.getOutputBytes());
+                ps.setLong(idx++, t.getOutputRecords());
+                ps.setLong(idx++, t.getMemoryBytesSpilled());
+                ps.setLong(idx++, t.getDiskBytesSpilled());
+                ps.setLong(idx++, t.getShuffleReadBytes());
+                ps.setLong(idx++, t.getShuffleReadRecords());
+                ps.setLong(idx++, t.getShuffleFetchWaitTime());
+                ps.setLong(idx++, t.getShuffleWriteBytes());
+                ps.setLong(idx++, t.getShuffleWriteTime());
+                ps.setLong(idx++, t.getShuffleWriteRecords());
+                ps.setLong(idx++, t.getShuffleRemoteRead());
+                ps.setBoolean(idx++, t.getSpeculative());
+                ps.setString(idx++, t.getStatus());
+                
+                ps.addBatch();
+            }
+
+            ps.executeBatch();
+            conn.commit();
+        }
     }
 
     private void saveDeduplicatedEnv(List<EnvironmentConfigModel> batch) {

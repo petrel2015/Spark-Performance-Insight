@@ -23,7 +23,10 @@
       <!-- 1. Diagnosis Tab -->
       <div v-if="activeTab === 'Diagnosis'" class="diagnosis-layout">
         <div class="main-report">
-          <div class="markdown-body" v-html="renderedReport"></div>
+          <div v-if="loading.diagnosis" class="loading-placeholder">
+            Generating expert diagnosis report...
+          </div>
+          <div v-else class="markdown-body" v-html="renderedReport"></div>
         </div>
       </div>
 
@@ -93,6 +96,13 @@ const environment = ref([]);
 const report = ref('');
 const activeTab = ref('Diagnosis');
 
+const loading = ref({
+  app: false,
+  diagnosis: false,
+  executors: false,
+  environment: false
+});
+
 const tabList = ['Diagnosis', 'Jobs', 'Stages', 'Executors', 'Environment'];
 
 const selectedStageId = computed(() => {
@@ -109,23 +119,56 @@ const selectedJobId = computed(() => {
 
 const renderedReport = computed(() => marked(report.value));
 
+const fetchDataForTab = async (tab) => {
+  const appId = route.params.id;
+  if (!appId) return;
+
+  if (tab === 'Diagnosis' && !report.value && !loading.value.diagnosis) {
+    loading.value.diagnosis = true;
+    try {
+      const res = await getDiagnosisReport(appId);
+      report.value = res.data;
+    } finally {
+      loading.value.diagnosis = false;
+    }
+  } else if (tab === 'Executors' && executors.value.length === 0 && !loading.value.executors) {
+    loading.value.executors = true;
+    try {
+      const res = await getAppExecutors(appId);
+      executors.value = res.data;
+    } finally {
+      loading.value.executors = false;
+    }
+  } else if (tab === 'Environment' && environment.value.length === 0 && !loading.value.environment) {
+    loading.value.environment = true;
+    try {
+      const res = await getAppEnvironment(appId);
+      environment.value = res.data;
+    } finally {
+      loading.value.environment = false;
+    }
+  }
+};
+
 const syncTabWithRoute = () => {
   const path = route.path;
+  let newTab = 'Diagnosis';
   if (path.includes('/stage/')) {
-    activeTab.value = 'Stages';
+    newTab = 'Stages';
   } else if (path.includes('/job/')) {
-    activeTab.value = 'Jobs';
+    newTab = 'Jobs';
   } else if (path.endsWith('/jobs')) {
-    activeTab.value = 'Jobs';
+    newTab = 'Jobs';
   } else if (path.endsWith('/stages')) {
-    activeTab.value = 'Stages';
+    newTab = 'Stages';
   } else if (path.endsWith('/executors')) {
-    activeTab.value = 'Executors';
+    newTab = 'Executors';
   } else if (path.endsWith('/environment')) {
-    activeTab.value = 'Environment';
-  } else {
-    activeTab.value = 'Diagnosis';
+    newTab = 'Environment';
   }
+  
+  activeTab.value = newTab;
+  fetchDataForTab(newTab);
 };
 
 const navigateToTab = (tab) => {
@@ -181,17 +224,13 @@ onMounted(async () => {
   const appId = route.params.id;
   syncTabWithRoute();
 
-  const [appRes, reportRes, execRes, envRes] = await Promise.all([
-    getApp(appId),
-    getDiagnosisReport(appId),
-    getAppExecutors(appId),
-    getAppEnvironment(appId)
-  ]);
-
-  app.value = appRes.data;
-  report.value = reportRes.data;
-  executors.value = execRes.data;
-  environment.value = envRes.data;
+  loading.value.app = true;
+  try {
+    const appRes = await getApp(appId);
+    app.value = appRes.data;
+  } finally {
+    loading.value.app = false;
+  }
 });
 </script>
 
@@ -291,5 +330,15 @@ onMounted(async () => {
 
 .markdown-body {
   line-height: 1.6;
+}
+
+.loading-placeholder {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  color: #666;
+  font-style: italic;
+  font-size: 1.1rem;
 }
 </style>

@@ -4,6 +4,9 @@ server:
 spring:
   application:
     name: spark-performance-insight
+  threads:
+    virtual:
+      enabled: true
   datasource:
     url: jdbc:duckdb:spark_performance_insight.db
     driver-class-name: org.duckdb.DuckDBDriver

@@ -49,6 +49,23 @@
       <small class="sort-hint">(Hold <b>Shift</b> + Click headers to sort by multiple columns)</small>
     </div>
 
+    <!-- Metric Visibility Selector -->
+    <div class="metric-selector-card">
+      <div class="selector-header">
+        <strong>Select Columns to Display:</strong>
+        <div class="selector-actions">
+          <button @click="selectAllMetrics">Select All</button>
+          <button @click="clearAllMetrics">Clear All</button>
+        </div>
+      </div>
+      <div class="checkbox-group">
+        <label v-for="m in AVAILABLE_JOB_COLUMNS" :key="m.key" class="checkbox-item">
+          <input type="checkbox" :value="m.key" v-model="selectedMetrics">
+          {{ m.label }}
+        </label>
+      </div>
+    </div>
+
     <table class="styled-table">
       <thead>
         <tr>
@@ -63,44 +80,86 @@
       </thead>
       <tbody>
         <tr v-for="job in jobs" :key="job.jobId">
-          <td>{{ job.jobId }}</td>
-          <td>
-            <span v-if="job.jobGroup" class="job-group-badge">{{ job.jobGroup }}</span>
-            <span v-else>-</span>
-          </td>
-          <td>
-            <a href="javascript:void(0)" @click="$emit('view-job-detail', job.jobId)" class="job-link">
-              {{ job.description || 'Job ' + job.jobId }}
-            </a>
-          </td>
-          <td>{{ job.numStages }}</td>
-          <td>
-            <div class="stage-ids-list" :title="job.stageIds">
-              {{ job.stageIds || '-' }}
-            </div>
-          </td>
-          <td>{{ formatTime(job.submissionTime) }}</td>
-          <td>{{ job.duration ? commonFormatTime(job.duration) : calculateDuration(job.submissionTime, job.completionTime) }}</td>
-          <td>
-            <div class="progress-wrapper">
-              <div class="progress-track" v-if="job.numStages > 0">
-                <div class="progress-fill" :style="{ width: calculatePercent(job.numCompletedStages, job.numStages) + '%' }"></div>
-                <div class="progress-text-overlay">{{ job.numCompletedStages || 0 }}/{{ job.numStages }}</div>
+          <td v-for="col in columns" :key="col.field">
+            <!-- 1. Job ID -->
+            <template v-if="col.field === 'jobId'">
+              {{ job.jobId }}
+            </template>
+
+            <!-- 2. Job Group -->
+            <template v-else-if="col.field === 'jobGroup'">
+              <span v-if="job.jobGroup" class="job-group-badge">{{ job.jobGroup }}</span>
+              <span v-else>-</span>
+            </template>
+
+            <!-- 3. Description (Link) -->
+            <template v-else-if="col.field === 'description'">
+              <a href="javascript:void(0)" @click="$emit('view-job-detail', job.jobId)" class="job-link">
+                {{ job.description || 'Job ' + job.jobId }}
+              </a>
+            </template>
+
+            <!-- 4. Stages Count -->
+            <template v-else-if="col.field === 'numStages'">
+              {{ job.numStages }}
+            </template>
+
+            <!-- 5. Stage IDs (Status Colored) -->
+            <template v-else-if="col.field === 'stageIds'">
+              <div class="stage-ids-list" :title="job.stageIds">
+                <template v-if="job.stageIds">
+                  <span v-for="(sid, idx) in job.stageIds.split(',')" :key="sid">
+                    <span :class="'stage-id-link ' + getStageStatusClass(job, sid)">{{ sid }}</span>
+                    <span v-if="idx < job.stageIds.split(',').length - 1">, </span>
+                  </span>
+                </template>
+                <template v-else>-</template>
               </div>
-            </div>
-          </td>
-          <td>
-            <div class="progress-wrapper">
-              <div class="progress-track" v-if="job.numTasks > 0">
-                <div class="progress-fill tasks-fill" :style="{ width: calculatePercent(job.numCompletedTasks, job.numTasks) + '%' }"></div>
-                <div class="progress-text-overlay">{{ job.numCompletedTasks || 0 }}/{{ job.numTasks }}</div>
+            </template>
+
+            <!-- 6. Submission Time -->
+            <template v-else-if="col.field === 'submissionTime'">
+              {{ formatTime(job.submissionTime) }}
+            </template>
+
+            <!-- 7. Duration -->
+            <template v-else-if="col.field === 'duration'">
+              {{ job.duration ? commonFormatTime(job.duration) : calculateDuration(job.submissionTime, job.completionTime) }}
+            </template>
+
+            <!-- 8. Stages Progress -->
+            <template v-else-if="col.field === 'stagesProgress'">
+              <div class="progress-wrapper">
+                <div class="progress-track" v-if="job.numStages > 0">
+                  <div class="progress-fill" :style="{ width: calculatePercent(job.numCompletedStages, job.numStages) + '%' }"></div>
+                  <div class="progress-text-overlay">{{ job.numCompletedStages || 0 }}/{{ job.numStages }}</div>
+                </div>
               </div>
-            </div>
+            </template>
+
+            <!-- 9. Tasks Progress -->
+            <template v-else-if="col.field === 'numTasks'">
+              <div class="progress-wrapper">
+                <div class="progress-track" v-if="job.numTasks > 0">
+                  <div class="progress-fill tasks-fill" :style="{ width: calculatePercent(job.numCompletedTasks, job.numTasks) + '%' }"></div>
+                  <div class="progress-text-overlay">{{ job.numCompletedTasks || 0 }}/{{ job.numTasks }}</div>
+                </div>
+              </div>
+            </template>
+
+            <!-- 10. Status -->
+            <template v-else-if="col.field === 'status'">
+              <span :class="'status-' + job.status">{{ job.status }}</span>
+            </template>
+
+            <!-- Fallback -->
+            <template v-else>
+              {{ job[col.field] }}
+            </template>
           </td>
-          <td><span :class="'status-' + job.status">{{ job.status }}</span></td>
         </tr>
         <tr v-if="jobs.length === 0">
-          <td colspan="10" style="text-align: center; padding: 40px;">No jobs found.</td>
+          <td :colspan="columns.length" style="text-align: center; padding: 40px;">No jobs found.</td>
         </tr>
       </tbody>
     </table>
@@ -125,18 +184,42 @@ const pageSize = ref(20);
 const jumpPageInput = ref(1);
 const sorts = ref([{ field: 'jobId', dir: 'desc' }]); // Default sort by Job ID DESC
 
-const columns = [
-  { field: 'jobId', label: 'Job ID', width: '80px', sortable: true },
-  { field: 'jobGroup', label: 'Job Group', width: '140px', sortable: true },
-  { field: 'description', label: 'Description', sortable: false },
-  { field: 'numStages', label: 'Stages Count', width: '100px', sortable: true },
-  { field: 'stageIds', label: 'Stage IDs', width: '140px', sortable: false },
-  { field: 'submissionTime', label: 'Submission Time', width: '180px', sortable: true },
-  { field: 'duration', label: 'Duration', width: '100px', sortable: true },
-  { field: 'stagesProgress', label: 'Stages: Succeeded/Total', width: '150px', sortable: false },
-  { field: 'numTasks', label: 'Tasks: Succeeded/Total', width: '150px', sortable: true },
-  { field: 'status', label: 'Status', width: '100px', sortable: true }
+// 可选列定义
+const AVAILABLE_JOB_COLUMNS = [
+  { key: 'description', label: 'Description', field: 'description', sortable: false },
+  { key: 'numStages', label: 'Stages Count', field: 'numStages', width: '100px', sortable: true },
+  { key: 'stageIds', label: 'Stage IDs', field: 'stageIds', width: '140px', sortable: false },
+  { key: 'submissionTime', label: 'Submission Time', field: 'submissionTime', width: '180px', sortable: true },
+  { key: 'duration', label: 'Duration', field: 'duration', width: '100px', sortable: true },
+  { key: 'stagesProgress', label: 'Stages Progress', field: 'stagesProgress', width: '150px', sortable: false },
+  { key: 'numTasks', label: 'Tasks Progress', field: 'numTasks', width: '150px', sortable: true },
+  { key: 'status', label: 'Status', field: 'status', width: '100px', sortable: true }
 ];
+
+const selectedMetrics = ref(AVAILABLE_JOB_COLUMNS.map(m => m.key));
+
+const baseColumns = [
+  { field: 'jobId', label: 'Job ID', width: '80px', sortable: true },
+  { field: 'jobGroup', label: 'Job Group', width: '140px', sortable: true }
+];
+
+const columns = computed(() => {
+  const cols = [...baseColumns];
+  AVAILABLE_JOB_COLUMNS.forEach(m => {
+    if (selectedMetrics.value.includes(m.key)) {
+      cols.push(m);
+    }
+  });
+  return cols;
+});
+
+const selectAllMetrics = () => {
+  selectedMetrics.value = AVAILABLE_JOB_COLUMNS.map(m => m.key);
+};
+
+const clearAllMetrics = () => {
+  selectedMetrics.value = [];
+};
 
 const fetchJobs = async () => {
   try {
@@ -248,6 +331,16 @@ const calculatePercent = (val, total) => {
   return Math.min(100, Math.max(0, ((val || 0) / total) * 100));
 };
 
+const getStageStatusClass = (job, stageId) => {
+  if (!job.stageList) return 'status-skipped';
+  const stage = job.stageList.find(s => String(s.stageId) === String(stageId));
+  if (!stage) return 'status-skipped';
+  if (stage.status === 'SUCCEEDED') return 'status-succeeded';
+  if (stage.status === 'FAILED') return 'status-failed';
+  if (stage.status === 'RUNNING') return 'status-running';
+  return 'status-unknown';
+};
+
 onMounted(fetchJobs);
 watch(() => props.appId, () => {
   currentPage.value = 1;
@@ -274,6 +367,53 @@ watch(() => props.appId, () => {
 
 .header-left h4 { margin: 0; color: #2c3e50; }
 .header-left small { color: #7f8c8d; font-weight: normal; margin-left: 8px; }
+
+/* Metric Selector Styles */
+.metric-selector-card {
+  background: #fdfdfd;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #edf2f7;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 8px;
+}
+
+.selector-header strong { font-size: 0.9rem; color: #2c3e50; }
+
+.selector-actions { display: flex; gap: 10px; }
+.selector-actions button { 
+  background: none; border: 1px solid #ddd; padding: 2px 8px; border-radius: 4px; 
+  font-size: 0.75rem; cursor: pointer; color: #666; transition: all 0.2s;
+}
+.selector-actions button:hover { border-color: #3498db; color: #3498db; background: #f7fbff; }
+
+.checkbox-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px 15px;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #555;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.checkbox-item input { cursor: pointer; }
 
 /* Pagination & Sort Styles (Copied from TaskTable) */
 .active-sorts-bar {
@@ -358,6 +498,13 @@ watch(() => props.appId, () => {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.stage-id-link { font-weight: bold; }
+.status-succeeded { color: #27ae60; }
+.status-failed { color: #e74c3c; }
+.status-running { color: #3498db; }
+.status-skipped { color: #95a5a6; }
+.status-unknown { color: #f39c12; }
 
 .progress-wrapper {
   display: flex;

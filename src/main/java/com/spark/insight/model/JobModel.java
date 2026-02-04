@@ -1,9 +1,11 @@
 package com.spark.insight.model;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @TableName("jobs")
@@ -28,4 +30,7 @@ public class JobModel {
     private Integer numFailedTasks;
     private Integer numActiveTasks;
     private Integer numSkippedTasks;
+
+    @TableField(exist = false)
+    private List<StageModel> stageList;
 }

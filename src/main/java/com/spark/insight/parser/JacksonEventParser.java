@@ -406,6 +406,7 @@ public class JacksonEventParser implements EventParser {
         stage.setStageName(info.get("Stage Name").asText());
         stage.setNumTasks(info.get("Number of Tasks").asInt());
         stage.setSubmissionTime(parseTimestamp(info.get("Submission Time").asLong()));
+        stage.setStatus("RUNNING");
         
         if (info.has("Parent IDs")) {
             JsonNode parents = info.get("Parent IDs");
@@ -438,6 +439,11 @@ public class JacksonEventParser implements EventParser {
                 if (stage.getSubmissionTime() != null && completionTime != null) {
                     stage.setDuration(java.time.Duration.between(stage.getSubmissionTime(), completionTime).toMillis());
                 }
+            }
+            if (info.has("Failure Reason")) {
+                stage.setStatus("FAILED");
+            } else {
+                stage.setStatus("SUCCEEDED");
             }
             stageService.updateById(stage);
         }

@@ -38,6 +38,14 @@ public class InsightController {
         listQuery.last(buildSqlSuffix(sort, page, size, "job_id ASC"));
 
         List<JobModel> items = listQuery.list();
+        // Populate stageList for each job to track stage statuses
+        for (JobModel job : items) {
+            List<StageModel> jobStages = stageService.lambdaQuery()
+                    .eq(StageModel::getAppId, appId)
+                    .eq(StageModel::getJobId, job.getJobId())
+                    .list();
+            job.setStageList(jobStages);
+        }
         int totalPages = (int) Math.ceil((double) total / size);
         return new PageResponse<>(items, total, page, size, totalPages);
     }

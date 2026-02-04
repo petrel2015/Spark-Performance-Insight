@@ -4,6 +4,18 @@ English | [中文](./CHANGELOG.zh.md)
 
 All notable changes to this project will be documented in this file.
 
+## 0.16.0 - 2026-02-04
+
+### Features
+- **Status Coloring in Job List**: Stage IDs in the Job list are now color-coded based on their execution result (Success, Failed, Running, or Skipped) for immediate visual feedback.
+- **Dynamic Column Visibility**:
+    - Added a "Select Columns to Display" card to the Job list page and Job details page.
+    - Refactored Job and Stage tables to allow dynamic toggling of performance metrics.
+- **Enhanced Navigation**: Added a sortable "Job Id" column to the global Stage list, allowing users to jump directly to the parent Job details.
+
+### Bug Fixes
+- **UI Stability**: Fixed several `TypeError` and `ReferenceError` issues in the frontend components caused by reactive state management.
+
 ## 0.15.0 - 2026-02-04
 
 ### Features

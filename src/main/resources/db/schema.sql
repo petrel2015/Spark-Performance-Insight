@@ -120,6 +120,7 @@ CREATE TABLE IF NOT EXISTS stages (
     duration_p95 BIGINT DEFAULT 0,
     duration_p99 BIGINT DEFAULT 0,
     max_task_duration BIGINT DEFAULT 0,
+    status VARCHAR,
     is_skewed BOOLEAN DEFAULT FALSE,
     parent_stage_ids TEXT,
     rdd_info TEXT

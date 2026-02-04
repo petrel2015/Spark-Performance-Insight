@@ -188,21 +188,30 @@ const baseColumns = [
   { field: 'jobId', label: 'Job Id', width: '80px', sortable: true },
   { field: 'stageName', label: 'Name', sortable: true },
   { field: 'submissionTime', label: 'Submitted', width: '160px', sortable: true },
-  { field: 'duration', label: 'Duration', width: '100px', sortable: true },
   { field: 'numTasks', label: 'Tasks: Succeeded/Total', width: '180px', sortable: true }
 ];
 
 const metricColumnsMap = {
+  'duration': { field: 'duration', label: 'Duration', width: '100px', sortable: true, type: 'time' },
+  'gc_time': { field: 'gcTimeSum', label: 'GC Time', width: '100px', sortable: true, type: 'time' },
+  'scheduler_delay': { field: 'schedulerDelaySum', label: 'Scheduler Delay', width: '130px', sortable: true, type: 'time' },
+  'peak_execution_memory': { field: 'peakExecutionMemoryMax', label: 'Peak Exec Memory', width: '150px', sortable: true, type: 'bytes' },
+  'memory_spill': { field: 'memoryBytesSpilledSum', label: 'Spill (memory)', width: '120px', sortable: true, type: 'bytes' },
+  'disk_spill': { field: 'diskBytesSpilledSum', label: 'Spill (disk)', width: '120px', sortable: true, type: 'bytes' },
   'input': { field: 'inputBytes', label: 'Input', width: '100px', sortable: true, type: 'bytes' },
   'output': { field: 'outputBytes', label: 'Output', width: '100px', sortable: true, type: 'bytes' },
   'shuffle_read': { field: 'shuffleReadBytes', label: 'Shuffle Read', width: '120px', sortable: true, type: 'bytes' },
-  'shuffle_write': { field: 'shuffleWriteBytes', label: 'Shuffle Write', width: '120px', sortable: true, type: 'bytes' }
+  'shuffle_write': { field: 'shuffleWriteBytes', label: 'Shuffle Write', width: '120px', sortable: true, type: 'bytes' },
+  'task_deserialization_time': { field: 'executorDeserializeTimeSum', label: 'Deserialization Time', width: '150px', sortable: true, type: 'time' },
+  'result_serialization_time': { field: 'resultSerializationTimeSum', label: 'Serialization Time', width: '150px', sortable: true, type: 'time' },
+  'getting_result_time': { field: 'gettingResultTimeSum', label: 'Getting Result Time', width: '150px', sortable: true, type: 'time' }
 };
 
 const columns = computed(() => {
   if (!props.visibleMetrics) {
     return [
       ...baseColumns,
+      metricColumnsMap['duration'],
       metricColumnsMap['input'],
       metricColumnsMap['output'],
       metricColumnsMap['shuffle_read'],
@@ -211,6 +220,7 @@ const columns = computed(() => {
   }
   
   const cols = [...baseColumns];
+  // Ensure the order follows AVAILABLE_METRICS defined in constants
   props.visibleMetrics.forEach(key => {
     if (metricColumnsMap[key]) {
       cols.push(metricColumnsMap[key]);

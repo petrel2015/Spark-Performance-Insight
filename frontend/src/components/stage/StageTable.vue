@@ -70,6 +70,11 @@
             <span v-if="isExpired(stage)" class="expired-badge">Expired</span>
           </td>
           <td>
+            <a href="javascript:void(0)" @click="$emit('view-job-detail', stage.jobId)" class="stage-link">
+              {{ stage.jobId }}
+            </a>
+          </td>
+          <td>
             <a href="javascript:void(0)" @click="$emit('view-stage-detail', { stageId: stage.stageId, attemptId: stage.attemptId })" class="stage-link">
               {{ stage.stageName }}
             </a>
@@ -121,7 +126,7 @@ const props = defineProps({
   plain: { type: Boolean, default: false }
 });
 
-const emit = defineEmits(['view-stage-detail']);
+const emit = defineEmits(['view-stage-detail', 'view-job-detail']);
 
 const stages = ref([]);
 const totalStages = ref(0);
@@ -156,15 +161,16 @@ const hasRetries = (stageId) => {
 };
 
 const columns = [
-  { field: 'stageId', label: 'Stage Id', width: '140px' },
-  { field: 'stageName', label: 'Name' },
-  { field: 'submissionTime', label: 'Submitted', width: '160px' },
-  { field: 'duration', label: 'Duration', width: '100px' },
-  { field: 'numTasks', label: 'Tasks: Succeeded/Total', width: '180px' },
-  { field: 'inputBytes', label: 'Input', width: '100px' },
-  { field: 'outputBytes', label: 'Output', width: '100px' },
-  { field: 'shuffleReadBytes', label: 'Shuffle Read', width: '120px' },
-  { field: 'shuffleWriteBytes', label: 'Shuffle Write', width: '120px' }
+  { field: 'stageId', label: 'Stage Id', width: '140px', sortable: true },
+  { field: 'jobId', label: 'Job Id', width: '80px', sortable: true },
+  { field: 'stageName', label: 'Name', sortable: true },
+  { field: 'submissionTime', label: 'Submitted', width: '160px', sortable: true },
+  { field: 'duration', label: 'Duration', width: '100px', sortable: true },
+  { field: 'numTasks', label: 'Tasks: Succeeded/Total', width: '180px', sortable: true },
+  { field: 'inputBytes', label: 'Input', width: '100px', sortable: true },
+  { field: 'outputBytes', label: 'Output', width: '100px', sortable: true },
+  { field: 'shuffleReadBytes', label: 'Shuffle Read', width: '120px', sortable: true },
+  { field: 'shuffleWriteBytes', label: 'Shuffle Write', width: '120px', sortable: true }
 ];
 
 const formatDuration = (start, end) => {

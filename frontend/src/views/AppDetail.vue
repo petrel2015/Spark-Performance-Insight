@@ -48,7 +48,7 @@
       <div v-if="activeTab === 'Stages'" class="stages-view">
         <!-- List View -->
         <div v-if="selectedStageId === null">
-          <StageTable v-if="app" :app-id="app.appId" @view-stage-detail="navigateToStage" />
+          <StageTable v-if="app" :app-id="app.appId" @view-stage-detail="navigateToStage" @view-job-detail="navigateToJob" />
         </div>
 
         <!-- Detail View -->

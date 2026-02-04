@@ -21,6 +21,19 @@
       <JobDAG ref="dagRef" :app-id="appId" :job-id="jobId" />
     </CollapsibleCard>
 
+    <!-- 0.5. Job Event Timeline -->
+    <CollapsibleCard v-if="currentJob" title="Event Timeline (Executors & Stages)" :initial-collapsed="false">
+      <template #actions>
+        <button class="lock-btn" 
+                v-if="timelineRef" 
+                @click="timelineRef.toggleZoomLock()" 
+                :title="timelineRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
+          {{ timelineRef.isZoomLocked ? '🔒 Locked' : '🔓 Unlocked' }}
+        </button>
+      </template>
+      <JobTimeline ref="timelineRef" :app-id="appId" :job-id="jobId" />
+    </CollapsibleCard>
+
     <!-- 1. Aggregated Metrics by Executor -->
     <CollapsibleCard v-if="executorSummary && executorSummary.length > 0" title="Aggregated Metrics by Executor (Job Level)">
       <ExecutorSummary
@@ -49,6 +62,7 @@ import CollapsibleCard from '../common/CollapsibleCard.vue';
 import StageTable from '../stage/StageTable.vue';
 import ExecutorSummary from '../stage/ExecutorSummary.vue';
 import JobDAG from './JobDAG.vue';
+import JobTimeline from './JobTimeline.vue';
 import { DEFAULT_METRICS } from '../../constants/metrics';
 
 const props = defineProps({
@@ -61,6 +75,7 @@ const emit = defineEmits(['back', 'view-stage']);
 const currentJob = ref(null);
 const executorSummary = ref([]);
 const dagRef = ref(null);
+const timelineRef = ref(null);
 
 const fetchJobDetails = async () => {
   try {

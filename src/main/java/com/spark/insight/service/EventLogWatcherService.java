@@ -11,8 +11,11 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.time.LocalDateTime;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Service
@@ -26,34 +29,66 @@ public class EventLogWatcherService {
     // Create a pool for parsing to avoid blocking the scheduler thread
     private final ExecutorService parseExecutor = Executors.newFixedThreadPool(2);
 
+    private static final Pattern APP_ID_PATTERN = Pattern.compile("(spark-[a-zA-Z0-9\\-]+)");
+    private static final Pattern INDEX_PATTERN = Pattern.compile("[-_](\\d+)[-_]");
+
     @Scheduled(fixedDelayString = "${insight.scheduler.scan-interval-seconds:10}000")
     public void scan() {
         if (!properties.getScheduler().isEnabled()) return;
         
         String logPath = properties.getEventLogPath();
         File dir = new File(logPath);
-        if (!dir.exists() || !dir.isDirectory()) {
-            // Only warn once or infrequently? For now standard warn.
-            // log.warn("EventLog path does not exist: {}", logPath);
-            return;
+        if (!dir.exists() || !dir.isDirectory()) return;
+
+        List<File> allFiles = new ArrayList<>();
+        collectFiles(dir, allFiles);
+
+        // Group by App ID inferred from filename
+        Map<String, List<File>> appGroups = new HashMap<>();
+        List<File> standaloneFiles = new ArrayList<>();
+
+        for (File f : allFiles) {
+            String appId = inferAppId(f.getName());
+            if (appId != null) {
+                appGroups.computeIfAbsent(appId, k -> new ArrayList<>()).add(f);
+            } else {
+                standaloneFiles.add(f);
+            }
         }
 
-        scanRecursive(dir);
+        // Process grouped logs in order (for rolling logs)
+        appGroups.forEach((appId, files) -> {
+            files.sort(Comparator.comparingInt(this::getFileIndex).thenComparing(File::getName));
+            for (File f : files) {
+                checkAndParse(f);
+            }
+        });
+
+        // Process files that don't match standard appId naming
+        for (File f : standaloneFiles) {
+            checkAndParse(f);
+        }
     }
 
-    private void scanRecursive(File file) {
+    private void collectFiles(File file, List<File> result) {
         if (file.isDirectory()) {
             File[] files = file.listFiles();
             if (files != null) {
-                for (File f : files) {
-                    scanRecursive(f);
-                }
+                for (File f : files) collectFiles(f, result);
             }
-        } else if (file.isFile() && !file.getName().startsWith(".")) {
-            if (isValidLogFile(file)) {
-                checkAndParse(file);
-            }
+        } else if (file.isFile() && !file.getName().startsWith(".") && isValidLogFile(file)) {
+            result.add(file);
         }
+    }
+
+    private String inferAppId(String filename) {
+        Matcher m = APP_ID_PATTERN.matcher(filename);
+        return m.find() ? m.group(1) : null;
+    }
+
+    private int getFileIndex(File file) {
+        Matcher m = INDEX_PATTERN.matcher(file.getName());
+        return m.find() ? Integer.parseInt(m.group(1)) : 0;
     }
 
     private boolean isValidLogFile(File file) {

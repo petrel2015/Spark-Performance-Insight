@@ -4,6 +4,22 @@ English | [中文](./CHANGELOG.zh.md)
 
 All notable changes to this project will be documented in this file.
 
+## 0.15.0 - 2026-02-04
+
+### Features
+- **Job Event Timeline**: Added a dual-chart timeline in Job details to visualize Executor lifecycles (Add/Remove) and Stage lifespans (Submission/Completion) in parallel.
+- **Rolling EventLog Support**: Enhanced the parser and watcher to support multi-part/rolling Spark event logs. Logs are now grouped by Application ID and processed in correct sequence.
+- **Job List Enhancements**:
+    - **Split Job ID/Group**: Separated Job ID and Job Group into distinct, sortable columns.
+    - **Stage Tracking**: Added "Stages Count" (sortable) and "Stage IDs" (list) columns to provide a clearer overview of stage distribution per job.
+
+### Improvements
+- **UI/UX**: Simplified Job DAG stage labels to only show "Stage ID" for a cleaner look.
+- **Navigation**: Fixed navigation bug where clicking "of Job" in Stage details returned to the list instead of the specific Job.
+
+### Bug Fixes
+- **SQL Accuracy**: Resolved column ambiguity in Job-level executor metrics queries.
+
 ## 0.14.0 - 2026-02-03
 
 ### Features

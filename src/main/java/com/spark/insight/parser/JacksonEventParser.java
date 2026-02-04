@@ -48,6 +48,15 @@ public class JacksonEventParser implements EventParser {
     @Override
     public void parse(File logFile) {
         log.info("Processing log: {}", logFile.getName());
+        
+        // 尝试从文件名推断 App ID (支持滚动日志，即使后续文件没有 ApplicationStart 事件也能解析)
+        String inferredAppId = null;
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("(spark-[a-zA-Z0-9\\-]+)").matcher(logFile.getName());
+        if (matcher.find()) {
+            inferredAppId = matcher.group(1);
+            log.debug("Inferred App ID from filename: {}", inferredAppId);
+        }
+
         try {
             InputStream is = new FileInputStream(logFile);
             if (logFile.getName().endsWith(".zstd") || logFile.getName().endsWith(".zst")) {
@@ -55,7 +64,7 @@ public class JacksonEventParser implements EventParser {
             }
                         try (BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
                             String line;
-                            String currentAppId = null;
+                            String currentAppId = inferredAppId;
                             String versionFromLogStart = null;
                             List<TaskModel> taskBatch = new ArrayList<>();
                             List<EnvironmentConfigModel> envBatch = new ArrayList<>();

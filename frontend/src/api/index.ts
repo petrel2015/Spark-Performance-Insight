@@ -29,9 +29,10 @@ export const getStage = (appId: string, stageId: number, attemptId?: number) => 
     if (attemptId !== undefined && attemptId !== null) url += `?attemptId=${attemptId}`;
     return request.get(url);
 };
-export const getAppJobs = (appId: string, page = 1, size = 20, sort = '', jobId = null) => {
+export const getAppJobs = (appId: string, page = 1, size = 20, sort = '', jobId = null, jobGroup = '') => {
     let url = `/apps/${appId}/jobs?page=${page}&size=${size}&sort=${sort}`;
     if (jobId !== null && jobId !== '') url += `&jobId=${jobId}`;
+    if (jobGroup && jobGroup !== '') url += `&jobGroup=${encodeURIComponent(jobGroup)}`;
     return request.get(url);
 };
 export const getJob = (appId: string, jobId: number) => request.get(`/apps/${appId}/jobs/${jobId}`);

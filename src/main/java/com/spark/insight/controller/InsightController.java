@@ -41,11 +41,15 @@ public class InsightController {
                                            @RequestParam(defaultValue = "1") int page,
                                            @RequestParam(defaultValue = "20") int size,
                                            @RequestParam(required = false) String sort,
-                                           @RequestParam(required = false) Integer jobId) {
+                                           @RequestParam(required = false) Integer jobId,
+                                           @RequestParam(required = false) String jobGroup) {
         checkAppReady(appId);
         var query = jobService.lambdaQuery().eq(JobModel::getAppId, appId);
         if (jobId != null) {
             query.eq(JobModel::getJobId, jobId);
+        }
+        if (jobGroup != null && !jobGroup.isBlank()) {
+            query.like(JobModel::getJobGroup, jobGroup); // Fuzzy search for convenience
         }
         
         long total = query.count();
@@ -54,6 +58,9 @@ public class InsightController {
         var listQuery = jobService.lambdaQuery().eq(JobModel::getAppId, appId);
         if (jobId != null) {
             listQuery.eq(JobModel::getJobId, jobId);
+        }
+        if (jobGroup != null && !jobGroup.isBlank()) {
+            listQuery.like(JobModel::getJobGroup, jobGroup);
         }
 
         listQuery.last(buildSqlSuffix(sort, page, size, "job_id ASC"));

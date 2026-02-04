@@ -19,13 +19,16 @@
 
     <!-- Main Jobs Table Card -->
     <div class="jobs-table-card">
-      <div class="table-header">
-        <div class="header-left">
-          <h4>Jobs List <small>(Total: {{ totalJobs }})</small></h4>
-        </div>
-        
-        <div class="pagination-controls">
-          <div class="page-size-selector">
+          <div class="table-header">
+            <div class="header-left">
+              <h4>Jobs List <small>(Total: {{ totalJobs }})</small></h4>
+                      <div class="search-box">
+                        <input type="number" v-model.number="searchJobId" placeholder="Search by Job ID" @keyup.enter="handleSearch" class="search-input">
+                        <input type="text" v-model="searchJobGroup" placeholder="Search by Job Group" @keyup.enter="handleSearch" class="search-input" style="width: 180px;">
+                        <button @click="handleSearch" class="search-btn">Search</button>
+                      </div>            </div>
+            
+            <div class="pagination-controls">          <div class="page-size-selector">
             <span>Rows per page:</span>
             <select v-model="pageSize" @change="handleSizeChange">
               <option :value="20">20</option>
@@ -187,6 +190,8 @@ const totalPages = ref(0);
 const currentPage = ref(1);
 const pageSize = ref(20);
 const jumpPageInput = ref(1);
+const searchJobId = ref(null);
+const searchJobGroup = ref('');
 const sorts = ref([{ field: 'jobId', dir: 'desc' }]); // Default sort by Job ID DESC
 
 // 可选列定义
@@ -226,10 +231,15 @@ const clearAllMetrics = () => {
   selectedMetrics.value = [];
 };
 
+const handleSearch = () => {
+  currentPage.value = 1;
+  fetchJobs();
+};
+
 const fetchJobs = async () => {
   try {
     const sortStr = sorts.value.map(s => `${s.field},${s.dir}`).join(';');
-    const res = await getAppJobs(props.appId, currentPage.value, pageSize.value, sortStr);
+    const res = await getAppJobs(props.appId, currentPage.value, pageSize.value, sortStr, searchJobId.value, searchJobGroup.value);
     if (res.data && res.data.items) {
       jobs.value = res.data.items;
       totalJobs.value = res.data.total;
@@ -378,6 +388,11 @@ watch(() => props.appId, () => {
 
 .header-left h4 { margin: 0; color: #2c3e50; }
 .header-left small { color: #7f8c8d; font-weight: normal; margin-left: 8px; }
+
+.search-box { display: inline-flex; margin-left: 20px; gap: 8px; align-items: center; }
+.search-input { padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85rem; width: 150px; }
+.search-btn { padding: 4px 12px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+.search-btn:hover { background: #e9ecef; }
 
 /* Metric Selector Styles */
 .metric-selector-card {

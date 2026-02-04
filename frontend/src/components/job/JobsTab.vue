@@ -167,7 +167,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import { getAppJobs } from '../../api';
 import { formatTime as commonFormatTime } from '../../utils/format';
 

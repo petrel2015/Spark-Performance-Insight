@@ -1,25 +1,25 @@
-# TODO List
+# 待办事项列表
 
-- [x] **Enhance Jobs Page (Parity with Spark UI)**
-    - [x] **Backend:** Added description, jobGroup, and stage/task progress metrics.
-    - [x] **Frontend:** Added Description column, progress bars, and clickable links.
-- [x] **Refactor Stage Detail View**
-    - [x] Dedicated drill-down view with breadcrumb navigation.
-    - [x] **Summary Metrics Table:** Full parity with Spark UI (Min, 25%, Median, 75%, 95%, Max) for 8+ metrics.
-- [x] **Advanced Task List**
-    - [x] Server-side pagination with custom page size and jump-to-page.
-    - [x] Multi-column sorting (Shift+Click support).
-    - [x] Real Task Index extraction and sorting.
-- [x] **SPA Routing & Deep Linking**
-    - [x] Support page refresh and direct URL access via backend forwarding.
-    - [x] URL persistence for Stage Details.
-- [ ] **Structured Storage Engine:** Implement streaming parsing and structured ingestion of EventLog.
-- [ ] **Deep Comparator:** Support Job and Stage dimensions full comparison.
-- [ ] **Visualization:** Add ECharts timelines for Task execution (Gantt chart style).
-- [ ] **Visualization:** 甘特图重新画
-- [ ] **Visualization:** dag图
-- [ ] **Visualization:** job详情能够有一个dag图对应他接下里的stage
-- [ ] **Visualization:** stage详情能够显示跟他关联的上下游stage图
-- [ ] **Visualization:** stage对比红绿灯
-- [ ] **Visualization:** 诊断页面，让gemini pro根据论文给出“专家模型”的思路，然后让gemini-cli根据设计去补充接口和展示，显示出一份报告。
-- [ ] **Visualization:** 具备单个job/stage性能瓶颈分析，多个job/stage对比分析劣化点
+- [x] **增强作业页面（与 Spark UI 对齐）**
+    - [x] **后端：** 增加了描述、jobGroup 以及阶段/任务进度指标。
+    - [x] **前端：** 增加了描述列、进度条和可点击链接。
+- [x] **重构阶段详情视图**
+    - [x] 带有面包屑导航的专用下钻视图。
+    - [x] **摘要指标表：** 与 Spark UI 完全对齐（最小值、25%、中位数、75%、95%、最大值），涵盖 8 个以上指标。
+- [x] **高级任务列表**
+    - [x] 支持自定义页面大小和跳转页面的服务器端分页。
+    - [x] 多列排序（支持 Shift+点击）。
+    - [x] 实际任务索引提取和排序。
+- [x] **SPA 路由与深层链接**
+    - [x] 支持页面刷新和通过后端转发直接访问 URL。
+    - [x] 阶段详情的 URL 持久化。
+- [ ] **结构化存储引擎：** 实现 EventLog 的流式解析和结构化摄取。
+- [ ] **深度比较器：** 支持 Job 和 Stage 维度的全面比较。
+- [ ] **可视化：** 为任务执行添加 ECharts 时间轴（甘特图风格）。
+- [ ] **可视化：** 甘特图重新画。
+- [ ] **可视化：** DAG 图。
+- [ ] **可视化：** Job 详情能够有一个 DAG 图对应它接下来的 Stage。
+- [ ] **可视化：** Stage 详情能够显示与其关联的上下游 Stage 图。
+- [ ] **可视化：** Stage 对比红绿灯。
+- [ ] **可视化：** 诊断页面，让 Gemini Pro 根据论文给出“专家模型”思路，然后让 Gemini CLI 根据设计去补充接口和展示，显示出一份报告。
+- [ ] **可视化：** 具备单个 Job/Stage 性能瓶颈分析，多个 Job/Stage 对比分析劣化点。

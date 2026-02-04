@@ -17,7 +17,8 @@ public class ApplicationModel {
     private Long duration;
     private String sparkVersion;
     private String status;
-    private String data_quality_status;
-    private String data_quality_note;
+    private String dataQualityStatus;
+    private String dataQualityNote;
     private String parsingStatus;
+    private String parsingProgress;
 }

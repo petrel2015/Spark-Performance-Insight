@@ -1,14 +1,27 @@
 import axios from 'axios';
+import router from '../router';
 
 const request = axios.create({
     baseURL: '/api'
 });
 
+request.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response && error.response.status === 503) {
+      const msg = error.response.data && error.response.data.message ? error.response.data.message : 'Application is processing...';
+      router.push({ path: '/', query: { processingMsg: msg } });
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const getApps = (page = 1, size = 20, sort = '', search = '') => 
     request.get(`/apps?page=${page}&size=${size}&sort=${sort}&search=${search}`);
-export const getAppStages = (appId: string, page = 1, size = 20, sort = '', jobId = null) => {
+export const getAppStages = (appId: string, page = 1, size = 20, sort = '', jobId = null, stageId = null) => {
     let url = `/apps/${appId}/stages?page=${page}&size=${size}&sort=${sort}`;
     if (jobId !== null) url += `&jobId=${jobId}`;
+    if (stageId !== null && stageId !== '') url += `&stageId=${stageId}`;
     return request.get(url);
 };
 export const getStage = (appId: string, stageId: number, attemptId?: number) => {
@@ -16,8 +29,11 @@ export const getStage = (appId: string, stageId: number, attemptId?: number) => 
     if (attemptId !== undefined && attemptId !== null) url += `?attemptId=${attemptId}`;
     return request.get(url);
 };
-export const getAppJobs = (appId: string, page = 1, size = 20, sort = '') => 
-    request.get(`/apps/${appId}/jobs?page=${page}&size=${size}&sort=${sort}`);
+export const getAppJobs = (appId: string, page = 1, size = 20, sort = '', jobId = null) => {
+    let url = `/apps/${appId}/jobs?page=${page}&size=${size}&sort=${sort}`;
+    if (jobId !== null && jobId !== '') url += `&jobId=${jobId}`;
+    return request.get(url);
+};
 export const getJob = (appId: string, jobId: number) => request.get(`/apps/${appId}/jobs/${jobId}`);
 export const getAppExecutors = (appId: string) => request.get(`/apps/${appId}/executors`);
 export const getAppEnvironment = (appId: string) => request.get(`/apps/${appId}/environment`);

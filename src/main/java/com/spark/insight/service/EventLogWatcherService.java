@@ -27,7 +27,7 @@ public class EventLogWatcherService {
     private final ParsedEventLogMapper parsedLogMapper;
     
     // Create a pool for parsing to avoid blocking the scheduler thread
-    private final ExecutorService parseExecutor = Executors.newFixedThreadPool(2);
+    private final ExecutorService parseExecutor = Executors.newFixedThreadPool(10);
 
     private static final Pattern APP_ID_PATTERN = Pattern.compile("(spark-[a-zA-Z0-9\\-]+)");
     private static final Pattern INDEX_PATTERN = Pattern.compile("[-_](\\d+)[-_]");
@@ -56,18 +56,17 @@ public class EventLogWatcherService {
             }
         }
 
-        // Process grouped logs in order (for rolling logs)
+        // Process App Groups (Sorted)
         appGroups.forEach((appId, files) -> {
             files.sort(Comparator.comparingInt(this::getFileIndex).thenComparing(File::getName));
-            for (File f : files) {
-                checkAndParse(f);
+            int total = files.size();
+            for (int i = 0; i < total; i++) {
+                checkAndParse(files.get(i), i + 1, total);
             }
         });
 
-        // Process files that don't match standard appId naming
-        for (File f : standaloneFiles) {
-            checkAndParse(f);
-        }
+        // Process Standalone
+        standaloneFiles.forEach(f -> checkAndParse(f, 1, 1));
     }
 
     private void collectFiles(File file, List<File> result) {
@@ -98,7 +97,7 @@ public class EventLogWatcherService {
                name.endsWith(".json") || name.endsWith(".zstd") || name.endsWith(".zst");
     }
 
-    private void checkAndParse(File file) {
+    private void checkAndParse(File file, int currentIdx, int totalFiles) {
         String absolutePath = file.getAbsolutePath();
         long lastModified = file.lastModified();
         long fileSize = file.length();
@@ -124,7 +123,7 @@ public class EventLogWatcherService {
                 try {
                     // TODO: Ideally we should calculate hash here if required
                     
-                    eventParser.parse(file);
+                    eventParser.parse(file, currentIdx, totalFiles);
                     
                     // Update record in DB
                     ParsedEventLogModel newRecord = new ParsedEventLogModel();

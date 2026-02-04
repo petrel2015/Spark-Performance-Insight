@@ -1,5 +1,14 @@
 <template>
   <div class="app-list-container">
+    <!-- Processing Alert -->
+    <div v-if="processingMessage" class="processing-alert">
+      <div class="alert-content">
+        <span class="icon">⏳</span>
+        <span>{{ processingMessage }}</span>
+      </div>
+      <button @click="processingMessage = null" class="close-alert">×</button>
+    </div>
+
     <div class="header-section">
       <h2>Applications</h2>
       <div class="header-actions">
@@ -113,8 +122,13 @@
 import { ref, onMounted, computed } from 'vue';
 import { getApps } from '../api';
 import { formatDateTime } from '../utils/format';
+import { useRoute, useRouter } from 'vue-router';
+
+const route = useRoute();
+const router = useRouter();
 
 const apps = ref([]);
+const processingMessage = ref('');
 const totalApps = ref(0);
 const totalPages = ref(0);
 const currentPage = ref(1);
@@ -238,12 +252,53 @@ const handleCompare = () => {
   alert('Comparing ' + selectedApps.value.join(' and '));
 };
 
-onMounted(fetchApps);
+onMounted(() => {
+  if (route.query.processingMsg) {
+    processingMessage.value = route.query.processingMsg;
+    // Clear query param to avoid showing it on refresh
+    router.replace({ query: {} });
+  }
+  fetchApps();
+});
 </script>
 
 <style scoped>
 .app-list-container {
   padding: 1.5rem;
+}
+
+.processing-alert {
+  background-color: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeeba;
+  padding: 1rem;
+  border-radius: 6px;
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.alert-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+}
+
+.close-alert {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #856404;
+  line-height: 1;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .header-section {

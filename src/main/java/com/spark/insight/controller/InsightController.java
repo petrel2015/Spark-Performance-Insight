@@ -28,7 +28,8 @@ public class InsightController {
     private void checkAppReady(String appId) {
         ApplicationModel app = applicationService.getById(appId);
         if (app != null && "PARSING".equals(app.getParsingStatus())) {
-            throw new AppParsingException("The application " + appId + " is currently being parsed. Please try again later.");
+            String msg = app.getParsingProgress() != null ? app.getParsingProgress() : "Processing...";
+            throw new AppParsingException(msg);
         }
     }
 
@@ -39,10 +40,21 @@ public class InsightController {
     public PageResponse<JobModel> listJobs(@PathVariable String appId,
                                            @RequestParam(defaultValue = "1") int page,
                                            @RequestParam(defaultValue = "20") int size,
-                                           @RequestParam(required = false) String sort) {
+                                           @RequestParam(required = false) String sort,
+                                           @RequestParam(required = false) Integer jobId) {
         checkAppReady(appId);
-        long total = jobService.lambdaQuery().eq(JobModel::getAppId, appId).count();
+        var query = jobService.lambdaQuery().eq(JobModel::getAppId, appId);
+        if (jobId != null) {
+            query.eq(JobModel::getJobId, jobId);
+        }
+        
+        long total = query.count();
+        
+        // Re-apply conditions for list
         var listQuery = jobService.lambdaQuery().eq(JobModel::getAppId, appId);
+        if (jobId != null) {
+            listQuery.eq(JobModel::getJobId, jobId);
+        }
 
         listQuery.last(buildSqlSuffix(sort, page, size, "job_id ASC"));
 
@@ -155,6 +167,7 @@ public class InsightController {
     @GetMapping("/apps/{appId}/stages")
     public PageResponse<StageModel> listStages(@PathVariable String appId,
                                                @RequestParam(required = false) Integer jobId,
+                                               @RequestParam(required = false) Integer stageId,
                                                @RequestParam(defaultValue = "1") int page,
                                                @RequestParam(defaultValue = "20") int size,
                                                @RequestParam(required = false) String sort) {
@@ -163,6 +176,9 @@ public class InsightController {
         if (jobId != null) {
             query.eq(StageModel::getJobId, jobId);
         }
+        if (stageId != null) {
+            query.eq(StageModel::getStageId, stageId);
+        }
 
         long total = query.count();
         
@@ -170,6 +186,9 @@ public class InsightController {
         var listQuery = stageService.lambdaQuery().eq(StageModel::getAppId, appId);
         if (jobId != null) {
             listQuery.eq(StageModel::getJobId, jobId);
+        }
+        if (stageId != null) {
+            listQuery.eq(StageModel::getStageId, stageId);
         }
 
         listQuery.last(buildSqlSuffix(sort, page, size, "stage_id ASC"));

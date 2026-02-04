@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS applications (
     status VARCHAR,
     data_quality_status VARCHAR DEFAULT 'GOOD',
     data_quality_note TEXT,
-    parsing_status VARCHAR DEFAULT 'READY'
+    parsing_status VARCHAR DEFAULT 'READY',
+    parsing_progress VARCHAR
 );
 
 -- 环境配置

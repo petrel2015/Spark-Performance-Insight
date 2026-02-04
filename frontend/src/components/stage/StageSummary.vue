@@ -149,8 +149,38 @@ const formatCell = (row, key) => {
   }
   const val = row.data[key];
   if (val === undefined || val === null) return '-';
-  if (row.type === 'time') return formatTime(val);
-  if (row.type === 'nanos') return formatTime(val / 1000000);
+  
+  if (row.type === 'time' || row.type === 'nanos') {
+    const msValue = row.type === 'nanos' ? val / 1000000 : val;
+    const timeStr = formatTime(msValue);
+    
+    // Show percentage for time metrics other than Duration
+    if (row.key !== 'duration' && props.stage && props.stage.duration > 0) {
+      // Note: We compare individual task metric stats vs Stage TOTAL duration? 
+      // Actually, Stage Duration is usually wall clock time.
+      // But typically, we compare Task metric vs Task Duration.
+      // The summary table shows stats (Min, Median, Max) of metrics across tasks.
+      // So if Max GC is 1s, and Max Task Duration is 10s, it's 10%.
+      // BUT here we don't have the corresponding "Total Task Duration" for that specific task in this context easily (it's aggregated stats).
+      // However, we can use the P50/Max of the specific metric vs P50/Max of the 'duration' row to give a rough idea?
+      // Or simply % of the Stage Duration?
+      // Spark UI shows % of "Task Duration" usually.
+      // Since we don't have the reference "Task Duration" for the specific task that had Min/Max GC, 
+      // we can't be 100% precise unless we know it's the SAME task.
+      // But usually, comparing Median GC vs Median Duration is a valid statistical insight.
+      
+      const durationStat = getStat('duration');
+      if (durationStat && durationStat[key]) { // key is 'minValue', 'p50', etc.
+        const refDuration = durationStat[key];
+        if (refDuration > 0) {
+          const pct = Math.round((msValue / refDuration) * 100);
+          return `${timeStr} (${pct}%)`;
+        }
+      }
+    }
+    return timeStr;
+  }
+  
   if (row.type === 'bytes') return formatBytes(val);
   return val;
 };
@@ -158,14 +188,24 @@ const formatCell = (row, key) => {
 const formatTotal = (row) => {
   if (!props.stage) return '-';
   const s = props.stage;
+  
+  const formatTimeWithPct = (ms) => {
+    const timeStr = formatTime(ms);
+    if (row.key !== 'duration' && s.tasksDurationSum > 0) {
+      const pct = Math.round((ms / s.tasksDurationSum) * 100);
+      return `${timeStr} (${pct}%)`;
+    }
+    return timeStr;
+  };
+
   switch (row.key) {
     case 'duration': return formatTime(s.tasksDurationSum || 0);
-    case 'gc_time': return formatTime(s.gcTimeSum || 0);
-    case 'task_deserialization_time': return formatTime(s.executorDeserializeTimeSum || 0);
-    case 'result_serialization_time': return formatTime(s.resultSerializationTimeSum || 0);
-    case 'getting_result_time': return formatTime(s.gettingResultTimeSum || 0);
-    case 'scheduler_delay': return formatTime(s.schedulerDelaySum || 0);
-    case 'shuffle_write_time': return formatTime((s.shuffleWriteTimeSum || 0) / 1000000);
+    case 'gc_time': return formatTimeWithPct(s.gcTimeSum || 0);
+    case 'task_deserialization_time': return formatTimeWithPct(s.executorDeserializeTimeSum || 0);
+    case 'result_serialization_time': return formatTimeWithPct(s.resultSerializationTimeSum || 0);
+    case 'getting_result_time': return formatTimeWithPct(s.gettingResultTimeSum || 0);
+    case 'scheduler_delay': return formatTimeWithPct(s.schedulerDelaySum || 0);
+    case 'shuffle_write_time': return formatTimeWithPct((s.shuffleWriteTimeSum || 0) / 1000000);
     case 'peak_execution_memory': return formatBytes(s.peakExecutionMemorySum || 0);
     case 'memory_spill': return formatBytes(s.memoryBytesSpilledSum || 0);
     case 'disk_spill': return formatBytes(s.diskBytesSpilledSum || 0);

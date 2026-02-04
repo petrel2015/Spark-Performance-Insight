@@ -4,6 +4,10 @@
       <div class="header-left">
         <h4 v-if="!hideTitle">Stages List <small>(Total: {{ totalStages }})</small></h4>
         <span v-else class="total-count-text">Total: {{ totalStages }} stages</span>
+        <div class="search-box">
+          <input type="number" v-model.number="searchStageId" placeholder="Search by Stage ID" @keyup.enter="handleSearch" class="search-input">
+          <button @click="handleSearch" class="search-btn">Search</button>
+        </div>
       </div>
       
       <div class="pagination-controls">
@@ -157,6 +161,7 @@ const totalPages = ref(0);
 const currentPage = ref(1);
 const pageSize = ref(20);
 const jumpPageInput = ref(1);
+const searchStageId = ref(null);
 const sorts = ref([{ field: 'stageId', dir: 'desc' }]); // Default sort by Stage Id DESC
 
 // Compute max attempt ID per stage to detect retries and expiration
@@ -240,10 +245,15 @@ const getProgressWidth = (current, total) => {
   return Math.min(100, (current / total) * 100);
 };
 
+const handleSearch = () => {
+  currentPage.value = 1;
+  fetchStages();
+};
+
 const fetchStages = async () => {
   try {
     const sortStr = sorts.value.map(s => `${s.field},${s.dir}`).join(';');
-    const res = await getAppStages(props.appId, currentPage.value, pageSize.value, sortStr, props.jobId);
+    const res = await getAppStages(props.appId, currentPage.value, pageSize.value, sortStr, props.jobId, searchStageId.value);
     
     if (res.data && res.data.items) {
       stages.value = res.data.items;
@@ -370,6 +380,11 @@ watch(() => props.appId, () => {
 .header-left h4 { margin: 0; color: #2c3e50; }
 .header-left small { color: #7f8c8d; font-weight: normal; margin-left: 8px; }
 .total-count-text { color: #7f8c8d; font-size: 0.9rem; font-weight: 500; }
+
+.search-box { display: inline-flex; margin-left: 20px; gap: 8px; align-items: center; }
+.search-input { padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85rem; width: 150px; }
+.search-btn { padding: 4px 12px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+.search-btn:hover { background: #e9ecef; }
 
 /* Pagination & Sort Styles */
 .active-sorts-bar {

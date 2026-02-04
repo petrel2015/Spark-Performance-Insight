@@ -1,182 +1,138 @@
-# Changelog
+## 0.17.1 - 2026-02-04
 
-English | [中文](./CHANGELOG.zh.md)
+### Performance
+- Optimize backend parsing and frontend lazy loading
 
-All notable changes to this project will be documented in this file.
+### Refactor
+- Major overhaul of frontend components and minor backend improvements
+
+### Documentation
+- Translate TODO.md to Chinese and update environment/dependency configurations
 
 ## 0.17.0 - 2026-02-04
 
 ### Features
-- **Job Group Search**: Added a dedicated search box in the Job List view to filter jobs by their `Job Group` ID (fuzzy search).
-- **Graceful Parsing State Handling**:
-    - Implemented a "PARSING" status for applications being imported.
-    - API endpoints (except `getApp`) now return 503 Service Unavailable with a progress message if the app is still parsing.
-    - Frontend automatically redirects users to the App List with a "Processing..." toast notification when accessing a locked app.
-- **Robust EventLog Parsing**:
-    - Fixed `JacksonEventParser` to correctly handle file corruption and ensure transactional integrity during updates.
-    - Optimized parser to prevent duplicate processing of rolling logs.
+- Job Group Search, Graceful Parsing Handling, and Metrics Improvements (by @hongyu)
+- Add Job Group search to Job List (by @hongyu)
+- Add app parsing status check, progress tracking, and 503 handling with frontend notification (by @hongyu)
+- Add app parsing status check and 503 response for incomplete data (by @hongyu)
+- Metric Visibility Selector to Job List page (by @hongyu)
+- Add metric selector to Job Detail page and support dynamic columns in StageTable (by @hongyu)
+- Add sortable Job Id column to Stage List with navigation support (by @hongyu)
 
-### Improvements
-- **Metrics Visualization**: Updated Stage Summary Metrics to display percentage contributions for time-based metrics (e.g., GC Time % of Total Duration), providing better performance context.
-
-## 0.16.0 - 2026-02-04
-
-### Features
-- **Status Coloring in Job List**: Stage IDs in the Job list are now color-coded based on their execution result (Success, Failed, Running, or Skipped) for immediate visual feedback.
-- **Dynamic Column Visibility**:
-    - Added a "Select Columns to Display" card to the Job list page and Job details page.
-    - Refactored Job and Stage tables to allow dynamic toggling of performance metrics.
-- **Enhanced Navigation**: Added a sortable "Job Id" column to the global Stage list, allowing users to jump directly to the parent Job details.
-
-### Bug Fixes
-- **UI Stability**: Fixed several `TypeError` and `ReferenceError` issues in the frontend components caused by reactive state management.
+### Fixes
+- Resolve compilation error in InsightController due to incorrect class reference (by @hongyu)
+- Access .value of computed columns in JobsTab script to fix TypeErrors (by @hongyu)
+- Import computed from Vue in JobsTab to fix ReferenceError (by @hongyu)
+- Access .value of computed columns in StageTable script (by @hongyu)
 
 ## 0.15.0 - 2026-02-04
 
 ### Features
-- **Job Event Timeline**: Added a dual-chart timeline in Job details to visualize Executor lifecycles (Add/Remove) and Stage lifespans (Submission/Completion) in parallel.
-- **Rolling EventLog Support**: Enhanced the parser and watcher to support multi-part/rolling Spark event logs. Logs are now grouped by Application ID and processed in correct sequence.
-- **Job List Enhancements**:
-    - **Split Job ID/Group**: Separated Job ID and Job Group into distinct, sortable columns.
-    - **Stage Tracking**: Added "Stages Count" (sortable) and "Stage IDs" (list) columns to provide a clearer overview of stage distribution per job.
+- Job Timeline, Rolling Logs, and Enhanced Job List (by @hongyu)
+- Add Stage IDs and Stages Count columns to Job List (by @hongyu)
+- Split Job ID and Job Group into separate sortable columns (by @hongyu)
 
-### Improvements
-- **UI/UX**: Simplified Job DAG stage labels to only show "Stage ID" for a cleaner look.
-- **Navigation**: Fixed navigation bug where clicking "of Job" in Stage details returned to the list instead of the specific Job.
+### Styles
+- Simplify stage group labels in Job DAG to only show Stage ID (by @hongyu)
 
-### Bug Fixes
-- **SQL Accuracy**: Resolved column ambiguity in Job-level executor metrics queries.
-
-## 0.14.0 - 2026-02-03
+## 0.14.0 - 2026-02-04
 
 ### Features
-- **Job DAG Visualization**: Added a comprehensive DAG view at the Job level. Individual Stage DAGs are now stitched together, grouped by Stage boxes, and connected via RDD dependencies.
+- Job DAG Visualization and SQL Ambiguity Fix (by @hongyu)
 
-### Bug Fixes
-- **SQL Ambiguity Fix**: Resolved a `Binder Error` in `getJobExecutorSummary` caused by ambiguous column references between `tasks` and `stages` tables.
-
-## 0.13.0 - 2026-02-03
+## 0.13.0 - 2026-02-04
 
 ### Features
-- **Scheduled EventLog Parsing**: Implemented `EventLogWatcherService` to periodically (default 10s) scan and incrementally parse new or modified EventLog files.
-- **Enhanced Diagnosis Rules**: Updated diagnosis logic for Data Skew and GC Pressure to include configurable absolute thresholds (e.g., max task duration > 1s, single task GC > 800ms) in addition to relative statistical checks.
-- **Docker Support**: Added `Dockerfile` based on Bitnami Spark 3.5 and `docker-compose.yml` for integrated deployment with Spark History Server.
+- Scheduled Log Parsing, Diagnosis Thresholds, and Docker Support (by @hongyu)
+- Add Dockerfile based on Bitnami Spark 3.5 and docker-compose with History Server integration (by @hongyu)
 
-### Improvements
-- **UI Fixes**: Restored missing metrics cards in Stage Detail view and corrected "of Job" link navigation.
+### Styles
+- Widen Stage Id column to prevent wrapping with attempts/badges (by @hongyu)
 
-## 0.12.1 - 2026-02-03
-
-### Improvements
-- **Spark Web UI Parity**: 
-    - The Job list is now sorted by `Job ID` descending by default.
-    - Updated Job list column to "Job ID (Job Group)" with better badge styling for long group names.
-- **UI Polish**:
-    - Enhanced App List to gracefully handle extremely long App IDs with word wrapping and wider columns.
-
-## 0.12.0 - 2026-02-03
+## 0.12.1 - 2026-02-04
 
 ### Features
-- **Stage Retry Support**: Fully supports displaying multiple attempts for the same Stage ID.
-    - **Backend**: Updated schema to track `attempt_id` for tasks and stages. Fixed `TooManyResultsException` by defaulting to the latest attempt or allowing specific attempt selection.
-    - **Frontend**: Stage list now indicates `(Attempt X)` and allows navigation to specific attempts. Stage Details, Timeline, and Task List now strictly filter data by attempt ID.
+- UI Parity with Spark Web UI and Polish (by @hongyu)
+- Handle long App IDs in App List by increasing column width and adding word-break styling (by @hongyu)
+- Update Job ID column to 'Job ID (Job Group)' and refine badge styling (by @hongyu)
+- Default job list sort by jobId DESC to align with Spark Web UI (by @hongyu)
 
-## 0.11.0 - 2026-02-03
+### Fixes
+- Stage details 'of Job' link now correctly navigates to Job Details instead of Job List (by @hongyu)
 
-### Features
-- **Data Quality Ingestion**: `JacksonEventParser` now proactively detects and marks incomplete applications (e.g., missing `ApplicationEnd` events) in the database.
-- **Robust Diagnosis Reporting**: The Markdown diagnosis report now gracefully handles missing timing data and displays visible warnings for "bad data points".
-
-### Bug Fixes
-- **Large JSON Support**: (v0.10.1) Fixed parsing failures for event log lines exceeding 20MB.
-
-## 0.10.1 - 2026-02-03
+## 0.12.0 - 2026-02-04
 
 ### Features
-- **Case-insensitive Search**: The application search box now supports case-insensitive matching for App Name, App ID, and User Name.
-- **Executor Timeline**: Added a new visual timeline for executors to track task execution across the cluster.
-- **UI Normalization**: 
-    - Simplified the Application list by removing the "Action" column and making "App Name" clickable for navigation.
-    - Unified table link styles and hover behaviors across Jobs, Stages, and Applications lists.
-    - Enhanced Stage DAG and Detail views with more robust rendering and improved spacing.
+- Full support for Stage Retries (Multi-attempt) (by @hongyu)
+
+## 0.11.0 - 2026-02-04
+
+### Features
+- Proactive data quality governance and robust diagnosis reporting (by @hongyu)
+
+## 0.10.1 - 2026-02-04
+
+### Fixes
+- Enable Jackson to parse large JSON event logs (>20MB) (by @hongyu)
+- Robust null handling in DiagnosisService markdown report (by @hongyu)
+
+## 0.10.0 - 2026-02-04
+
+### Features
+- Case-insensitive app search, new Executor Timeline, and UI normalization (by @hongyu)
+
+## 0.9.0 - 2026-02-04
+
+### Features
+- Finalize RDD Lineage styling/stability and polish Timeline UX (by @hongyu)
+
+## 0.8.0 - 2026-02-04
+
+### Features
+- Advanced Event Timeline with concurrency trend, RDD Lineage V2, and global interaction locks (by @hongyu)
+
+## 0.7.0 - 2026-02-04
+
+### Features
+- Implement RDD DAG visualization, enhanced stage summary, and responsive UI grid (by @hongyu)
+
+## 0.6.0 - 2026-02-04
+
+### Features
+- complete v0.6.0 with Job Details, advanced sorting, and full UI normalization (by @hongyu)
+- enhance Job metadata with call site and complete Job Detail view (by @hongyu)
+
+### Styles
+- unify job list link style with stage list (by @hongyu)
+
+### Fixes
+- correctly handle job description with stage name fallback and fix compilation (by @hongyu)
+- correctly link stages to jobs in job detail view (by @hongyu)
+
+## 0.3.0 - 2026-02-04
+
+### Features
+- comprehensive upgrade of Job/Stage/Environment views and UI normalization (by @hongyu)
+- enhance stage details with executor aggregation and collapsible cards (by @hongyu)
+
+## 0.2.0 - 2026-02-04
+
+### Features
+- enhance stage summary metrics to match Spark UI parity (by @hongyu)
+
+### Fixes
+- resolve API_BASE reference error and missing components (by @hongyu)
+
+## 0.1.0 - 2026-02-04
+
+### Features
+- enhance job/stage analysis and UI parity with Spark History Server (by @hongyu)
+- enable multi-column sorting in task table (by @hongyu)
+- Implemented automatic frontend packaging into the JAR using the frontend-maven-plugin. (by @hongyu)
 
 ### Refactor
-- **Code Cleanup**: Streamlined backend `listApps` logic to reduce redundancy and improve database query efficiency using DuckDB's `ILIKE`.
+- modularize stage details and enhance environment tab (by @hongyu)
 
-## 0.9.0 - 2026-02-02
-
-### Features
-- **RDD Lineage V3**: Complete visual overhaul of the DAG chart.
-    - **Spark UI Parity**: Matched color scheme (Scopes `#A0DFFF`, RDDs `#C3EBFF`, Edges `#444`) and style (solid borders, solid fills).
-    - **Robust Rendering**: Implemented a "Flattened X6 + Dagre" engine to solve coordinate drift and missing nodes issues.
-    - **Smart Loading**: Added an intelligent loading spinner with debounce logic to handle card expansion/collapse smoothly.
-- **Event Timeline V2**: 
-    - **Dynamic Sizing**: Row height increased to 50px for readability; container height now auto-scales with executor count.
-    - **Compact Layout**: Reduced vertical padding and removed redundant bottom status bars.
-    - **Integrated Legend**: Legends are now embedded within the card headers, maintaining a cleaner UI.
-
-### Bug Fixes
-- **Graph Visibility**: Fixed a critical bug where graphs would disappear or misalign when collapsing/expanding cards.
-- **DataZoom Sync**: Resolved performance issues by decoupling the zoom linkage between trend and gantt charts.
-
-## 0.8.0 - 2026-02-02
-
-### Features
-- **Advanced Event Timeline**: Completely refactored the timeline into a dual-chart view.
-    - **Active Tasks Trend**: A stacked area chart showing concurrency per executor over time.
-    - **Enhanced Gantt Chart**: Grouped by executor with 8-color metric breakdown (Scheduler Delay, GC, Computing, etc.).
-    - **Smart Interaction**: Unified crosshair pointers and floating tooltips with shared styles.
-- **RDD Lineage V2**: Enhanced the DAG visualization with Scope grouping (nesting RDDs within operators like WholeStageCodegen) and professional layout via Dagre.
-- **Interactivity Lock**: Introduced a global zoom lock mechanism for all complex charts (Timeline, DAG) to prevent accidental zooming during page scrolling.
-- **Universal Duration Sorting**: Fixed sorting by duration in both Job and Stage lists by persisting calculated duration in the database and optimizing SQL generation.
-- **Unified UI Componentry**: Moved action buttons (like Zoom Lock) into standard `CollapsibleCard` header slots for a cleaner look.
-
-### Improvements
-- **Layout Precision**: Standardized all grid margins and synchronized axis alignment across sub-charts.
-- **Dynamic Chart Sizing**: Improved row height calculation (50px/executor) and responsive width handling using `ResizeObserver`.
-
-## 0.7.0 - 2026-02-02
-
-### Features
-- **RDD DAG Visualization**: Implemented a transformation graph for stages using AntV X6 and Dagre. Supports RDD lineage, operation scope grouping (e.g., WholeStageCodegen), and call site display.
-- **Enhanced Stage Summary**: Integrated Stage Overview into the Summary Metrics matrix. Added a `Total` column showing aggregated resource consumption (sums/max) for all metrics.
-- **Improved Metric Selection**: Refactored the metric selector with a responsive grid layout. Columns are now equal-width and adaptively adjust their count based on screen resolution.
-- **Full Metric Coverage**: Supplemented missing metrics (Output, Shuffle Read) and unified naming conventions across all views.
-- **Backend Analytics Upgrade**: Enhanced the Stage analytics engine to calculate 10+ additional aggregated metrics during log parsing.
-
-### Bug Fixes
-- **UI Resilience**: Fixed a critical `TypeError` when navigating to details before data is loaded.
-- **Layout Consistency**: Restored missing CSS styles and ensured proper text wrapping for long metric labels.
-
-## 0.6.0 - 2026-02-01
-
-### Features
-- **Job Detail View**: Implemented a dedicated view for Jobs with aggregated executor metrics and strictly filtered Stage lists.
-- **Environment Overhaul**: Comprehensive coverage of Spark, Hadoop, JVM, System properties, and Classpath with independent search and collapsible cards.
-- **Executor View V2**: Added 15+ metrics (Peak Memory, Storage details, Disk used) and lifecycle tracking (Add/Remove Time).
-- **Stage List Enhancements**: Added Submitted, Duration, and I/O metrics; introduced task progress visualization (Succeeded/Total progress bar).
-- **Advanced Sorting**: Uniform multi-column sorting UI with active-sorts-bar across all data tables (Jobs, Stages, Executors, Tasks, Summary Metrics).
-- **Deep Linking**: URL state persistence for all tabs (Jobs, Stages, Executors, etc.) via dedicated sub-paths.
-- **Improved Data Accuracy**: Corrected Task success identification and enhanced Job descriptions using call site info.
-- **UI Consistency**: Standardized link styles (blue, no underline), unified header names, and zero-value masking (`-`).
-
-## 0.4.0 - 2026-02-01
-
-### Features
-- Add **Aggregated Metrics by Executor** table for per-executor analysis
-- Add **Metric Visibility Selector** to dynamically toggle columns/rows across components
-- Implement **Collapsible Cards** for all modules in Stage detail view
-- Link Stage to its parent Job with clickable breadcrumb in header
-- Support exact and readable record counts (e.g., `1,234 (1.2 K)`)
-- Refactor navigation layout and styling to align with Spark Web UI parity
-- Fix task duration and scheduler delay calculation for better accuracy
-
-## 0.1.0 - 2026-02-01
-
-### Features
-- Enable multi-column sorting in task table
-- Enhance job/stage analysis and UI parity with Spark History Server
-- Implement automatic frontend packaging into the JAR
-
-### Refactor
-- Modularize stage details and enhance environment tab
+### Documentation
+- generate v0.1.0 changelogs and add acknowledgments (by @hongyu)

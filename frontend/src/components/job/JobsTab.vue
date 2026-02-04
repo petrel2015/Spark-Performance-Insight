@@ -73,6 +73,12 @@
               {{ job.description || 'Job ' + job.jobId }}
             </a>
           </td>
+          <td>{{ job.numStages }}</td>
+          <td>
+            <div class="stage-ids-list" :title="job.stageIds">
+              {{ job.stageIds || '-' }}
+            </div>
+          </td>
           <td>{{ formatTime(job.submissionTime) }}</td>
           <td>{{ job.duration ? commonFormatTime(job.duration) : calculateDuration(job.submissionTime, job.completionTime) }}</td>
           <td>
@@ -94,7 +100,7 @@
           <td><span :class="'status-' + job.status">{{ job.status }}</span></td>
         </tr>
         <tr v-if="jobs.length === 0">
-          <td colspan="8" style="text-align: center; padding: 40px;">No jobs found.</td>
+          <td colspan="10" style="text-align: center; padding: 40px;">No jobs found.</td>
         </tr>
       </tbody>
     </table>
@@ -121,11 +127,13 @@ const sorts = ref([{ field: 'jobId', dir: 'desc' }]); // Default sort by Job ID 
 
 const columns = [
   { field: 'jobId', label: 'Job ID', width: '80px', sortable: true },
-  { field: 'jobGroup', label: 'Job Group', width: '160px', sortable: true },
+  { field: 'jobGroup', label: 'Job Group', width: '140px', sortable: true },
   { field: 'description', label: 'Description', sortable: false },
+  { field: 'numStages', label: 'Stages Count', width: '100px', sortable: true },
+  { field: 'stageIds', label: 'Stage IDs', width: '140px', sortable: false },
   { field: 'submissionTime', label: 'Submission Time', width: '180px', sortable: true },
   { field: 'duration', label: 'Duration', width: '100px', sortable: true },
-  { field: 'numStages', label: 'Stages: Succeeded/Total', width: '150px', sortable: true },
+  { field: 'stagesProgress', label: 'Stages: Succeeded/Total', width: '150px', sortable: false },
   { field: 'numTasks', label: 'Tasks: Succeeded/Total', width: '150px', sortable: true },
   { field: 'status', label: 'Status', width: '100px', sortable: true }
 ];
@@ -340,6 +348,15 @@ watch(() => props.appId, () => {
   border-radius: 4px;
   word-break: break-all;
   white-space: normal;
+}
+
+.stage-ids-list {
+  font-size: 0.8rem;
+  color: #666;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .progress-wrapper {

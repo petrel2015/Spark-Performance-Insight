@@ -63,11 +63,10 @@
       </thead>
       <tbody>
         <tr v-for="job in jobs" :key="job.jobId">
+          <td>{{ job.jobId }}</td>
           <td>
-            <div class="job-id-cell">
-              <span>{{ job.jobId }}</span>
-              <span v-if="job.jobGroup" class="job-group-badge">{{ job.jobGroup }}</span>
-            </div>
+            <span v-if="job.jobGroup" class="job-group-badge">{{ job.jobGroup }}</span>
+            <span v-else>-</span>
           </td>
           <td>
             <a href="javascript:void(0)" @click="$emit('view-job-detail', job.jobId)" class="job-link">
@@ -95,7 +94,7 @@
           <td><span :class="'status-' + job.status">{{ job.status }}</span></td>
         </tr>
         <tr v-if="jobs.length === 0">
-          <td colspan="7" style="text-align: center; padding: 40px;">No jobs found.</td>
+          <td colspan="8" style="text-align: center; padding: 40px;">No jobs found.</td>
         </tr>
       </tbody>
     </table>
@@ -121,7 +120,8 @@ const jumpPageInput = ref(1);
 const sorts = ref([{ field: 'jobId', dir: 'desc' }]); // Default sort by Job ID DESC
 
 const columns = [
-  { field: 'jobId', label: 'Job ID (Job Group)', width: '240px', sortable: true },
+  { field: 'jobId', label: 'Job ID', width: '80px', sortable: true },
+  { field: 'jobGroup', label: 'Job Group', width: '160px', sortable: true },
   { field: 'description', label: 'Description', sortable: false },
   { field: 'submissionTime', label: 'Submission Time', width: '180px', sortable: true },
   { field: 'duration', label: 'Duration', width: '100px', sortable: true },
@@ -329,13 +329,6 @@ watch(() => props.appId, () => {
 .job-link:hover {
   text-decoration: underline;
   color: #2980b9;
-}
-
-.job-id-cell {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
 }
 
 .job-group-badge {

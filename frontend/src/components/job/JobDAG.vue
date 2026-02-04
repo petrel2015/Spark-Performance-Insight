@@ -123,7 +123,7 @@ const renderDAG = async () => {
             zIndex: 0,
             attrs: {
                 body: { fill: '#F0F4F8', stroke: '#999', strokeDasharray: '5 5', rx: 8, ry: 8 },
-                label: { text: `Stage ${stage.stageId} (${stage.stageName || ''})`, refY: -20, fontSize: 14, fontWeight: 'bold', fill: '#555', textWrap: { width: 280, ellipsis: true } }
+                label: { text: `Stage ${stage.stageId}`, refY: -20, fontSize: 14, fontWeight: 'bold', fill: '#555', textWrap: { width: 280, ellipsis: true } }
             }
         });
 

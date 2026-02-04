@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS applications (
     spark_version VARCHAR,
     status VARCHAR,
     data_quality_status VARCHAR DEFAULT 'GOOD',
-    data_quality_note TEXT
+    data_quality_note TEXT,
+    parsing_status VARCHAR DEFAULT 'READY'
 );
 
 -- 环境配置

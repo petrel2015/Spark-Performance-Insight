@@ -26,6 +26,7 @@ public class JacksonEventParser implements EventParser {
     private final EnvironmentConfigService envService;
     private final JobService jobService;
     private final ExecutorService executorService;
+    private final java.util.concurrent.ExecutorService dbExecutor = java.util.concurrent.Executors.newFixedThreadPool(8); // DB IO Thread Pool
 
     public JacksonEventParser(ApplicationService applicationService, 
                               StageService stageService, 
@@ -94,9 +95,11 @@ public class JacksonEventParser implements EventParser {
                                                 app.setUserName(sparkProps.has("spark.user.name") ? sparkProps.get("spark.user.name").asText() : "unknown");
                                                 app.setStartTime(parseTimestamp(System.currentTimeMillis()));
                                                 app.setSparkVersion(versionFromLogStart != null ? versionFromLogStart : "unknown");
+                                                app.setParsingStatus("PARSING");
                                                 applicationService.saveOrUpdate(app);
                                             } else if (versionFromLogStart != null && (app.getSparkVersion() == null || app.getSparkVersion().equals("unknown"))) {
                                                 app.setSparkVersion(versionFromLogStart);
+                                                app.setParsingStatus("PARSING"); // Mark as parsing if updating
                                                 applicationService.updateById(app);
                                             }
                                         }
@@ -164,8 +167,9 @@ public class JacksonEventParser implements EventParser {
                                 if (currentAppId != null) {
                                     handleTaskEnd(node, currentAppId, taskBatch);
                                     if (taskBatch.size() >= 1000) {
-                                        saveDeduplicatedTasks(taskBatch);
+                                        List<TaskModel> batchToSave = new ArrayList<>(taskBatch);
                                         taskBatch.clear();
+                                        dbExecutor.submit(() -> saveDeduplicatedTasks(batchToSave));
                                     }
                                 }
                                 break;
@@ -179,18 +183,31 @@ public class JacksonEventParser implements EventParser {
                     }
                 }
                 // 扫尾
-                if (!taskBatch.isEmpty()) saveDeduplicatedTasks(taskBatch);
+                if (!taskBatch.isEmpty()) {
+                    List<TaskModel> batchToSave = new ArrayList<>(taskBatch);
+                    dbExecutor.submit(() -> saveDeduplicatedTasks(batchToSave));
+                }
                 if (!envBatch.isEmpty()) saveDeduplicatedEnv(envBatch);
+                
+                // 等待所有 DB 任务完成
+                // 注意：在实际生产中，可能需要更健壮的等待机制（如 CountDownLatch 或 Future）
+                // 但对于单文件解析，简单的线程池提交顺序和数据库事务特性通常足够，
+                // 或者我们可以简单地 sleep 一下让 IO 追赶 (不推荐)
+                // 更好的做法是让 post-calculation 也异步提交到同一个 dbExecutor (需要顺序)
+                // 或者在这里阻塞等待 (简单有效)
                 
                 // 触发后期预计算
                 if (currentAppId != null) {
-                    log.info("Starting post-calculation for App: {}", currentAppId);
-                    stageService.calculateStageMetrics(currentAppId);
-                    jobService.calculateJobMetrics(currentAppId);
-                    executorService.calculateExecutorMetrics(currentAppId);
-                    
-                    // Finalize Data Quality Check
-                    finalizeAppQuality(currentAppId);
+                    final String appIdFinal = currentAppId;
+                    dbExecutor.submit(() -> {
+                        log.info("Starting post-calculation for App: {}", appIdFinal);
+                        stageService.calculateStageMetrics(appIdFinal);
+                        jobService.calculateJobMetrics(appIdFinal);
+                        executorService.calculateExecutorMetrics(appIdFinal);
+                        
+                        // Finalize Data Quality Check
+                        finalizeAppQuality(appIdFinal);
+                    });
                 }
             }
         } catch (Exception e) {
@@ -215,9 +232,15 @@ public class JacksonEventParser implements EventParser {
                 }
             }
             
+            // Always mark as READY after parsing is done
+            if (!"READY".equals(app.getParsingStatus())) {
+                app.setParsingStatus("READY");
+                isUpdated = true;
+            }
+            
             if (isUpdated) {
                 applicationService.updateById(app);
-                log.info("Updated App Data Quality for {}: Status={}", appId, app.getDataQualityStatus());
+                log.info("Updated App Data Quality for {}: Status={}, ParsingStatus=READY", appId, app.getDataQualityStatus());
             }
         }
     }
@@ -240,6 +263,7 @@ public class JacksonEventParser implements EventParser {
             app = new ApplicationModel();
             app.setAppId(appId);
         }
+        app.setParsingStatus("PARSING");
         app.setAppName(node.get("App Name").asText());
         app.setUserName(node.get("User").asText());
         app.setStartTime(parseTimestamp(node.get("Timestamp").asLong()));

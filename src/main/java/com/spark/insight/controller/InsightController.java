@@ -4,6 +4,7 @@ import com.spark.insight.model.*;
 import com.spark.insight.model.dto.AppComparisonResult;
 import com.spark.insight.model.dto.PageResponse;
 import com.spark.insight.service.*;
+import com.spark.insight.exception.AppParsingException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,6 +25,13 @@ public class InsightController {
     private final TaskService taskService;
     private final EnvironmentConfigService envService;
 
+    private void checkAppReady(String appId) {
+        ApplicationModel app = applicationService.getById(appId);
+        if (app != null && "PARSING".equals(app.getParsingStatus())) {
+            throw new AppParsingException("The application " + appId + " is currently being parsed. Please try again later.");
+        }
+    }
+
     /**
      * 获取 Job 列表
      */
@@ -32,6 +40,7 @@ public class InsightController {
                                            @RequestParam(defaultValue = "1") int page,
                                            @RequestParam(defaultValue = "20") int size,
                                            @RequestParam(required = false) String sort) {
+        checkAppReady(appId);
         long total = jobService.lambdaQuery().eq(JobModel::getAppId, appId).count();
         var listQuery = jobService.lambdaQuery().eq(JobModel::getAppId, appId);
 
@@ -52,6 +61,7 @@ public class InsightController {
 
     @GetMapping("/apps/{appId}/jobs/{jobId}")
     public JobModel getJob(@PathVariable String appId, @PathVariable Integer jobId) {
+        checkAppReady(appId);
         return jobService.lambdaQuery()
                 .eq(JobModel::getAppId, appId)
                 .eq(JobModel::getJobId, jobId)
@@ -63,6 +73,7 @@ public class InsightController {
      */
     @GetMapping("/apps/{appId}/environment")
     public List<EnvironmentConfigModel> listEnvironment(@PathVariable String appId) {
+        checkAppReady(appId);
         return envService.lambdaQuery().eq(EnvironmentConfigModel::getAppId, appId).orderByAsc(EnvironmentConfigModel::getParamKey).list();
     }
 
@@ -71,6 +82,7 @@ public class InsightController {
      */
     @GetMapping("/apps/{appId}/executors")
     public List<ExecutorModel> listExecutors(@PathVariable String appId) {
+        checkAppReady(appId);
         return executorService.lambdaQuery().eq(ExecutorModel::getAppId, appId).list();
     }
 
@@ -81,6 +93,7 @@ public class InsightController {
                                              @RequestParam(defaultValue = "1") int page,
                                              @RequestParam(defaultValue = "20") int size,
                                              @RequestParam(required = false) String sort) {
+        checkAppReady(appId);
         // 1. 获取总数 (使用独立的 QueryWrapper)
         var countQuery = taskService.lambdaQuery()
                 .eq(TaskModel::getAppId, appId)
@@ -109,6 +122,7 @@ public class InsightController {
                                                    @RequestParam(defaultValue = "20") int size,
                                                    @RequestParam(required = false) String sort,
                                                    @RequestParam(required = false) String search) {
+        // listApps needs to return apps even if parsing, so status can be seen
         var query = applicationService.lambdaQuery();
         if (search != null && !search.isBlank()) {
             String searchPattern = "%" + search + "%";
@@ -131,6 +145,7 @@ public class InsightController {
      */
     @GetMapping("/apps/{appId}/report")
     public String getReport(@PathVariable String appId) {
+        checkAppReady(appId);
         return diagnosisService.generateMarkdownReport(appId);
     }
 
@@ -143,6 +158,7 @@ public class InsightController {
                                                @RequestParam(defaultValue = "1") int page,
                                                @RequestParam(defaultValue = "20") int size,
                                                @RequestParam(required = false) String sort) {
+        checkAppReady(appId);
         var query = stageService.lambdaQuery().eq(StageModel::getAppId, appId);
         if (jobId != null) {
             query.eq(StageModel::getJobId, jobId);
@@ -170,6 +186,7 @@ public class InsightController {
     public StageModel getStage(@PathVariable String appId, 
                                @PathVariable Integer stageId,
                                @RequestParam(required = false) Integer attemptId) {
+        checkAppReady(appId);
         var query = stageService.lambdaQuery()
                 .eq(StageModel::getAppId, appId)
                 .eq(StageModel::getStageId, stageId);
@@ -189,6 +206,8 @@ public class InsightController {
      */
     @GetMapping("/compare")
     public AppComparisonResult compare(@RequestParam String appId1, @RequestParam String appId2) {
+        checkAppReady(appId1);
+        checkAppReady(appId2);
         return comparisonService.compareApps(appId1, appId2);
     }
 
@@ -199,6 +218,7 @@ public class InsightController {
     public List<StageStatisticsModel> getStageStats(@PathVariable String appId,
                                                     @PathVariable Integer stageId,
                                                     @PathVariable Integer attemptId) {
+        checkAppReady(appId);
         return stageService.getStageStats(appId, stageId, attemptId);
     }
 
@@ -209,6 +229,7 @@ public class InsightController {
     public List<TaskModel> getStageTimeline(@PathVariable String appId, 
                                             @PathVariable Integer stageId,
                                             @RequestParam(required = false) Integer attemptId) {
+        checkAppReady(appId);
         var query = taskService.lambdaQuery()
                 .eq(TaskModel::getAppId, appId)
                 .eq(TaskModel::getStageId, stageId);
@@ -222,18 +243,22 @@ public class InsightController {
      */
     @GetMapping("/apps/{appId}/stages/{stageId}/executor-summary")
     public List<java.util.Map<String, Object>> getExecutorSummary(@PathVariable String appId,
-                                                                  @PathVariable Integer stageId) {
-        return stageService.getExecutorSummary(appId, stageId);
+                                                                  @PathVariable Integer stageId,
+                                                                  @RequestParam(required = false) Integer attemptId) {
+        checkAppReady(appId);
+        return stageService.getExecutorSummary(appId, stageId, attemptId);
     }
 
     @GetMapping("/apps/{appId}/jobs/{jobId}/executor-summary")
     public List<java.util.Map<String, Object>> getJobExecutorSummary(@PathVariable String appId,
                                                                      @PathVariable Integer jobId) {
+        checkAppReady(appId);
         return stageService.getJobExecutorSummary(appId, jobId);
     }
 
     @GetMapping("/apps/{appId}/jobs/{jobId}/stages")
     public List<StageModel> getJobStages(@PathVariable String appId, @PathVariable Integer jobId) {
+        checkAppReady(appId);
         return stageService.lambdaQuery()
                 .eq(StageModel::getAppId, appId)
                 .eq(StageModel::getJobId, jobId)
@@ -246,6 +271,7 @@ public class InsightController {
      */
     @GetMapping("/apps/{appId}")
     public ApplicationModel getApp(@PathVariable String appId) {
+        // Do NOT checkAppReady here, we need this to check status
         return applicationService.getById(appId);
     }
 

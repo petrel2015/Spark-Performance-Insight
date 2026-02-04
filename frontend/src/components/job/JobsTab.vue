@@ -1,55 +1,6 @@
 <template>
-  <div class="jobs-view">
-    <div class="table-header">
-      <div class="header-left">
-        <h4>Jobs List <small>(Total: {{ totalJobs }})</small></h4>
-      </div>
-      
-      <div class="pagination-controls">
-        <div class="page-size-selector">
-          <span>Rows per page:</span>
-          <select v-model="pageSize" @change="handleSizeChange">
-            <option :value="20">20</option>
-            <option :value="50">50</option>
-            <option :value="100">100</option>
-          </select>
-        </div>
-
-        <div class="page-nav">
-          <button @click="jumpToPage(1)" :disabled="currentPage === 1" title="First Page">«</button>
-          <button @click="changePage(-1)" :disabled="currentPage === 1" title="Previous Page">‹</button>
-          
-          <div class="page-jump">
-            <input type="number" 
-                   v-model.number="jumpPageInput" 
-                   @keyup.enter="handleJump"
-                   class="jump-input" 
-                   min="1" 
-                   :max="totalPages" />
-            <span class="total-pages">/ {{ totalPages }}</span>
-          </div>
-
-          <button @click="changePage(1)" :disabled="currentPage === totalPages" title="Next Page">›</button>
-          <button @click="jumpToPage(totalPages)" :disabled="currentPage === totalPages" title="Last Page">»</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Active Sorts Display -->
-    <div v-if="sorts.length > 0" class="active-sorts-bar">
-      <span class="sort-label">Sort by:</span>
-      <div class="sort-tags">
-        <span v-for="(sort, index) in sorts" :key="sort.field" class="sort-tag">
-          {{ getColumnLabel(sort.field) }} 
-          <span class="sort-dir">{{ sort.dir === 'asc' ? 'ASC' : 'DESC' }}</span>
-          <span @click="removeSort(index)" class="remove-sort" title="Remove sort">×</span>
-        </span>
-      </div>
-      <button @click="clearSorts" class="clear-sort-btn">Clear All</button>
-      <small class="sort-hint">(Hold <b>Shift</b> + Click headers to sort by multiple columns)</small>
-    </div>
-
-    <!-- Metric Visibility Selector -->
+  <div class="jobs-view-container">
+    <!-- Metric Visibility Selector (Separate Card) -->
     <div class="metric-selector-card">
       <div class="selector-header">
         <strong>Select Columns to Display:</strong>
@@ -66,103 +17,157 @@
       </div>
     </div>
 
-    <table class="styled-table">
-      <thead>
-        <tr>
-          <th v-for="col in columns" 
-              :key="col.field"
-              @click="handleSort(col.field, $event)" 
-              :class="{ sortable: col.sortable }"
-              :style="{ width: col.width }">
-            {{ col.label }} <span v-if="col.sortable">{{ getSortIcon(col.field) }}</span>
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="job in jobs" :key="job.jobId">
-          <td v-for="col in columns" :key="col.field">
-            <!-- 1. Job ID -->
-            <template v-if="col.field === 'jobId'">
-              {{ job.jobId }}
-            </template>
+    <!-- Main Jobs Table Card -->
+    <div class="jobs-table-card">
+      <div class="table-header">
+        <div class="header-left">
+          <h4>Jobs List <small>(Total: {{ totalJobs }})</small></h4>
+        </div>
+        
+        <div class="pagination-controls">
+          <div class="page-size-selector">
+            <span>Rows per page:</span>
+            <select v-model="pageSize" @change="handleSizeChange">
+              <option :value="20">20</option>
+              <option :value="50">50</option>
+              <option :value="100">100</option>
+            </select>
+          </div>
 
-            <!-- 2. Job Group -->
-            <template v-else-if="col.field === 'jobGroup'">
-              <span v-if="job.jobGroup" class="job-group-badge">{{ job.jobGroup }}</span>
-              <span v-else>-</span>
-            </template>
+          <div class="page-nav">
+            <button @click="jumpToPage(1)" :disabled="currentPage === 1" title="First Page">«</button>
+            <button @click="changePage(-1)" :disabled="currentPage === 1" title="Previous Page">‹</button>
+            
+            <div class="page-jump">
+              <input type="number" 
+                     v-model.number="jumpPageInput" 
+                     @keyup.enter="handleJump"
+                     class="jump-input" 
+                     min="1" 
+                     :max="totalPages" />
+              <span class="total-pages">/ {{ totalPages }}</span>
+            </div>
 
-            <!-- 3. Description (Link) -->
-            <template v-else-if="col.field === 'description'">
-              <a href="javascript:void(0)" @click="$emit('view-job-detail', job.jobId)" class="job-link">
-                {{ job.description || 'Job ' + job.jobId }}
-              </a>
-            </template>
+            <button @click="changePage(1)" :disabled="currentPage === totalPages" title="Next Page">›</button>
+            <button @click="jumpToPage(totalPages)" :disabled="currentPage === totalPages" title="Last Page">»</button>
+          </div>
+        </div>
+      </div>
 
-            <!-- 4. Stages Count -->
-            <template v-else-if="col.field === 'numStages'">
-              {{ job.numStages }}
-            </template>
+      <!-- Active Sorts Display -->
+      <div v-if="sorts.length > 0" class="active-sorts-bar">
+        <span class="sort-label">Sort by:</span>
+        <div class="sort-tags">
+          <span v-for="(sort, index) in sorts" :key="sort.field" class="sort-tag">
+            {{ getColumnLabel(sort.field) }} 
+            <span class="sort-dir">{{ sort.dir === 'asc' ? 'ASC' : 'DESC' }}</span>
+            <span @click="removeSort(index)" class="remove-sort" title="Remove sort">×</span>
+          </span>
+        </div>
+        <button @click="clearSorts" class="clear-sort-btn">Clear All</button>
+        <small class="sort-hint">(Hold <b>Shift</b> + Click headers to sort by multiple columns)</small>
+      </div>
 
-            <!-- 5. Stage IDs (Status Colored) -->
-            <template v-else-if="col.field === 'stageIds'">
-              <div class="stage-ids-list" :title="job.stageIds">
-                <template v-if="job.stageIds">
-                  <span v-for="(sid, idx) in job.stageIds.split(',')" :key="sid">
-                    <span :class="'stage-id-link ' + getStageStatusClass(job, sid)">{{ sid }}</span>
-                    <span v-if="idx < job.stageIds.split(',').length - 1">, </span>
-                  </span>
+      <div class="table-wrapper">
+        <table class="styled-table">
+          <thead>
+            <tr>
+              <th v-for="col in columns" 
+                  :key="col.field"
+                  @click="handleSort(col.field, $event)" 
+                  :class="{ sortable: col.sortable }"
+                  :style="{ width: col.width }">
+                {{ col.label }} <span v-if="col.sortable">{{ getSortIcon(col.field) }}</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="job in jobs" :key="job.jobId">
+              <td v-for="col in columns" :key="col.field">
+                <!-- 1. Job ID -->
+                <template v-if="col.field === 'jobId'">
+                  {{ job.jobId }}
                 </template>
-                <template v-else>-</template>
-              </div>
-            </template>
 
-            <!-- 6. Submission Time -->
-            <template v-else-if="col.field === 'submissionTime'">
-              {{ formatTime(job.submissionTime) }}
-            </template>
+                <!-- 2. Job Group -->
+                <template v-else-if="col.field === 'jobGroup'">
+                  <span v-if="job.jobGroup" class="job-group-badge">{{ job.jobGroup }}</span>
+                  <span v-else>-</span>
+                </template>
 
-            <!-- 7. Duration -->
-            <template v-else-if="col.field === 'duration'">
-              {{ job.duration ? commonFormatTime(job.duration) : calculateDuration(job.submissionTime, job.completionTime) }}
-            </template>
+                <!-- 3. Description (Link) -->
+                <template v-else-if="col.field === 'description'">
+                  <a href="javascript:void(0)" @click="$emit('view-job-detail', job.jobId)" class="job-link">
+                    {{ job.description || 'Job ' + job.jobId }}
+                  </a>
+                </template>
 
-            <!-- 8. Stages Progress -->
-            <template v-else-if="col.field === 'stagesProgress'">
-              <div class="progress-wrapper">
-                <div class="progress-track" v-if="job.numStages > 0">
-                  <div class="progress-fill" :style="{ width: calculatePercent(job.numCompletedStages, job.numStages) + '%' }"></div>
-                  <div class="progress-text-overlay">{{ job.numCompletedStages || 0 }}/{{ job.numStages }}</div>
-                </div>
-              </div>
-            </template>
+                <!-- 4. Stages Count -->
+                <template v-else-if="col.field === 'numStages'">
+                  {{ job.numStages }}
+                </template>
 
-            <!-- 9. Tasks Progress -->
-            <template v-else-if="col.field === 'numTasks'">
-              <div class="progress-wrapper">
-                <div class="progress-track" v-if="job.numTasks > 0">
-                  <div class="progress-fill tasks-fill" :style="{ width: calculatePercent(job.numCompletedTasks, job.numTasks) + '%' }"></div>
-                  <div class="progress-text-overlay">{{ job.numCompletedTasks || 0 }}/{{ job.numTasks }}</div>
-                </div>
-              </div>
-            </template>
+                <!-- 5. Stage IDs (Status Colored) -->
+                <template v-else-if="col.field === 'stageIds'">
+                  <div class="stage-ids-list" :title="job.stageIds">
+                    <template v-if="job.stageIds">
+                      <span v-for="(sid, idx) in job.stageIds.split(',')" :key="sid">
+                        <span :class="'stage-id-link ' + getStageStatusClass(job, sid)">{{ sid }}</span>
+                        <span v-if="idx < job.stageIds.split(',').length - 1">, </span>
+                      </span>
+                    </template>
+                    <template v-else>-</template>
+                  </div>
+                </template>
 
-            <!-- 10. Status -->
-            <template v-else-if="col.field === 'status'">
-              <span :class="'status-' + job.status">{{ job.status }}</span>
-            </template>
+                <!-- 6. Submission Time -->
+                <template v-else-if="col.field === 'submissionTime'">
+                  {{ formatTime(job.submissionTime) }}
+                </template>
 
-            <!-- Fallback -->
-            <template v-else>
-              {{ job[col.field] }}
-            </template>
-          </td>
-        </tr>
-        <tr v-if="jobs.length === 0">
-          <td :colspan="columns.length" style="text-align: center; padding: 40px;">No jobs found.</td>
-        </tr>
-      </tbody>
-    </table>
+                <!-- 7. Duration -->
+                <template v-else-if="col.field === 'duration'">
+                  {{ job.duration ? commonFormatTime(job.duration) : calculateDuration(job.submissionTime, job.completionTime) }}
+                </template>
+
+                <!-- 8. Stages Progress -->
+                <template v-else-if="col.field === 'stagesProgress'">
+                  <div class="progress-wrapper">
+                    <div class="progress-track" v-if="job.numStages > 0">
+                      <div class="progress-fill" :style="{ width: calculatePercent(job.numCompletedStages, job.numStages) + '%' }"></div>
+                      <div class="progress-text-overlay">{{ job.numCompletedStages || 0 }}/{{ job.numStages }}</div>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- 9. Tasks Progress -->
+                <template v-else-if="col.field === 'numTasks'">
+                  <div class="progress-wrapper">
+                    <div class="progress-track" v-if="job.numTasks > 0">
+                      <div class="progress-fill tasks-fill" :style="{ width: calculatePercent(job.numCompletedTasks, job.numTasks) + '%' }"></div>
+                      <div class="progress-text-overlay">{{ job.numCompletedTasks || 0 }}/{{ job.numTasks }}</div>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- 10. Status -->
+                <template v-else-if="col.field === 'status'">
+                  <span :class="'status-' + job.status">{{ job.status }}</span>
+                </template>
+
+                <!-- Fallback -->
+                <template v-else>
+                  {{ job[col.field] }}
+                </template>
+              </td>
+            </tr>
+            <tr v-if="jobs.length === 0">
+              <td :colspan="columns.length" style="text-align: center; padding: 40px;">No jobs found.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -349,7 +354,13 @@ watch(() => props.appId, () => {
 </script>
 
 <style scoped>
-.jobs-view {
+.jobs-view-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.jobs-table-card {
   background: white; 
   border-radius: 8px; 
   padding: 1.5rem; 

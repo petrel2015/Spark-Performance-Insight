@@ -267,7 +267,7 @@ const handleSizeChange = () => {
 };
 
 const handleSort = (field, event) => {
-  const col = columns.find(c => c.field === field);
+  const col = columns.value.find(c => c.field === field);
   if (!col || !col.sortable) return;
 
   const existingIndex = sorts.value.findIndex(s => s.field === field);
@@ -303,7 +303,7 @@ const clearSorts = () => {
 };
 
 const getColumnLabel = (field) => {
-  const col = columns.find(c => c.field === field);
+  const col = columns.value.find(c => c.field === field);
   return col ? col.label : field;
 };
 

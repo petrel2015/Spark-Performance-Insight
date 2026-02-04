@@ -4,6 +4,21 @@ English | [中文](./CHANGELOG.zh.md)
 
 All notable changes to this project will be documented in this file.
 
+## 0.17.0 - 2026-02-04
+
+### Features
+- **Job Group Search**: Added a dedicated search box in the Job List view to filter jobs by their `Job Group` ID (fuzzy search).
+- **Graceful Parsing State Handling**:
+    - Implemented a "PARSING" status for applications being imported.
+    - API endpoints (except `getApp`) now return 503 Service Unavailable with a progress message if the app is still parsing.
+    - Frontend automatically redirects users to the App List with a "Processing..." toast notification when accessing a locked app.
+- **Robust EventLog Parsing**:
+    - Fixed `JacksonEventParser` to correctly handle file corruption and ensure transactional integrity during updates.
+    - Optimized parser to prevent duplicate processing of rolling logs.
+
+### Improvements
+- **Metrics Visualization**: Updated Stage Summary Metrics to display percentage contributions for time-based metrics (e.g., GC Time % of Total Duration), providing better performance context.
+
 ## 0.16.0 - 2026-02-04
 
 ### Features

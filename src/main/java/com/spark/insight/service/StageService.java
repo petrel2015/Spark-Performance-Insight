@@ -16,7 +16,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class StageService extends ServiceImpl<StageMapper, StageModel> {
-    
+
     private final StageStatisticsMapper stageStatisticsMapper;
 
     public StageModel getById(String id) {
@@ -46,7 +46,7 @@ public class StageService extends ServiceImpl<StageMapper, StageModel> {
     public List<java.util.Map<String, Object>> getExecutorSummary(String appId, Integer stageId) {
         return baseMapper.getExecutorSummary(appId, stageId, null);
     }
-    
+
     public List<java.util.Map<String, Object>> getExecutorSummary(String appId, Integer stageId, Integer attemptId) {
         return baseMapper.getExecutorSummary(appId, stageId, attemptId);
     }

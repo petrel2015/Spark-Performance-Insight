@@ -1,6 +1,5 @@
 package com.spark.insight.model;
 
-import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
@@ -17,7 +16,7 @@ public class ExecutorModel {
     private Integer totalCores;
     private Long memory;
     private Boolean isActive;
-    
+
     // 扩展指标
     private Integer rddBlocks;
     private Long storageMemory;

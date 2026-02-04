@@ -12,12 +12,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, onBeforeUnmount, computed, nextTick } from 'vue';
-import { Graph } from '@antv/x6';
+import {ref, onMounted, watch, onBeforeUnmount, computed, nextTick} from 'vue';
+import {Graph} from '@antv/x6';
 import * as dagre from 'dagre';
 
 const props = defineProps({
-  stage: { type: Object, required: true }
+  stage: {type: Object, required: true}
 });
 
 const graphContainer = ref(null);
@@ -43,13 +43,13 @@ const initGraph = () => {
     container: graphContainer.value,
     width: graphContainer.value.offsetWidth,
     height: 300, // Explicit height matching CSS
-    background: { color: '#f8f9fa' },
+    background: {color: '#f8f9fa'},
     panning: !isZoomLocked.value,
     mousewheel: !isZoomLocked.value,
     grid: true,
     connecting: {
       router: 'manhattan',
-      connector: { name: 'rounded' },
+      connector: {name: 'rounded'},
       anchor: 'center',
       connectionPoint: 'boundary',
       dangling: false,
@@ -105,7 +105,11 @@ const renderDAG = async () => {
 
     const parseScope = (scopeStr) => {
       if (!scopeStr) return null;
-      try { return JSON.parse(scopeStr); } catch (e) { return null; }
+      try {
+        return JSON.parse(scopeStr);
+      } catch (e) {
+        return null;
+      }
     };
 
     const getOrCreateScope = (scopeObj) => {
@@ -117,7 +121,7 @@ const renderDAG = async () => {
         const p = getOrCreateScope(scopeObj.parent);
         if (p) parentId = p.id;
       }
-      const scopeNode = { id: `scope-${id}`, label: scopeObj.name, parentId: parentId ? `scope-${parentId}` : null };
+      const scopeNode = {id: `scope-${id}`, label: scopeObj.name, parentId: parentId ? `scope-${parentId}` : null};
       scopeMap.set(id, scopeNode);
       return scopeNode;
     };
@@ -133,24 +137,26 @@ const renderDAG = async () => {
         const s = getOrCreateScope(scopeObj);
         if (s) parentScopeId = s.id;
       }
-      rddNodes.push({ id: `rdd-${rddId}`, rddId, label: `[${rddId}] ${name}
-${callSite}`, parentId: parentScopeId });
+      rddNodes.push({
+        id: `rdd-${rddId}`, rddId, label: `[${rddId}] ${name}
+${callSite}`, parentId: parentScopeId
+      });
     });
 
     const scopeNodesData = Array.from(scopeMap.values()).map(s => ({
       id: s.id, shape: 'rect', width: 100, height: 100, parent: s.parentId,
       attrs: {
-        body: { fill: 'rgba(160, 223, 255, 1)', stroke: '#3EC0FF', strokeWidth: 1, rx: 4, ry: 4 },
-        label: { text: s.label, refY: 15, fontSize: 10, fill: '#333', fontWeight: 'bold' }
+        body: {fill: 'rgba(160, 223, 255, 1)', stroke: '#3EC0FF', strokeWidth: 1, rx: 4, ry: 4},
+        label: {text: s.label, refY: 15, fontSize: 10, fill: '#333', fontWeight: 'bold'}
       },
       zIndex: 0
     }));
 
     const rddNodesData = rddNodes.map(r => ({
-      id: r.id, shape: 'rect', width: 220, height: 80, parent: r.parentId, data: { rddId: r.rddId },
+      id: r.id, shape: 'rect', width: 220, height: 80, parent: r.parentId, data: {rddId: r.rddId},
       attrs: {
-        body: { fill: '#C3EBFF', stroke: '#3EC0FF', strokeWidth: 1, rx: 6, ry: 6},
-        label: { text: r.label, fill: '#333', fontSize: 11, textWrap: { width: 200, height: 70, ellipsis: true } }
+        body: {fill: '#C3EBFF', stroke: '#3EC0FF', strokeWidth: 1, rx: 6, ry: 6},
+        label: {text: r.label, fill: '#333', fontSize: 11, textWrap: {width: 200, height: 70, ellipsis: true}}
       },
       zIndex: 10
     }));
@@ -166,7 +172,7 @@ ${callSite}`, parentId: parentScopeId });
           if (rddInfos.find(r => r['RDD ID'] === parentId)) {
             edges.push({
               source: `rdd-${parentId}`, target: `rdd-${rddId}`,
-              attrs: { line: { stroke: '#444', strokeWidth: 1, targetMarker: 'classic' } },
+              attrs: {line: {stroke: '#444', strokeWidth: 1, targetMarker: 'classic'}},
               zIndex: 20
             });
           }
@@ -178,17 +184,17 @@ ${callSite}`, parentId: parentScopeId });
     // Ensure graphlib exists (handle different import styles)
     const GraphLib = dagre.graphlib ? dagre.graphlib.Graph : dagre.Graph;
     if (!GraphLib) {
-        console.error("StageDAG: dagre.graphlib is undefined", dagre);
-        isLoading.value = false;
-        return;
+      console.error("StageDAG: dagre.graphlib is undefined", dagre);
+      isLoading.value = false;
+      return;
     }
 
-    const g = new GraphLib({ compound: true });
-    g.setGraph({ rankdir: 'LR', nodesep: 40, ranksep: 60 });
+    const g = new GraphLib({compound: true});
+    g.setGraph({rankdir: 'LR', nodesep: 40, ranksep: 60});
     g.setDefaultEdgeLabel(() => ({}));
-    
+
     allNodes.forEach(n => {
-      g.setNode(n.id, { width: n.width, height: n.height, label: n.id });
+      g.setNode(n.id, {width: n.width, height: n.height, label: n.id});
       if (n.parent) g.setParent(n.id, n.parent);
     });
     edges.forEach(e => g.setEdge(e.source, e.target));
@@ -204,21 +210,21 @@ ${callSite}`, parentId: parentScopeId });
         y: dagreNode.y - dagreNode.height / 2,
         width: dagreNode.width,
         height: dagreNode.height,
-        parent: undefined 
+        parent: undefined
       };
     });
 
-    graph.fromJSON({ nodes: finalNodes, edges });
-    
+    graph.fromJSON({nodes: finalNodes, edges});
+
     // Explicitly update size and zoom
     if (graphContainer.value) {
-        graph.resize(graphContainer.value.offsetWidth, 300);
+      graph.resize(graphContainer.value.offsetWidth, 300);
     }
-    
+
     setTimeout(() => {
-        graph.zoomToFit({ padding: 40, maxScale: 1 });
-        updateGraphInteraction();
-        isLoading.value = false;
+      graph.zoomToFit({padding: 40, maxScale: 1});
+      updateGraphInteraction();
+      isLoading.value = false;
     }, 100);
 
   } catch (err) {
@@ -232,14 +238,14 @@ const triggerReload = () => {
   if (resizeObserver._timer) clearTimeout(resizeObserver._timer);
   resizeObserver._timer = setTimeout(() => {
     renderDAG();
-  }, 10); 
+  }, 10);
 };
 
 onMounted(() => {
   // Use ResizeObserver to trigger initial render when visible
   resizeObserver = new ResizeObserver(() => {
     if (graphContainer.value && graphContainer.value.offsetWidth > 0) {
-       triggerReload();
+      triggerReload();
     }
   });
   if (graphContainer.value) resizeObserver.observe(graphContainer.value.parentElement);
@@ -247,7 +253,7 @@ onMounted(() => {
 
 watch(() => props.stage, () => {
   triggerReload();
-}, { deep: true });
+}, {deep: true});
 
 onBeforeUnmount(() => {
   resizeObserver?.disconnect();
@@ -307,7 +313,11 @@ onBeforeUnmount(() => {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 </style>

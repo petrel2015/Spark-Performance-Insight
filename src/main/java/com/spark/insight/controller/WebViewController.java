@@ -11,10 +11,10 @@ public class WebViewController {
      * 排除以 /api 开头的请求和带后缀的静态资源文件
      */
     @RequestMapping(value = {
-        "/",
-        "/app/**",
-        "/compare/**",
-        "/{path:[^\\.]*}"
+            "/",
+            "/app/**",
+            "/compare/**",
+            "/{path:[^\\.]*}"
     })
     public String forward() {
         return "forward:/index.html";

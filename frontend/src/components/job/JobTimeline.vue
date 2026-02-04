@@ -17,14 +17,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, onBeforeUnmount, nextTick } from 'vue';
+import {ref, onMounted, watch, onBeforeUnmount, nextTick} from 'vue';
 import * as echarts from 'echarts';
-import { getAppExecutors, getJobStages } from '../../api';
-import { formatTime } from '../../utils/format';
+import {getAppExecutors, getJobStages} from '../../api';
+import {formatTime} from '../../utils/format';
 
 const props = defineProps({
-  appId: { type: String, required: true },
-  jobId: { type: Number, required: true }
+  appId: {type: String, required: true},
+  jobId: {type: Number, required: true}
 });
 
 const chartDom = ref(null);
@@ -42,8 +42,8 @@ const updateZoomState = () => {
   if (!myChart) return;
   const option = {
     dataZoom: [
-      { type: 'slider', xAxisIndex: [0, 1], zoomLock: isZoomLocked.value, brushSelect: !isZoomLocked.value },
-      { type: 'inside', xAxisIndex: [0, 1], disabled: isZoomLocked.value }
+      {type: 'slider', xAxisIndex: [0, 1], zoomLock: isZoomLocked.value, brushSelect: !isZoomLocked.value},
+      {type: 'inside', xAxisIndex: [0, 1], disabled: isZoomLocked.value}
     ]
   };
   myChart.setOption(option);
@@ -51,7 +51,7 @@ const updateZoomState = () => {
 
 const fetchDataAndRender = async () => {
   if (!props.appId || !props.jobId) return;
-  
+
   isLoading.value = true;
   try {
     const [execRes, stagesRes] = await Promise.all([
@@ -71,13 +71,13 @@ const fetchDataAndRender = async () => {
     // (Job object also has start/end, but stages give precise bounds for the bars)
     const stageStarts = stages.map(s => new Date(s.submissionTime).getTime()).filter(t => t > 0);
     const stageEnds = stages.map(s => new Date(s.completionTime).getTime()).filter(t => t > 0);
-    
+
     // Default to current time if running
     const now = Date.now();
-    
+
     let minTime = stageStarts.length > 0 ? Math.min(...stageStarts) : 0;
     let maxTime = stageEnds.length > 0 ? Math.max(...stageEnds) : 0;
-    
+
     if (maxTime === 0 && minTime > 0) maxTime = now;
     // Buffer
     minTime -= 1000;
@@ -88,12 +88,12 @@ const fetchDataAndRender = async () => {
       const add = new Date(e.addTime).getTime();
       const remove = e.removeTime ? new Date(e.removeTime).getTime() : now;
       return add <= maxTime && remove >= minTime;
-    }).sort((a,b) => {
-        // Sort by add time
-        return new Date(a.addTime).getTime() - new Date(b.addTime).getTime();
+    }).sort((a, b) => {
+      // Sort by add time
+      return new Date(a.addTime).getTime() - new Date(b.addTime).getTime();
     });
 
-    const sortedStages = [...stages].sort((a,b) => a.stageId - b.stageId);
+    const sortedStages = [...stages].sort((a, b) => a.stageId - b.stageId);
 
     renderChart(relevantExecutors, sortedStages, minTime, maxTime);
 
@@ -109,7 +109,7 @@ const renderChart = (executors, stages, minTime, maxTime) => {
   if (!myChart) myChart = echarts.init(chartDom.value);
 
   // --- Prepare Data ---
-  
+
   // 1. Executor Series
   // Y-axis: Executor IDs
   const executorYData = executors.map(e => e.executorId);
@@ -138,7 +138,7 @@ const renderChart = (executors, stages, minTime, maxTime) => {
   const execHeight = Math.max(150, executors.length * 30);
   const stageHeight = Math.max(150, stages.length * 30);
   const totalHeight = execHeight + stageHeight + 100; // padding
-  
+
   chartDom.value.style.height = `${totalHeight}px`;
   myChart.resize();
 
@@ -161,52 +161,52 @@ const renderChart = (executors, stages, minTime, maxTime) => {
                   Name: ${s.stageName}<br/>
                   Start: ${formatTime(v[1])}<br/>
                   End: ${s.completionTime ? formatTime(v[2]) : 'Running'}<br/>
-                  Duration: ${s.duration ? (s.duration/1000).toFixed(1) + 's' : '-'}`;
+                  Duration: ${s.duration ? (s.duration / 1000).toFixed(1) + 's' : '-'}`;
         }
       }
     },
     grid: [
-      { left: 100, right: 50, top: 30, height: execHeight, tooltip: {trigger: 'item'} }, // Top: Executors
-      { left: 100, right: 50, top: 30 + execHeight + 40, height: stageHeight, tooltip: {trigger: 'item'} }  // Bottom: Stages
+      {left: 100, right: 50, top: 30, height: execHeight, tooltip: {trigger: 'item'}}, // Top: Executors
+      {left: 100, right: 50, top: 30 + execHeight + 40, height: stageHeight, tooltip: {trigger: 'item'}}  // Bottom: Stages
     ],
     xAxis: [
-      { 
-        type: 'time', 
-        gridIndex: 0, 
-        min: minTime, 
+      {
+        type: 'time',
+        gridIndex: 0,
+        min: minTime,
         max: maxTime,
-        axisLabel: { show: false }, // Hide label for top chart to reduce clutter
-        splitLine: { show: true, lineStyle: { type: 'dashed' } }
+        axisLabel: {show: false}, // Hide label for top chart to reduce clutter
+        splitLine: {show: true, lineStyle: {type: 'dashed'}}
       },
-      { 
-        type: 'time', 
-        gridIndex: 1, 
-        min: minTime, 
+      {
+        type: 'time',
+        gridIndex: 1,
+        min: minTime,
         max: maxTime,
         position: 'bottom',
-        splitLine: { show: true, lineStyle: { type: 'dashed' } }
+        splitLine: {show: true, lineStyle: {type: 'dashed'}}
       }
     ],
     yAxis: [
-      { 
-        type: 'category', 
-        gridIndex: 0, 
-        data: executorYData, 
+      {
+        type: 'category',
+        gridIndex: 0,
+        data: executorYData,
         inverse: true,
         name: 'Executors',
         nameLocation: 'start',
         nameGap: 10,
-        nameTextStyle: { fontWeight: 'bold' }
+        nameTextStyle: {fontWeight: 'bold'}
       },
-      { 
-        type: 'category', 
-        gridIndex: 1, 
-        data: stageYData, 
+      {
+        type: 'category',
+        gridIndex: 1,
+        data: stageYData,
         inverse: true,
         name: 'Stages',
         nameLocation: 'start',
         nameGap: 10,
-        nameTextStyle: { fontWeight: 'bold' }
+        nameTextStyle: {fontWeight: 'bold'}
       }
     ],
     dataZoom: [
@@ -320,7 +320,11 @@ onBeforeUnmount(() => {
   margin-bottom: 10px;
 }
 
-.title { font-weight: bold; color: #666; font-size: 0.9rem; }
+.title {
+  font-weight: bold;
+  color: #666;
+  font-size: 0.9rem;
+}
 
 .lock-btn {
   background: white;
@@ -332,9 +336,16 @@ onBeforeUnmount(() => {
   color: #555;
   transition: all 0.2s;
 }
-.lock-btn:hover { background: #f0f0f0; color: #333; }
 
-.timeline-chart { width: 100%; min-height: 200px; }
+.lock-btn:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.timeline-chart {
+  width: 100%;
+  min-height: 200px;
+}
 
 .loading-overlay {
   position: absolute;
@@ -342,7 +353,7 @@ onBeforeUnmount(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255,255,255,0.8);
+  background: rgba(255, 255, 255, 0.8);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -360,7 +371,11 @@ onBeforeUnmount(() => {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 </style>

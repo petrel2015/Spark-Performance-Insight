@@ -1,6 +1,7 @@
 package com.spark.insight.model.dto;
 
 import lombok.Data;
+
 import java.util.List;
 
 @Data

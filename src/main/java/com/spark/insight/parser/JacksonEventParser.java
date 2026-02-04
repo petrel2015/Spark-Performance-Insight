@@ -28,8 +28,8 @@ public class JacksonEventParser implements EventParser {
     private final ExecutorService executorService;
     private final java.util.concurrent.ExecutorService dbExecutor = java.util.concurrent.Executors.newFixedThreadPool(8); // DB IO Thread Pool
 
-    public JacksonEventParser(ApplicationService applicationService, 
-                              StageService stageService, 
+    public JacksonEventParser(ApplicationService applicationService,
+                              StageService stageService,
                               TaskService taskService,
                               EnvironmentConfigService envService,
                               JobService jobService,
@@ -54,7 +54,7 @@ public class JacksonEventParser implements EventParser {
     @Override
     public void parse(File logFile, int currentFileIndex, int totalFiles) {
         log.info("Processing log: {} ({}/{})", logFile.getName(), currentFileIndex, totalFiles);
-        
+
         // 尝试从文件名推断 App ID (支持滚动日志)
         String inferredAppId = null;
         java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("(spark-[a-zA-Z0-9\\-]+)").matcher(logFile.getName());
@@ -75,7 +75,7 @@ public class JacksonEventParser implements EventParser {
                 List<EnvironmentConfigModel> envBatch = new ArrayList<>();
                 List<ExecutorModel> executorBatch = new ArrayList<>();
                 Map<Integer, Integer> stageToJobMap = new HashMap<>();
-                
+
                 long lineCount = 0;
                 long lastUpdate = System.currentTimeMillis();
 
@@ -89,7 +89,9 @@ public class JacksonEventParser implements EventParser {
 
                     try {
                         JsonNode node = objectMapper.readTree(line);
-                        if (!node.has("Event")) continue;
+                        if (!node.has("Event")){
+                            continue;
+                        }
                         String eventType = node.get("Event").asText();
 
                         // 尝试从环境更新中提取 App ID
@@ -98,7 +100,7 @@ public class JacksonEventParser implements EventParser {
                             if (sparkProps != null && sparkProps.has("spark.app.id")) {
                                 currentAppId = sparkProps.get("spark.app.id").asText();
                                 log.info("Detected App ID from EnvironmentUpdate: {}", currentAppId);
-                                
+
                                 ApplicationModel app = applicationService.getById(currentAppId);
                                 if (app == null) {
                                     app = new ApplicationModel();
@@ -183,7 +185,7 @@ public class JacksonEventParser implements EventParser {
                     dbExecutor.submit(() -> saveDeduplicatedTasks(batchToSave));
                 }
                 if (!envBatch.isEmpty()) saveDeduplicatedEnv(envBatch);
-                
+
                 // 触发后期预计算
                 if (currentAppId != null) {
                     final String appIdFinal = currentAppId;
@@ -192,7 +194,7 @@ public class JacksonEventParser implements EventParser {
                         stageService.calculateStageMetrics(appIdFinal);
                         jobService.calculateJobMetrics(appIdFinal);
                         executorService.calculateExecutorMetrics(appIdFinal);
-                        
+
                         // Finalize Data Quality Check
                         finalizeAppQuality(appIdFinal);
                     });
@@ -217,12 +219,12 @@ public class JacksonEventParser implements EventParser {
                     isUpdated = true;
                 }
             }
-            
+
             if (!"READY".equals(app.getParsingStatus())) {
                 app.setParsingStatus("READY");
                 isUpdated = true;
             }
-            
+
             if (isUpdated) {
                 applicationService.updateById(app);
                 log.info("Updated App Data Quality for {}: Status={}, ParsingStatus=READY", appId, app.getDataQualityStatus());
@@ -266,11 +268,11 @@ public class JacksonEventParser implements EventParser {
         app.setAppName(node.get("App Name").asText());
         app.setUserName(node.get("User").asText());
         app.setStartTime(parseTimestamp(node.get("Timestamp").asLong()));
-        
+
         if (app.getSparkVersion() == null || app.getSparkVersion().equals("unknown")) {
             app.setSparkVersion(node.has("Spark Version") ? node.get("Spark Version").asText() : "unknown");
         }
-        
+
         applicationService.saveOrUpdate(app);
     }
 
@@ -282,7 +284,7 @@ public class JacksonEventParser implements EventParser {
         job.setJobId(jobId);
         job.setSubmissionTime(parseTimestamp(node.get("Submission Time").asLong()));
         job.setStatus("RUNNING");
-        
+
         String description = null;
         if (node.has("Properties")) {
             JsonNode props = node.get("Properties");
@@ -291,12 +293,12 @@ public class JacksonEventParser implements EventParser {
             } else if (props.has("spark.job.callSite")) {
                 description = props.get("spark.job.callSite").asText();
             }
-            
+
             if (props.has("spark.jobGroup.id")) {
                 job.setJobGroup(props.get("spark.jobGroup.id").asText());
             }
         }
-        
+
         if (description == null || description.isEmpty()) {
             JsonNode stageInfos = node.get("Stage Infos");
             if (stageInfos != null && stageInfos.isArray() && stageInfos.size() > 0) {
@@ -306,17 +308,17 @@ public class JacksonEventParser implements EventParser {
                 }
             }
         }
-        
+
         if (description != null && description.contains("\n")) {
             description = description.split("\\n")[0];
         }
-        
+
         if (description != null && description.length() > 250) {
             description = description.substring(0, 247) + "...";
         }
-        
+
         job.setDescription(description);
-        
+
         JsonNode stageInfos = node.get("Stage Infos");
         if (stageInfos != null && stageInfos.isArray()) {
             job.setNumStages(stageInfos.size());
@@ -343,11 +345,11 @@ public class JacksonEventParser implements EventParser {
             LocalDateTime completionTime = parseTimestamp(node.get("Completion Time").asLong());
             job.setCompletionTime(completionTime);
             job.setStatus(node.get("Job Result").get("Result").asText().equals("JobSucceeded") ? "SUCCEEDED" : "FAILED");
-            
+
             if (job.getSubmissionTime() != null && completionTime != null) {
                 job.setDuration(java.time.Duration.between(job.getSubmissionTime(), completionTime).toMillis());
             }
-            
+
             jobService.updateById(job);
         }
     }
@@ -356,7 +358,7 @@ public class JacksonEventParser implements EventParser {
         String execId = node.get("Executor ID").asText();
         JsonNode info = node.get("Executor Info");
         long timestamp = node.get("Timestamp").asLong();
-        
+
         ExecutorModel executor = new ExecutorModel();
         executor.setId(appId + ":" + execId);
         executor.setAppId(appId);
@@ -372,7 +374,7 @@ public class JacksonEventParser implements EventParser {
     private void handleExecutorRemoved(JsonNode node, String appId) {
         String execId = node.get("Executor ID").asText();
         long timestamp = node.get("Timestamp").asLong();
-        
+
         ExecutorModel executor = executorService.getById(appId + ":" + execId);
         if (executor != null) {
             executor.setRemoveTime(parseTimestamp(timestamp));
@@ -420,7 +422,7 @@ public class JacksonEventParser implements EventParser {
         stage.setNumTasks(info.get("Number of Tasks").asInt());
         stage.setSubmissionTime(parseTimestamp(info.get("Submission Time").asLong()));
         stage.setStatus("RUNNING");
-        
+
         if (info.has("Parent IDs")) {
             JsonNode parents = info.get("Parent IDs");
             if (parents.isArray() && parents.size() > 0) {
@@ -435,7 +437,7 @@ public class JacksonEventParser implements EventParser {
         if (info.has("RDD Info")) {
             stage.setRddInfo(info.get("RDD Info").toString());
         }
-        
+
         stageService.saveOrUpdate(stage);
     }
 
@@ -448,7 +450,7 @@ public class JacksonEventParser implements EventParser {
             if (info.has("Completion Time")) {
                 LocalDateTime completionTime = parseTimestamp(info.get("Completion Time").asLong());
                 stage.setCompletionTime(completionTime);
-                
+
                 if (stage.getSubmissionTime() != null && completionTime != null) {
                     stage.setDuration(java.time.Duration.between(stage.getSubmissionTime(), completionTime).toMillis());
                 }
@@ -471,11 +473,11 @@ public class JacksonEventParser implements EventParser {
         int attemptId = node.has("Stage Attempt ID") ? node.get("Stage Attempt ID").asInt() : 0;
         long taskId = info.has("Task ID") ? info.get("Task ID").asLong() : -1L;
         int taskIndex = info.has("Index") ? info.get("Index").asInt() : -1;
-        
+
         long launchTime = info.has("Launch Time") ? info.get("Launch Time").asLong() : 0L;
         long finishTime = info.has("Finish Time") ? info.get("Finish Time").asLong() : 0L;
         long duration = info.has("Duration") ? info.get("Duration").asLong() : 0L;
-        
+
         if (duration <= 0 && finishTime > launchTime) {
             duration = finishTime - launchTime;
         }
@@ -493,7 +495,7 @@ public class JacksonEventParser implements EventParser {
         task.setFinishTime(finishTime);
         task.setDuration(duration);
         task.setSpeculative(info.has("Speculative") ? info.get("Speculative").asBoolean() : false);
-        
+
         String status = "unknown";
         if (node.has("Task End Reason")) {
             JsonNode reason = node.get("Task End Reason");
@@ -510,7 +512,7 @@ public class JacksonEventParser implements EventParser {
             long executorRunTime = metrics.has("Executor Run Time") ? metrics.get("Executor Run Time").asLong() : 0L;
             long resultSerializationTime = metrics.has("Result Serialization Time") ? metrics.get("Result Serialization Time").asLong() : 0L;
             long executorCpuTime = metrics.has("Executor CPU Time") ? metrics.get("Executor CPU Time").asLong() : 0L;
-            
+
             task.setExecutorDeserializeTime(executorDeserializeTime);
             task.setExecutorRunTime(executorRunTime);
             task.setResultSerializationTime(resultSerializationTime);
@@ -524,7 +526,7 @@ public class JacksonEventParser implements EventParser {
 
             task.setGcTime(metrics.has("JVM GC Time") ? metrics.get("JVM GC Time").asLong() : 0L);
             task.setPeakExecutionMemory(metrics.has("Peak Execution Memory") ? metrics.get("Peak Execution Memory").asLong() : 0L);
-            
+
             JsonNode inputMetrics = metrics.get("Input Metrics");
             if (inputMetrics != null && !inputMetrics.isNull()) {
                 task.setInputBytes(inputMetrics.has("Bytes Read") ? inputMetrics.get("Bytes Read").asLong() : 0L);
@@ -576,5 +578,7 @@ public class JacksonEventParser implements EventParser {
     }
 
     @Override
-    public boolean supports(String version) { return true; }
+    public boolean supports(String version) {
+        return true;
+    }
 }

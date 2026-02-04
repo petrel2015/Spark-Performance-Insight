@@ -310,7 +310,7 @@ const clearSorts = () => {
 };
 
 const getColumnLabel = (field) => {
-  const col = columns.find(c => c.field === field);
+  const col = columns.value.find(c => c.field === field);
   return col ? col.label : field;
 };
 

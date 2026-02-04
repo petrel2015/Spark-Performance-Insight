@@ -20,7 +20,7 @@
 
     <!-- 2.5. Executor Timeline Card -->
     <CollapsibleCard title="Executor Lifecycle Timeline" :initial-collapsed="false">
-      <ExecutorTimeline :executors="executors" />
+      <ExecutorTimeline :executors="executors"/>
     </CollapsibleCard>
 
     <!-- 3. Executors List Card -->
@@ -42,75 +42,75 @@
       <div class="table-wrapper">
         <table class="styled-table">
           <thead>
-            <tr>
-              <th v-for="col in visibleColumns" 
-                  :key="col.field"
-                  @click="handleSort(col.field, $event)"
-                  :class="{ sortable: true }"
-                  :style="{ minWidth: col.width || '100px' }">
-                {{ col.label }} {{ getSortIcon(col.field) }}
-              </th>
-            </tr>
+          <tr>
+            <th v-for="col in visibleColumns"
+                :key="col.field"
+                @click="handleSort(col.field, $event)"
+                :class="{ sortable: true }"
+                :style="{ minWidth: col.width || '100px' }">
+              {{ col.label }} {{ getSortIcon(col.field) }}
+            </th>
+          </tr>
           </thead>
           <tbody>
-            <tr v-for="ex in sortedExecutors" :key="ex.executorId">
-              <td v-for="col in visibleColumns" :key="col.field">
-                <!-- Status Column -->
-                <template v-if="col.field === 'status'">
-                  <div class="status-wrapper">
-                    <span :class="ex.isActive ? 'active-dot' : 'dead-dot'"></span>
-                    <span :class="ex.isActive ? 'status-text' : 'status-text-dead'">
+          <tr v-for="ex in sortedExecutors" :key="ex.executorId">
+            <td v-for="col in visibleColumns" :key="col.field">
+              <!-- Status Column -->
+              <template v-if="col.field === 'status'">
+                <div class="status-wrapper">
+                  <span :class="ex.isActive ? 'active-dot' : 'dead-dot'"></span>
+                  <span :class="ex.isActive ? 'status-text' : 'status-text-dead'">
                       {{ ex.isActive ? 'Active' : 'Dead' }}
                     </span>
-                  </div>
-                </template>
+                </div>
+              </template>
 
-                <!-- Memory Columns -->
-                <template v-else-if="col.type === 'bytes'">
-                  {{ formatBytes(ex[col.field]) }}
-                </template>
+              <!-- Memory Columns -->
+              <template v-else-if="col.type === 'bytes'">
+                {{ formatBytes(ex[col.field]) }}
+              </template>
 
-                <!-- Time Columns -->
-                <template v-else-if="col.type === 'time'">
-                  {{ formatTime(ex[col.field]) }}
-                </template>
+              <!-- Time Columns -->
+              <template v-else-if="col.type === 'time'">
+                {{ formatTime(ex[col.field]) }}
+              </template>
 
-                <!-- DateTime Columns -->
-                <template v-else-if="col.type === 'datetime'">
-                  {{ formatDateTime(ex[col.field]) }}
-                </template>
+              <!-- DateTime Columns -->
+              <template v-else-if="col.type === 'datetime'">
+                {{ formatDateTime(ex[col.field]) }}
+              </template>
 
-                <!-- Composite Columns -->
-                <template v-else-if="col.field === 'peakJvm'">
-                  <div class="sub-cell">On: {{ formatBytes(ex.peakJvmOnHeap) }}</div>
-                  <div class="sub-cell">Off: {{ formatBytes(ex.peakJvmOffHeap) }}</div>
-                </template>
-                <template v-else-if="col.field === 'peakExecution'">
-                  <div class="sub-cell">On: {{ formatBytes(ex.peakExecutionOnHeap) }}</div>
-                  <div class="sub-cell">Off: {{ formatBytes(ex.peakExecutionOffHeap) }}</div>
-                </template>
-                <template v-else-if="col.field === 'peakStorage'">
-                  <div class="sub-cell">On: {{ formatBytes(ex.peakStorageOnHeap) }}</div>
-                  <div class="sub-cell">Off: {{ formatBytes(ex.peakStorageOffHeap) }}</div>
-                </template>
-                <template v-else-if="col.field === 'peakPool'">
-                  <div class="sub-cell">Dir: {{ formatBytes(ex.peakPoolDirect) }}</div>
-                  <div class="sub-cell">Map: {{ formatBytes(ex.peakPoolMapped) }}</div>
-                </template>
-                <template v-else-if="col.field === 'taskTime'">
-                  {{ formatTime(ex.taskTimeMs) }}
-                  <small class="gc-label" v-if="ex.gcTimeMs > 0">({{ formatTime(ex.gcTimeMs) }})</small>
-                </template>
+              <!-- Composite Columns -->
+              <template v-else-if="col.field === 'peakJvm'">
+                <div class="sub-cell">On: {{ formatBytes(ex.peakJvmOnHeap) }}</div>
+                <div class="sub-cell">Off: {{ formatBytes(ex.peakJvmOffHeap) }}</div>
+              </template>
+              <template v-else-if="col.field === 'peakExecution'">
+                <div class="sub-cell">On: {{ formatBytes(ex.peakExecutionOnHeap) }}</div>
+                <div class="sub-cell">Off: {{ formatBytes(ex.peakExecutionOffHeap) }}</div>
+              </template>
+              <template v-else-if="col.field === 'peakStorage'">
+                <div class="sub-cell">On: {{ formatBytes(ex.peakStorageOnHeap) }}</div>
+                <div class="sub-cell">Off: {{ formatBytes(ex.peakStorageOffHeap) }}</div>
+              </template>
+              <template v-else-if="col.field === 'peakPool'">
+                <div class="sub-cell">Dir: {{ formatBytes(ex.peakPoolDirect) }}</div>
+                <div class="sub-cell">Map: {{ formatBytes(ex.peakPoolMapped) }}</div>
+              </template>
+              <template v-else-if="col.field === 'taskTime'">
+                {{ formatTime(ex.taskTimeMs) }}
+                <small class="gc-label" v-if="ex.gcTimeMs > 0">({{ formatTime(ex.gcTimeMs) }})</small>
+              </template>
 
-                <!-- Default -->
-                <template v-else>
-                  {{ ex[col.field] }}
-                </template>
-              </td>
-            </tr>
-            <tr v-if="executors.length === 0">
-              <td :colspan="visibleColumns.length" style="text-align: center; padding: 40px;">No executors found.</td>
-            </tr>
+              <!-- Default -->
+              <template v-else>
+                {{ ex[col.field] }}
+              </template>
+            </td>
+          </tr>
+          <tr v-if="executors.length === 0">
+            <td :colspan="visibleColumns.length" style="text-align: center; padding: 40px;">No executors found.</td>
+          </tr>
           </tbody>
         </table>
       </div>
@@ -119,49 +119,49 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import {ref, computed} from 'vue';
 import CollapsibleCard from '../common/CollapsibleCard.vue';
 import ExecutorTimeline from './ExecutorTimeline.vue';
-import { formatBytes, formatTime, formatNum, formatDateTime } from '../../utils/format';
+import {formatBytes, formatTime, formatNum, formatDateTime} from '../../utils/format';
 
 const props = defineProps({
-  executors: { type: Array, default: () => [] }
+  executors: {type: Array, default: () => []}
 });
 
-const sorts = ref([{ field: 'executorId', dir: 'asc' }]);
+const sorts = ref([{field: 'executorId', dir: 'asc'}]);
 const selectedFields = ref([
   'executorId', 'host', 'status', 'addTime', 'totalCores', 'storageMemory', 'totalTasks', 'completedTasks', 'failedTasks', 'inputBytes'
 ]);
 
 const baseColumns = [
-  { field: 'executorId', label: 'ID', width: '80px' },
-  { field: 'host', label: 'Address', width: '140px' },
-  { field: 'status', label: 'Status', width: '90px' }
+  {field: 'executorId', label: 'ID', width: '80px'},
+  {field: 'host', label: 'Address', width: '140px'},
+  {field: 'status', label: 'Status', width: '90px'}
 ];
 
 const allMetricColumns = [
-  { field: 'addTime', label: 'Add Time', type: 'datetime', width: '160px' },
-  { field: 'removeTime', label: 'Remove Time', type: 'datetime', width: '160px' },
-  { field: 'rddBlocks', label: 'RDD Blocks', type: 'number' },
-  { field: 'storageMemory', label: 'Storage Memory', type: 'bytes', width: '120px' },
-  { field: 'onHeapStorageMemory', label: 'On Heap Storage', type: 'bytes' },
-  { field: 'offHeapStorageMemory', label: 'Off Heap Storage', type: 'bytes' },
-  { field: 'peakJvm', label: 'Peak JVM Mem (On/Off)', type: 'composite', width: '150px' },
-  { field: 'peakExecution', label: 'Peak Exec Mem (On/Off)', type: 'composite', width: '150px' },
-  { field: 'peakStorage', label: 'Peak Storage Mem (On/Off)', type: 'composite', width: '150px' },
-  { field: 'peakPool', label: 'Peak Pool Mem (Dir/Map)', type: 'composite', width: '150px' },
-  { field: 'diskUsed', label: 'Disk Used', type: 'bytes' },
-  { field: 'totalCores', label: 'Cores', type: 'number' },
-  { field: 'resourceProfileId', label: 'Resource Profile ID', type: 'number' },
-  { field: 'activeTasks', label: 'Active Tasks', type: 'number' },
-  { field: 'failedTasks', label: 'Failed Tasks', type: 'number' },
-  { field: 'completedTasks', label: 'Complete Tasks', type: 'number' },
-  { field: 'totalTasks', label: 'Total Tasks', type: 'number' },
-  { field: 'taskTime', label: 'Task Time (GC Time)', type: 'composite', width: '140px' },
-  { field: 'inputBytes', label: 'Input', type: 'bytes' },
-  { field: 'shuffleReadBytes', label: 'Shuffle Read', type: 'bytes' },
-  { field: 'shuffleWriteBytes', label: 'Shuffle Write', type: 'bytes' },
-  { field: 'execLossReason', label: 'Exec Loss Reason', type: 'string', width: '200px' }
+  {field: 'addTime', label: 'Add Time', type: 'datetime', width: '160px'},
+  {field: 'removeTime', label: 'Remove Time', type: 'datetime', width: '160px'},
+  {field: 'rddBlocks', label: 'RDD Blocks', type: 'number'},
+  {field: 'storageMemory', label: 'Storage Memory', type: 'bytes', width: '120px'},
+  {field: 'onHeapStorageMemory', label: 'On Heap Storage', type: 'bytes'},
+  {field: 'offHeapStorageMemory', label: 'Off Heap Storage', type: 'bytes'},
+  {field: 'peakJvm', label: 'Peak JVM Mem (On/Off)', type: 'composite', width: '150px'},
+  {field: 'peakExecution', label: 'Peak Exec Mem (On/Off)', type: 'composite', width: '150px'},
+  {field: 'peakStorage', label: 'Peak Storage Mem (On/Off)', type: 'composite', width: '150px'},
+  {field: 'peakPool', label: 'Peak Pool Mem (Dir/Map)', type: 'composite', width: '150px'},
+  {field: 'diskUsed', label: 'Disk Used', type: 'bytes'},
+  {field: 'totalCores', label: 'Cores', type: 'number'},
+  {field: 'resourceProfileId', label: 'Resource Profile ID', type: 'number'},
+  {field: 'activeTasks', label: 'Active Tasks', type: 'number'},
+  {field: 'failedTasks', label: 'Failed Tasks', type: 'number'},
+  {field: 'completedTasks', label: 'Complete Tasks', type: 'number'},
+  {field: 'totalTasks', label: 'Total Tasks', type: 'number'},
+  {field: 'taskTime', label: 'Task Time (GC Time)', type: 'composite', width: '140px'},
+  {field: 'inputBytes', label: 'Input', type: 'bytes'},
+  {field: 'shuffleReadBytes', label: 'Shuffle Read', type: 'bytes'},
+  {field: 'shuffleWriteBytes', label: 'Shuffle Write', type: 'bytes'},
+  {field: 'execLossReason', label: 'Exec Loss Reason', type: 'string', width: '200px'}
 ];
 
 const visibleColumns = computed(() => {
@@ -204,7 +204,7 @@ const handleSort = (field, event) => {
     else sorts.value.splice(existingIndex, 1);
   } else {
     if (!isShift) sorts.value = [];
-    sorts.value.push({ field, dir: 'asc' });
+    sorts.value.push({field, dir: 'asc'});
   }
 };
 
@@ -225,37 +225,82 @@ const getColumnLabel = (field) => {
   return col ? col.label : field;
 };
 
-const clearSorts = () => { sorts.value = []; };
-const selectAll = () => { selectedFields.value = [...baseColumns.map(c => c.field), ...allMetricColumns.map(c => c.field)]; };
-const clearAll = () => { selectedFields.value = ['executorId']; };
-const selectDefault = () => { selectedFields.value = ['executorId', 'host', 'status', 'totalCores', 'storageMemory', 'totalTasks', 'completedTasks', 'failedTasks', 'inputBytes']; };
+const clearSorts = () => {
+  sorts.value = [];
+};
+const selectAll = () => {
+  selectedFields.value = [...baseColumns.map(c => c.field), ...allMetricColumns.map(c => c.field)];
+};
+const clearAll = () => {
+  selectedFields.value = ['executorId'];
+};
+const selectDefault = () => {
+  selectedFields.value = ['executorId', 'host', 'status', 'totalCores', 'storageMemory', 'totalTasks', 'completedTasks', 'failedTasks', 'inputBytes'];
+};
 </script>
 
 <style scoped>
-.executors-tab { display: flex; flex-direction: column; gap: 1.5rem; }
+.executors-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
 
 .metric-selector-card {
-  background: white; padding: 1rem 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid #f0f0f0;
+  background: white;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border: 1px solid #f0f0f0;
 }
-.selector-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px; }
-.selector-header strong { font-size: 0.9rem; color: #2c3e50; }
-.selector-actions { display: flex; gap: 10px; }
-.selector-actions button { background: none; border: 1px solid #ddd; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; color: #666; }
-.selector-actions button:hover { border-color: #3498db; color: #3498db; }
 
-.checkbox-group { 
+.selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 8px;
+}
+
+.selector-header strong {
+  font-size: 0.9rem;
+  color: #2c3e50;
+}
+
+.selector-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.selector-actions button {
+  background: none;
+  border: 1px solid #ddd;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  color: #666;
+}
+
+.selector-actions button:hover {
+  border-color: #3498db;
+  color: #3498db;
+}
+
+.checkbox-group {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 10px 15px;
 }
 
-.checkbox-item { 
-  display: flex; 
-  align-items: center; 
-  gap: 6px; 
-  font-size: 0.8rem; 
-  color: #555; 
-  cursor: pointer; 
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: #555;
+  cursor: pointer;
   white-space: nowrap;
 }
 
@@ -273,8 +318,17 @@ const selectDefault = () => { selectedFields.value = ['executorId', 'host', 'sta
   border: 1px solid #eee;
 }
 
-.sort-label { font-weight: 600; color: #555; }
-.sort-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+.sort-label {
+  font-weight: 600;
+  color: #555;
+}
+
+.sort-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .sort-tag {
   display: inline-flex;
   align-items: center;
@@ -285,31 +339,143 @@ const selectDefault = () => { selectedFields.value = ['executorId', 'host', 'sta
   font-size: 0.8rem;
   border: 1px solid #bbdefb;
 }
-.sort-dir { margin-left: 4px; font-size: 0.7rem; opacity: 0.8; font-weight: bold; }
-.remove-sort { margin-left: 6px; cursor: pointer; font-weight: bold; opacity: 0.6; }
-.remove-sort:hover { opacity: 1; color: #c62828; }
-.clear-sort-btn { background: none; border: none; color: #666; text-decoration: underline; cursor: pointer; font-size: 0.8rem; padding: 0 4px; }
-.clear-sort-btn:hover { color: #d32f2f; }
-.sort-hint { margin-left: auto; color: #888; font-style: italic; font-size: 0.8rem; }
 
-.table-wrapper { overflow-x: auto; width: 100%; }
-.styled-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-.styled-table th, .styled-table td { padding: 10px 8px; text-align: left; border-bottom: 1px solid #eee; white-space: nowrap; }
-.styled-table th { background: #f8f9fa; color: #333; font-weight: 600; }
-.styled-table th.sortable { cursor: pointer; user-select: none; }
-.styled-table th.sortable:hover { background: #edf2f7; color: #3498db; }
-.styled-table tbody tr:hover { background-color: #f7fbff; }
+.sort-dir {
+  margin-left: 4px;
+  font-size: 0.7rem;
+  opacity: 0.8;
+  font-weight: bold;
+}
 
-.status-wrapper { display: flex; align-items: center; gap: 6px; }
-.active-dot { display: inline-block; width: 8px; height: 8px; background: #27ae60; border-radius: 50%; }
-.dead-dot { display: inline-block; width: 8px; height: 8px; background: #e74c3c; border-radius: 50%; }
-.status-text { color: #27ae60; font-weight: 600; }
-.status-text-dead { color: #e74c3c; font-weight: 600; }
+.remove-sort {
+  margin-left: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  opacity: 0.6;
+}
 
-.sub-cell { font-size: 0.75rem; color: #7f8c8d; }
-.gc-label { color: #e67e22; font-size: 0.7rem; }
-.has-failed { color: #e74c3c; font-weight: bold; }
+.remove-sort:hover {
+  opacity: 1;
+  color: #c62828;
+}
 
-.sort-indicator { font-size: 0.75rem; color: #3498db; display: flex; align-items: center; gap: 8px; }
-.mini-btn { padding: 1px 4px; font-size: 0.7rem; cursor: pointer; }
+.clear-sort-btn {
+  background: none;
+  border: none;
+  color: #666;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0 4px;
+}
+
+.clear-sort-btn:hover {
+  color: #d32f2f;
+}
+
+.sort-hint {
+  margin-left: auto;
+  color: #888;
+  font-style: italic;
+  font-size: 0.8rem;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.styled-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.styled-table th, .styled-table td {
+  padding: 10px 8px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+  white-space: nowrap;
+}
+
+.styled-table th {
+  background: #f8f9fa;
+  color: #333;
+  font-weight: 600;
+}
+
+.styled-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.styled-table th.sortable:hover {
+  background: #edf2f7;
+  color: #3498db;
+}
+
+.styled-table tbody tr:hover {
+  background-color: #f7fbff;
+}
+
+.status-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.active-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: #27ae60;
+  border-radius: 50%;
+}
+
+.dead-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: #e74c3c;
+  border-radius: 50%;
+}
+
+.status-text {
+  color: #27ae60;
+  font-weight: 600;
+}
+
+.status-text-dead {
+  color: #e74c3c;
+  font-weight: 600;
+}
+
+.sub-cell {
+  font-size: 0.75rem;
+  color: #7f8c8d;
+}
+
+.gc-label {
+  color: #e67e22;
+  font-size: 0.7rem;
+}
+
+.has-failed {
+  color: #e74c3c;
+  font-weight: bold;
+}
+
+.sort-indicator {
+  font-size: 0.75rem;
+  color: #3498db;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mini-btn {
+  padding: 1px 4px;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
 </style>

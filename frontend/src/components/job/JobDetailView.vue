@@ -11,34 +11,35 @@
     <!-- 0. Job DAG Visualization -->
     <CollapsibleCard v-if="currentJob" title="Job DAG Visualization" :initial-collapsed="false">
       <template #actions>
-        <button class="lock-btn" 
-                v-if="dagRef" 
-                @click="dagRef.toggleZoomLock()" 
+        <button class="lock-btn"
+                v-if="dagRef"
+                @click="dagRef.toggleZoomLock()"
                 :title="dagRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
           {{ dagRef.isZoomLocked ? '🔒 Locked' : '🔓 Unlocked' }}
         </button>
       </template>
-      <JobDAG ref="dagRef" :app-id="appId" :job-id="jobId" />
+      <JobDAG ref="dagRef" :app-id="appId" :job-id="jobId"/>
     </CollapsibleCard>
 
     <!-- 0.5. Job Event Timeline -->
     <CollapsibleCard v-if="currentJob" title="Event Timeline (Executors & Stages)" :initial-collapsed="false">
       <template #actions>
-        <button class="lock-btn" 
-                v-if="timelineRef" 
-                @click="timelineRef.toggleZoomLock()" 
+        <button class="lock-btn"
+                v-if="timelineRef"
+                @click="timelineRef.toggleZoomLock()"
                 :title="timelineRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
           {{ timelineRef.isZoomLocked ? '🔒 Locked' : '🔓 Unlocked' }}
         </button>
       </template>
-      <JobTimeline ref="timelineRef" :app-id="appId" :job-id="jobId" />
+      <JobTimeline ref="timelineRef" :app-id="appId" :job-id="jobId"/>
     </CollapsibleCard>
 
     <!-- 1. Aggregated Metrics by Executor -->
-    <CollapsibleCard v-if="executorSummary && executorSummary.length > 0" title="Aggregated Metrics by Executor (Job Level)">
+    <CollapsibleCard v-if="executorSummary && executorSummary.length > 0"
+                     title="Aggregated Metrics by Executor (Job Level)">
       <ExecutorSummary
-        :summary="executorSummary"
-        :visible-metrics="selectedMetrics"
+          :summary="executorSummary"
+          :visible-metrics="selectedMetrics"
       />
     </CollapsibleCard>
 
@@ -61,31 +62,31 @@
 
     <!-- 2. Job Stages List -->
     <CollapsibleCard title="Stages">
-      <StageTable 
-        :app-id="appId" 
-        :job-id="jobId" 
-        :hide-title="true" 
-        :plain="true"
-        :visible-metrics="selectedMetrics"
-        @view-stage-detail="onViewStage" 
+      <StageTable
+          :app-id="appId"
+          :job-id="jobId"
+          :hide-title="true"
+          :plain="true"
+          :visible-metrics="selectedMetrics"
+          @view-stage-detail="onViewStage"
       />
     </CollapsibleCard>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue';
-import { getJobExecutorSummary, getJob } from '../../api';
+import {ref, onMounted, watch} from 'vue';
+import {getJobExecutorSummary, getJob} from '../../api';
 import CollapsibleCard from '../common/CollapsibleCard.vue';
 import StageTable from '../stage/StageTable.vue';
 import ExecutorSummary from '../stage/ExecutorSummary.vue';
 import JobDAG from './JobDAG.vue';
 import JobTimeline from './JobTimeline.vue';
-import { AVAILABLE_METRICS, DEFAULT_METRICS } from '../../constants/metrics';
+import {AVAILABLE_METRICS, DEFAULT_METRICS} from '../../constants/metrics';
 
 const props = defineProps({
-  appId: { type: String, required: true },
-  jobId: { type: Number, required: true }
+  appId: {type: String, required: true},
+  jobId: {type: Number, required: true}
 });
 
 const emit = defineEmits(['back', 'view-stage']);
@@ -126,17 +127,48 @@ watch(() => props.jobId, fetchJobDetails);
 </script>
 
 <style scoped>
-.job-detail-container { display: flex; flex-direction: column; gap: 1.5rem; }
-.breadcrumb-nav { display: flex; align-items: center; gap: 20px; background: white; padding: 10px 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-.job-title h3 { margin: 0; font-size: 1.1rem; color: #2c3e50; }
-.job-description-subtitle { font-size: 0.8rem; color: #7f8c8d; }
-.back-btn { background: #6c757d; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+.job-detail-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.breadcrumb-nav {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: white;
+  padding: 10px 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.job-title h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #2c3e50;
+}
+
+.job-description-subtitle {
+  font-size: 0.8rem;
+  color: #7f8c8d;
+}
+
+.back-btn {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
 
 .metric-selector-card {
   background: white;
   padding: 1rem 1.5rem;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .selector-header {
@@ -148,14 +180,30 @@ watch(() => props.jobId, fetchJobDetails);
   padding-bottom: 8px;
 }
 
-.selector-header strong { font-size: 0.9rem; color: #2c3e50; }
-
-.selector-actions { display: flex; gap: 10px; }
-.selector-actions button { 
-  background: none; border: 1px solid #ddd; padding: 2px 8px; border-radius: 4px; 
-  font-size: 0.75rem; cursor: pointer; color: #666;
+.selector-header strong {
+  font-size: 0.9rem;
+  color: #2c3e50;
 }
-.selector-actions button:hover { border-color: #3498db; color: #3498db; }
+
+.selector-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.selector-actions button {
+  background: none;
+  border: 1px solid #ddd;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  color: #666;
+}
+
+.selector-actions button:hover {
+  border-color: #3498db;
+  color: #3498db;
+}
 
 .checkbox-group {
   display: grid;
@@ -173,7 +221,9 @@ watch(() => props.jobId, fetchJobDetails);
   white-space: nowrap;
 }
 
-.checkbox-item input { cursor: pointer; }
+.checkbox-item input {
+  cursor: pointer;
+}
 
 .lock-btn {
   background: white;

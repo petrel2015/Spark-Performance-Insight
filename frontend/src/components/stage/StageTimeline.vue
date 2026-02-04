@@ -5,11 +5,11 @@
       <div class="card-header">
         Active Tasks Over Time (Stacked by Executor)
       </div>
-      
+
       <!-- Trend Legend (Custom) -->
       <div class="legend-bar" v-if="trendExecutors.length > 0">
-        <div v-for="exec in trendExecutors" :key="exec.name" 
-             class="legend-item clickable" 
+        <div v-for="exec in trendExecutors" :key="exec.name"
+             class="legend-item clickable"
              :class="{ disabled: !exec.visible }"
              @click="toggleTrendSeries(exec.name)">
           <span class="color-box" :style="{ backgroundColor: exec.color }"></span>
@@ -23,7 +23,7 @@
     <!-- Main Gantt Chart -->
     <div class="chart-card main-chart-card">
       <div class="card-header">Task Execution Timeline</div>
-      
+
       <!-- Timeline Legend -->
       <div class="legend-bar">
         <div v-for="item in METRIC_CONFIG" :key="item.label" class="legend-item">
@@ -38,15 +38,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, onBeforeUnmount, nextTick } from 'vue';
+import {ref, onMounted, watch, onBeforeUnmount, nextTick} from 'vue';
 import * as echarts from 'echarts';
-import { getStageTimeline } from '../../api';
-import { formatTime } from '../../utils/format';
+import {getStageTimeline} from '../../api';
+import {formatTime} from '../../utils/format';
 
 const props = defineProps({
-  appId: { type: String, required: true },
-  stageId: { type: Number, required: true },
-  attemptId: { type: Number, default: null }
+  appId: {type: String, required: true},
+  stageId: {type: Number, required: true},
+  attemptId: {type: Number, default: null}
 });
 
 const chartDom = ref(null);
@@ -59,14 +59,14 @@ let trendChart = null;
 let resizeObserver = null;
 
 const METRIC_CONFIG = [
-  { key: 'schedulerDelay', label: 'Scheduler Delay', color: '#80B1D3' },
-  { key: 'deserialization', label: 'Deserialization', color: '#FB8072' },
-  { key: 'shuffleRead', label: 'Shuffle Read', color: '#FDB462' },
-  { key: 'gcTime', label: 'GC Time', color: '#EF4444' },
-  { key: 'computing', label: 'Computing', color: '#B3DE69' },
-  { key: 'shuffleWrite', label: 'Shuffle Write', color: '#FFED6F' },
-  { key: 'serialization', label: 'Serialization', color: '#BC80BD' },
-  { key: 'gettingResult', label: 'Getting Result', color: '#8DD3C7' }
+  {key: 'schedulerDelay', label: 'Scheduler Delay', color: '#80B1D3'},
+  {key: 'deserialization', label: 'Deserialization', color: '#FB8072'},
+  {key: 'shuffleRead', label: 'Shuffle Read', color: '#FDB462'},
+  {key: 'gcTime', label: 'GC Time', color: '#EF4444'},
+  {key: 'computing', label: 'Computing', color: '#B3DE69'},
+  {key: 'shuffleWrite', label: 'Shuffle Write', color: '#FFED6F'},
+  {key: 'serialization', label: 'Serialization', color: '#BC80BD'},
+  {key: 'gettingResult', label: 'Getting Result', color: '#8DD3C7'}
 ];
 
 const SHARED_GRID = {
@@ -80,14 +80,14 @@ const SHARED_TOOLTIP_STYLE = {
   borderColor: '#eee',
   borderWidth: 1,
   padding: 10,
-  textStyle: { color: '#333', fontSize: 12 },
+  textStyle: {color: '#333', fontSize: 12},
   confine: true,
   extraCssText: 'box-shadow: 0 3px 12px rgba(0,0,0,0.1); border-radius: 4px;'
 };
 
 const fetchAndRender = async () => {
   if (!props.appId || !props.stageId) return;
-  
+
   if (mainChart) mainChart.showLoading();
   if (trendChart) trendChart.showLoading();
 
@@ -123,8 +123,8 @@ const updateZoomLockState = () => {
     }
   ];
 
-  if (mainChart) mainChart.setOption({ dataZoom: zoomConfig });
-  if (trendChart) trendChart.setOption({ dataZoom: zoomConfig });
+  if (mainChart) mainChart.setOption({dataZoom: zoomConfig});
+  if (trendChart) trendChart.setOption({dataZoom: zoomConfig});
 };
 
 const toggleZoomLock = () => {
@@ -141,11 +141,11 @@ const processAndRenderMain = (tasks) => {
     execMap.get(t.executorId).push(t);
   });
 
-  const executors = Array.from(execMap.keys()).sort((a,b) => a.localeCompare(b, undefined, {numeric:true}));
-  
+  const executors = Array.from(execMap.keys()).sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
+
   const data = [];
   executors.forEach((execId, execIdx) => {
-    const execTasks = execMap.get(execId).sort((a,b) => a.launchTime - b.launchTime);
+    const execTasks = execMap.get(execId).sort((a, b) => a.launchTime - b.launchTime);
     execTasks.forEach(t => {
       const deser = t.executorDeserializeTime || 0;
       const ser = t.resultSerializationTime || 0;
@@ -169,19 +169,17 @@ const processAndRenderMain = (tasks) => {
     });
   });
 
-      const minTime = Math.min(...tasks.map(t => t.launchTime));
+  const minTime = Math.min(...tasks.map(t => t.launchTime));
 
-      const maxTime = Math.max(...tasks.map(t => t.finishTime));
+  const maxTime = Math.max(...tasks.map(t => t.finishTime));
 
-    
 
-      const mainHeight = executors.length * 50 + 120; // 50px per row + padding for axis and datazoom
+  const mainHeight = executors.length * 50 + 120; // 50px per row + padding for axis and datazoom
 
-      chartDom.value.style.height = `${mainHeight}px`;
+  chartDom.value.style.height = `${mainHeight}px`;
 
-      
 
-      mainChart.resize();
+  mainChart.resize();
 
   mainChart.off('mouseover');
   mainChart.off('mouseout');
@@ -198,15 +196,15 @@ const processAndRenderMain = (tasks) => {
       trigger: 'item',
       axisPointer: {
         type: 'cross',
-        label: { backgroundColor: '#6a7985' },
-        lineStyle: { type: 'dashed', color: '#999' }
+        label: {backgroundColor: '#6a7985'},
+        lineStyle: {type: 'dashed', color: '#999'}
       },
       formatter: (params) => {
         const v = params.value;
         const metricsHtml = METRIC_CONFIG.map((cfg, i) => {
           return `<div style="display:flex; justify-content:space-between; gap:20px; font-size:11px; line-height:1.8;">
                     <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${cfg.color};margin-right:5px;"></span>${cfg.label}:</span>
-                    <b>${formatTime(v[4+i])}</b>
+                    <b>${formatTime(v[4 + i])}</b>
                   </div>`;
         }).join('');
         return `<div style="min-width:180px;">
@@ -220,13 +218,13 @@ const processAndRenderMain = (tasks) => {
                 </div>`;
       }
     },
-    grid: { top: 40, left: SHARED_GRID.left, right: SHARED_GRID.right, bottom: 60, containLabel: false },
+    grid: {top: 40, left: SHARED_GRID.left, right: SHARED_GRID.right, bottom: 60, containLabel: false},
     xAxis: {
       type: 'time',
       position: 'top',
-      splitLine: { show: true, lineStyle: { type: 'dashed', color: '#f0f0f0' } },
-      axisLine: { show: false },
-      axisTick: { show: false },
+      splitLine: {show: true, lineStyle: {type: 'dashed', color: '#f0f0f0'}},
+      axisLine: {show: false},
+      axisTick: {show: false},
       min: minTime,
       max: maxTime
     },
@@ -234,28 +232,28 @@ const processAndRenderMain = (tasks) => {
       type: 'category',
       data: executors,
       inverse: true,
-      axisTick: { show: false },
-      axisLine: { show: false },
-      splitLine: { show: true, lineStyle: { color: '#f5f5f5' } },
-      axisLabel: { fontWeight: 'bold', color: '#666' }
+      axisTick: {show: false},
+      axisLine: {show: false},
+      splitLine: {show: true, lineStyle: {color: '#f5f5f5'}},
+      axisLabel: {fontWeight: 'bold', color: '#666'}
     },
     dataZoom: [
-      { 
-        type: 'slider', 
-        xAxisIndex: 0, 
-        filterMode: 'weakFilter', 
-        bottom: 10, 
+      {
+        type: 'slider',
+        xAxisIndex: 0,
+        filterMode: 'weakFilter',
+        bottom: 10,
         height: 24,
         left: SHARED_GRID.left,
         right: SHARED_GRID.right,
         zoomLock: isZoomLocked.value
       },
-      { type: 'inside', xAxisIndex: 0, filterMode: 'weakFilter', disabled: isZoomLocked.value }
+      {type: 'inside', xAxisIndex: 0, filterMode: 'weakFilter', disabled: isZoomLocked.value}
     ],
     series: [{
       type: 'custom',
       renderItem: renderGanttItem,
-      encode: { x: [1, 2], y: 0 },
+      encode: {x: [1, 2], y: 0},
       data: data,
       clip: true
     }]
@@ -267,7 +265,7 @@ const processAndRenderMain = (tasks) => {
 const processAndRenderTrend = (tasks) => {
   if (!trendChart) trendChart = echarts.init(trendChartDom.value);
 
-  const execIds = [...new Set(tasks.map(t => t.executorId))].sort((a,b) => a.localeCompare(b, undefined, {numeric:true}));
+  const execIds = [...new Set(tasks.map(t => t.executorId))].sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
   const timePointsSet = new Set();
   const execEvents = {};
 
@@ -275,8 +273,8 @@ const processAndRenderTrend = (tasks) => {
     timePointsSet.add(t.launchTime);
     timePointsSet.add(t.finishTime);
     if (!execEvents[t.executorId]) execEvents[t.executorId] = [];
-    execEvents[t.executorId].push({ time: t.launchTime, type: 1 });
-    execEvents[t.executorId].push({ time: t.finishTime, type: -1 });
+    execEvents[t.executorId].push({time: t.launchTime, type: 1});
+    execEvents[t.executorId].push({time: t.finishTime, type: -1});
   });
 
   const sortedTimePoints = Array.from(timePointsSet).sort((a, b) => a - b);
@@ -286,9 +284,9 @@ const processAndRenderTrend = (tasks) => {
   const series = execIds.map((execId, idx) => {
     const color = colors[idx % colors.length];
     const seriesName = `Executor ${execId}`;
-    trendExecutors.value.push({ name: seriesName, color: color, visible: true });
+    trendExecutors.value.push({name: seriesName, color: color, visible: true});
 
-    const events = execEvents[execId].sort((a,b) => a.time - b.time);
+    const events = execEvents[execId].sort((a, b) => a.time - b.time);
     const data = [];
     let currentActive = 0;
     let eventIdx = 0;
@@ -307,56 +305,56 @@ const processAndRenderTrend = (tasks) => {
       stack: 'total',
       step: 'end',
       symbol: 'none',
-      itemStyle: { color: color },
-      areaStyle: { opacity: 0.6, color: color },
-      lineStyle: { width: 0.5 },
-      emphasis: { focus: 'series' },
+      itemStyle: {color: color},
+      areaStyle: {opacity: 0.6, color: color},
+      lineStyle: {width: 0.5},
+      emphasis: {focus: 'series'},
       data: data
     };
   });
 
   const option = {
-    grid: { top: 40, left: SHARED_GRID.left, right: SHARED_GRID.right, bottom: 60, containLabel: false },
-    tooltip: { 
+    grid: {top: 40, left: SHARED_GRID.left, right: SHARED_GRID.right, bottom: 60, containLabel: false},
+    tooltip: {
       ...SHARED_TOOLTIP_STYLE,
-      trigger: 'axis', 
-      axisPointer: { type: 'cross' } 
+      trigger: 'axis',
+      axisPointer: {type: 'cross'}
     },
-    legend: { show: false },
-    xAxis: { 
-      type: 'time', 
-      show: true, 
+    legend: {show: false},
+    xAxis: {
+      type: 'time',
+      show: true,
       position: 'top',
-      axisLabel: { show: true, fontSize: 10, color: '#999', margin: 12 },
-      axisLine: { show: false },
-      axisTick: { show: false },
-      min: 'dataMin', 
+      axisLabel: {show: true, fontSize: 10, color: '#999', margin: 12},
+      axisLine: {show: false},
+      axisTick: {show: false},
+      min: 'dataMin',
       max: 'dataMax',
-      splitLine: { show: true, lineStyle: { type: 'dashed', color: '#f0f0f0' } }
+      splitLine: {show: true, lineStyle: {type: 'dashed', color: '#f0f0f0'}}
     },
-    yAxis: { 
-      type: 'value', 
+    yAxis: {
+      type: 'value',
       name: 'Running Tasks',
       minInterval: 1,
-      splitLine: { show: true, lineStyle: { type: 'dashed', color: '#f0f0f0' } }, 
-      axisLine: { show: false },
-      axisTick: { show: false },
-      axisLabel: { fontSize: 10, color: '#666' },
-      nameTextStyle: { color: '#999', padding: [0, 0, 0, 20] }
+      splitLine: {show: true, lineStyle: {type: 'dashed', color: '#f0f0f0'}},
+      axisLine: {show: false},
+      axisTick: {show: false},
+      axisLabel: {fontSize: 10, color: '#666'},
+      nameTextStyle: {color: '#999', padding: [0, 0, 0, 20]}
     },
     series: series,
     dataZoom: [
-      { 
-        type: 'slider', 
-        xAxisIndex: 0, 
-        filterMode: 'weakFilter', 
-        bottom: 10, 
+      {
+        type: 'slider',
+        xAxisIndex: 0,
+        filterMode: 'weakFilter',
+        bottom: 10,
         height: 24,
         left: SHARED_GRID.left,
         right: SHARED_GRID.right,
         zoomLock: isZoomLocked.value
       },
-      { type: 'inside', xAxisIndex: 0, disabled: isZoomLocked.value }
+      {type: 'inside', xAxisIndex: 0, disabled: isZoomLocked.value}
     ]
   };
 
@@ -368,7 +366,7 @@ const toggleTrendSeries = (name) => {
   const exec = trendExecutors.value.find(e => e.name === name);
   if (exec && trendChart) {
     exec.visible = !exec.visible;
-    trendChart.dispatchAction({ type: 'legendToggleSelect', name: name });
+    trendChart.dispatchAction({type: 'legendToggleSelect', name: name});
   }
 };
 
@@ -384,7 +382,6 @@ function renderGanttItem(params, api) {
 
   const endCoord = api.coord([end, categoryIndex]);
 
-  
 
   const barHeight = api.size([0, 1])[1] * 0.8;
 
@@ -402,13 +399,13 @@ function renderGanttItem(params, api) {
       const w = (val / totalTime) * totalWidth;
       children.push({
         type: 'rect',
-        shape: { x: currentX, y: y, width: w, height: barHeight },
-        style: { fill: cfg.color }
+        shape: {x: currentX, y: y, width: w, height: barHeight},
+        style: {fill: cfg.color}
       });
       currentX += w;
     }
   });
-  return { type: 'group', children };
+  return {type: 'group', children};
 }
 
 defineExpose({
@@ -475,9 +472,15 @@ watch(() => props.stageId, fetchAndRender);
   transition: all 0.2s;
 }
 
-.lock-btn:hover { background: #f0f0f0; color: #333; }
+.lock-btn:hover {
+  background: #f0f0f0;
+  color: #333;
+}
 
-.trend-chart { width: 100%; height: 200px; }
+.trend-chart {
+  width: 100%;
+  height: 200px;
+}
 
 .legend-bar {
   display: flex;
@@ -497,11 +500,33 @@ watch(() => props.stageId, fetchAndRender);
   transition: opacity 0.2s;
 }
 
-.legend-item.clickable { cursor: pointer; user-select: none; }
-.legend-item.clickable:hover { opacity: 0.8; }
-.legend-item.disabled { opacity: 0.4; filter: grayscale(100%); }
+.legend-item.clickable {
+  cursor: pointer;
+  user-select: none;
+}
 
-.color-box { width: 12px; height: 12px; border-radius: 2px; }
-.label { font-size: 0.75rem; color: #444; font-weight: 500; }
-.timeline-chart { width: 100%; }
+.legend-item.clickable:hover {
+  opacity: 0.8;
+}
+
+.legend-item.disabled {
+  opacity: 0.4;
+  filter: grayscale(100%);
+}
+
+.color-box {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.label {
+  font-size: 0.75rem;
+  color: #444;
+  font-weight: 500;
+}
+
+.timeline-chart {
+  width: 100%;
+}
 </style>

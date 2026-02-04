@@ -19,16 +19,20 @@
 
     <!-- Main Jobs Table Card -->
     <div class="jobs-table-card">
-          <div class="table-header">
-            <div class="header-left">
-              <h4>Jobs List <small>(Total: {{ totalJobs }})</small></h4>
-                      <div class="search-box">
-                        <input type="number" v-model.number="searchJobId" placeholder="Search by Job ID" @keyup.enter="handleSearch" class="search-input">
-                        <input type="text" v-model="searchJobGroup" placeholder="Search by Job Group" @keyup.enter="handleSearch" class="search-input" style="width: 180px;">
-                        <button @click="handleSearch" class="search-btn">Search</button>
-                      </div>            </div>
-            
-            <div class="pagination-controls">          <div class="page-size-selector">
+      <div class="table-header">
+        <div class="header-left">
+          <h4>Jobs List <small>(Total: {{ totalJobs }})</small></h4>
+          <div class="search-box">
+            <input type="number" v-model.number="searchJobId" placeholder="Search by Job ID" @keyup.enter="handleSearch"
+                   class="search-input">
+            <input type="text" v-model="searchJobGroup" placeholder="Search by Job Group" @keyup.enter="handleSearch"
+                   class="search-input" style="width: 180px;">
+            <button @click="handleSearch" class="search-btn">Search</button>
+          </div>
+        </div>
+
+        <div class="pagination-controls">
+          <div class="page-size-selector">
             <span>Rows per page:</span>
             <select v-model="pageSize" @change="handleSizeChange">
               <option :value="20">20</option>
@@ -40,14 +44,14 @@
           <div class="page-nav">
             <button @click="jumpToPage(1)" :disabled="currentPage === 1" title="First Page">«</button>
             <button @click="changePage(-1)" :disabled="currentPage === 1" title="Previous Page">‹</button>
-            
+
             <div class="page-jump">
-              <input type="number" 
-                     v-model.number="jumpPageInput" 
+              <input type="number"
+                     v-model.number="jumpPageInput"
                      @keyup.enter="handleJump"
-                     class="jump-input" 
-                     min="1" 
-                     :max="totalPages" />
+                     class="jump-input"
+                     min="1"
+                     :max="totalPages"/>
               <span class="total-pages">/ {{ totalPages }}</span>
             </div>
 
@@ -74,99 +78,103 @@
       <div class="table-wrapper">
         <table class="styled-table">
           <thead>
-            <tr>
-              <th v-for="col in columns" 
-                  :key="col.field"
-                  @click="handleSort(col.field, $event)" 
-                  :class="{ sortable: col.sortable }"
-                  :style="{ width: col.width }">
-                {{ col.label }} <span v-if="col.sortable">{{ getSortIcon(col.field) }}</span>
-              </th>
-            </tr>
+          <tr>
+            <th v-for="col in columns"
+                :key="col.field"
+                @click="handleSort(col.field, $event)"
+                :class="{ sortable: col.sortable }"
+                :style="{ width: col.width }">
+              {{ col.label }} <span v-if="col.sortable">{{ getSortIcon(col.field) }}</span>
+            </th>
+          </tr>
           </thead>
           <tbody>
-            <tr v-for="job in jobs" :key="job.jobId">
-              <td v-for="col in columns" :key="col.field">
-                <!-- 1. Job ID -->
-                <template v-if="col.field === 'jobId'">
-                  {{ job.jobId }}
-                </template>
+          <tr v-for="job in jobs" :key="job.jobId">
+            <td v-for="col in columns" :key="col.field">
+              <!-- 1. Job ID -->
+              <template v-if="col.field === 'jobId'">
+                {{ job.jobId }}
+              </template>
 
-                <!-- 2. Job Group -->
-                <template v-else-if="col.field === 'jobGroup'">
-                  <span v-if="job.jobGroup" class="job-group-badge">{{ job.jobGroup }}</span>
-                  <span v-else>-</span>
-                </template>
+              <!-- 2. Job Group -->
+              <template v-else-if="col.field === 'jobGroup'">
+                <span v-if="job.jobGroup" class="job-group-badge">{{ job.jobGroup }}</span>
+                <span v-else>-</span>
+              </template>
 
-                <!-- 3. Description (Link) -->
-                <template v-else-if="col.field === 'description'">
-                  <a href="javascript:void(0)" @click="$emit('view-job-detail', job.jobId)" class="job-link">
-                    {{ job.description || 'Job ' + job.jobId }}
-                  </a>
-                </template>
+              <!-- 3. Description (Link) -->
+              <template v-else-if="col.field === 'description'">
+                <a href="javascript:void(0)" @click="$emit('view-job-detail', job.jobId)" class="job-link">
+                  {{ job.description || 'Job ' + job.jobId }}
+                </a>
+              </template>
 
-                <!-- 4. Stages Count -->
-                <template v-else-if="col.field === 'numStages'">
-                  {{ job.numStages }}
-                </template>
+              <!-- 4. Stages Count -->
+              <template v-else-if="col.field === 'numStages'">
+                {{ job.numStages }}
+              </template>
 
-                <!-- 5. Stage IDs (Status Colored) -->
-                <template v-else-if="col.field === 'stageIds'">
-                  <div class="stage-ids-list" :title="job.stageIds">
-                    <template v-if="job.stageIds">
+              <!-- 5. Stage IDs (Status Colored) -->
+              <template v-else-if="col.field === 'stageIds'">
+                <div class="stage-ids-list" :title="job.stageIds">
+                  <template v-if="job.stageIds">
                       <span v-for="(sid, idx) in job.stageIds.split(',')" :key="sid">
                         <span :class="'stage-id-link ' + getStageStatusClass(job, sid)">{{ sid }}</span>
                         <span v-if="idx < job.stageIds.split(',').length - 1">, </span>
                       </span>
-                    </template>
-                    <template v-else>-</template>
+                  </template>
+                  <template v-else>-</template>
+                </div>
+              </template>
+
+              <!-- 6. Submission Time -->
+              <template v-else-if="col.field === 'submissionTime'">
+                {{ formatTime(job.submissionTime) }}
+              </template>
+
+              <!-- 7. Duration -->
+              <template v-else-if="col.field === 'duration'">
+                {{
+                  job.duration ? commonFormatTime(job.duration) : calculateDuration(job.submissionTime, job.completionTime)
+                }}
+              </template>
+
+              <!-- 8. Stages Progress -->
+              <template v-else-if="col.field === 'stagesProgress'">
+                <div class="progress-wrapper">
+                  <div class="progress-track" v-if="job.numStages > 0">
+                    <div class="progress-fill"
+                         :style="{ width: calculatePercent(job.numCompletedStages, job.numStages) + '%' }"></div>
+                    <div class="progress-text-overlay">{{ job.numCompletedStages || 0 }}/{{ job.numStages }}</div>
                   </div>
-                </template>
+                </div>
+              </template>
 
-                <!-- 6. Submission Time -->
-                <template v-else-if="col.field === 'submissionTime'">
-                  {{ formatTime(job.submissionTime) }}
-                </template>
-
-                <!-- 7. Duration -->
-                <template v-else-if="col.field === 'duration'">
-                  {{ job.duration ? commonFormatTime(job.duration) : calculateDuration(job.submissionTime, job.completionTime) }}
-                </template>
-
-                <!-- 8. Stages Progress -->
-                <template v-else-if="col.field === 'stagesProgress'">
-                  <div class="progress-wrapper">
-                    <div class="progress-track" v-if="job.numStages > 0">
-                      <div class="progress-fill" :style="{ width: calculatePercent(job.numCompletedStages, job.numStages) + '%' }"></div>
-                      <div class="progress-text-overlay">{{ job.numCompletedStages || 0 }}/{{ job.numStages }}</div>
-                    </div>
+              <!-- 9. Tasks Progress -->
+              <template v-else-if="col.field === 'numTasks'">
+                <div class="progress-wrapper">
+                  <div class="progress-track" v-if="job.numTasks > 0">
+                    <div class="progress-fill tasks-fill"
+                         :style="{ width: calculatePercent(job.numCompletedTasks, job.numTasks) + '%' }"></div>
+                    <div class="progress-text-overlay">{{ job.numCompletedTasks || 0 }}/{{ job.numTasks }}</div>
                   </div>
-                </template>
+                </div>
+              </template>
 
-                <!-- 9. Tasks Progress -->
-                <template v-else-if="col.field === 'numTasks'">
-                  <div class="progress-wrapper">
-                    <div class="progress-track" v-if="job.numTasks > 0">
-                      <div class="progress-fill tasks-fill" :style="{ width: calculatePercent(job.numCompletedTasks, job.numTasks) + '%' }"></div>
-                      <div class="progress-text-overlay">{{ job.numCompletedTasks || 0 }}/{{ job.numTasks }}</div>
-                    </div>
-                  </div>
-                </template>
+              <!-- 10. Status -->
+              <template v-else-if="col.field === 'status'">
+                <span :class="'status-' + job.status">{{ job.status }}</span>
+              </template>
 
-                <!-- 10. Status -->
-                <template v-else-if="col.field === 'status'">
-                  <span :class="'status-' + job.status">{{ job.status }}</span>
-                </template>
-
-                <!-- Fallback -->
-                <template v-else>
-                  {{ job[col.field] }}
-                </template>
-              </td>
-            </tr>
-            <tr v-if="jobs.length === 0">
-              <td :colspan="columns.length" style="text-align: center; padding: 40px;">No jobs found.</td>
-            </tr>
+              <!-- Fallback -->
+              <template v-else>
+                {{ job[col.field] }}
+              </template>
+            </td>
+          </tr>
+          <tr v-if="jobs.length === 0">
+            <td :colspan="columns.length" style="text-align: center; padding: 40px;">No jobs found.</td>
+          </tr>
           </tbody>
         </table>
       </div>
@@ -175,9 +183,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue';
-import { getAppJobs } from '../../api';
-import { formatTime as commonFormatTime } from '../../utils/format';
+import {ref, onMounted, watch, computed} from 'vue';
+import {getAppJobs} from '../../api';
+import {formatTime as commonFormatTime} from '../../utils/format';
 
 const props = defineProps({
   appId: String
@@ -192,25 +200,25 @@ const pageSize = ref(20);
 const jumpPageInput = ref(1);
 const searchJobId = ref(null);
 const searchJobGroup = ref('');
-const sorts = ref([{ field: 'jobId', dir: 'desc' }]); // Default sort by Job ID DESC
+const sorts = ref([{field: 'jobId', dir: 'desc'}]); // Default sort by Job ID DESC
 
 // 可选列定义
 const AVAILABLE_JOB_COLUMNS = [
-  { key: 'description', label: 'Description', field: 'description', sortable: false },
-  { key: 'numStages', label: 'Stages Count', field: 'numStages', width: '100px', sortable: true },
-  { key: 'stageIds', label: 'Stage IDs', field: 'stageIds', width: '140px', sortable: false },
-  { key: 'submissionTime', label: 'Submission Time', field: 'submissionTime', width: '180px', sortable: true },
-  { key: 'duration', label: 'Duration', field: 'duration', width: '100px', sortable: true },
-  { key: 'stagesProgress', label: 'Stages Progress', field: 'stagesProgress', width: '150px', sortable: false },
-  { key: 'numTasks', label: 'Tasks Progress', field: 'numTasks', width: '150px', sortable: true },
-  { key: 'status', label: 'Status', field: 'status', width: '100px', sortable: true }
+  {key: 'description', label: 'Description', field: 'description', sortable: false},
+  {key: 'numStages', label: 'Stages Count', field: 'numStages', width: '100px', sortable: true},
+  {key: 'stageIds', label: 'Stage IDs', field: 'stageIds', width: '140px', sortable: false},
+  {key: 'submissionTime', label: 'Submission Time', field: 'submissionTime', width: '180px', sortable: true},
+  {key: 'duration', label: 'Duration', field: 'duration', width: '100px', sortable: true},
+  {key: 'stagesProgress', label: 'Stages Progress', field: 'stagesProgress', width: '150px', sortable: false},
+  {key: 'numTasks', label: 'Tasks Progress', field: 'numTasks', width: '150px', sortable: true},
+  {key: 'status', label: 'Status', field: 'status', width: '100px', sortable: true}
 ];
 
 const selectedMetrics = ref(AVAILABLE_JOB_COLUMNS.map(m => m.key));
 
 const baseColumns = [
-  { field: 'jobId', label: 'Job ID', width: '80px', sortable: true },
-  { field: 'jobGroup', label: 'Job Group', width: '140px', sortable: true }
+  {field: 'jobId', label: 'Job ID', width: '80px', sortable: true},
+  {field: 'jobGroup', label: 'Job Group', width: '140px', sortable: true}
 ];
 
 const columns = computed(() => {
@@ -299,7 +307,7 @@ const handleSort = (field, event) => {
     if (!isShift) {
       sorts.value = [];
     }
-    sorts.value.push({ field, dir: 'asc' });
+    sorts.value.push({field, dir: 'asc'});
   }
   currentPage.value = 1;
   fetchJobs();
@@ -371,28 +379,59 @@ watch(() => props.appId, () => {
 }
 
 .jobs-table-card {
-  background: white; 
-  border-radius: 8px; 
-  padding: 1.5rem; 
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
-.table-header { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  margin-bottom: 1rem; 
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid #eee;
 }
 
-.header-left h4 { margin: 0; color: #2c3e50; }
-.header-left small { color: #7f8c8d; font-weight: normal; margin-left: 8px; }
+.header-left h4 {
+  margin: 0;
+  color: #2c3e50;
+}
 
-.search-box { display: inline-flex; margin-left: 20px; gap: 8px; align-items: center; }
-.search-input { padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85rem; width: 150px; }
-.search-btn { padding: 4px 12px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
-.search-btn:hover { background: #e9ecef; }
+.header-left small {
+  color: #7f8c8d;
+  font-weight: normal;
+  margin-left: 8px;
+}
+
+.search-box {
+  display: inline-flex;
+  margin-left: 20px;
+  gap: 8px;
+  align-items: center;
+}
+
+.search-input {
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  width: 150px;
+}
+
+.search-btn {
+  padding: 4px 12px;
+  background: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.search-btn:hover {
+  background: #e9ecef;
+}
 
 /* Metric Selector Styles */
 .metric-selector-card {
@@ -401,7 +440,7 @@ watch(() => props.appId, () => {
   border-radius: 8px;
   border: 1px solid #edf2f7;
   margin-bottom: 1.5rem;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
 }
 
 .selector-header {
@@ -413,14 +452,32 @@ watch(() => props.appId, () => {
   padding-bottom: 8px;
 }
 
-.selector-header strong { font-size: 0.9rem; color: #2c3e50; }
-
-.selector-actions { display: flex; gap: 10px; }
-.selector-actions button { 
-  background: none; border: 1px solid #ddd; padding: 2px 8px; border-radius: 4px; 
-  font-size: 0.75rem; cursor: pointer; color: #666; transition: all 0.2s;
+.selector-header strong {
+  font-size: 0.9rem;
+  color: #2c3e50;
 }
-.selector-actions button:hover { border-color: #3498db; color: #3498db; background: #f7fbff; }
+
+.selector-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.selector-actions button {
+  background: none;
+  border: 1px solid #ddd;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  color: #666;
+  transition: all 0.2s;
+}
+
+.selector-actions button:hover {
+  border-color: #3498db;
+  color: #3498db;
+  background: #f7fbff;
+}
 
 .checkbox-group {
   display: grid;
@@ -439,7 +496,9 @@ watch(() => props.appId, () => {
   user-select: none;
 }
 
-.checkbox-item input { cursor: pointer; }
+.checkbox-item input {
+  cursor: pointer;
+}
 
 /* Pagination & Sort Styles (Copied from TaskTable) */
 .active-sorts-bar {
@@ -454,8 +513,17 @@ watch(() => props.appId, () => {
   font-size: 0.85rem;
 }
 
-.sort-label { font-weight: 600; color: #555; }
-.sort-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+.sort-label {
+  font-weight: 600;
+  color: #555;
+}
+
+.sort-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .sort-tag {
   display: inline-flex;
   align-items: center;
@@ -466,40 +534,159 @@ watch(() => props.appId, () => {
   font-size: 0.8rem;
   border: 1px solid #bbdefb;
 }
-.sort-dir { margin-left: 4px; font-size: 0.7rem; opacity: 0.8; font-weight: bold; }
-.remove-sort { margin-left: 6px; cursor: pointer; font-weight: bold; opacity: 0.6; }
-.remove-sort:hover { opacity: 1; color: #c62828; }
-.clear-sort-btn { background: none; border: none; color: #666; text-decoration: underline; cursor: pointer; font-size: 0.8rem; padding: 0 4px; }
-.clear-sort-btn:hover { color: #d32f2f; }
-.sort-hint { margin-left: auto; color: #888; font-style: italic; font-size: 0.8rem; }
 
-.pagination-controls { display: flex; gap: 24px; align-items: center; }
-.page-size-selector { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: #666; }
-.page-size-selector select { padding: 4px 8px; border-radius: 4px; border: 1px solid #ddd; }
-.page-nav { display: flex; gap: 8px; align-items: center; }
-.page-nav button { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid #ddd; border-radius: 4px; background: #fff; color: #555; transition: all 0.2s; }
-.page-nav button:hover:not(:disabled) { border-color: #3498db; color: #3498db; background: #f7fbff; }
-.page-nav button:disabled { background: #f5f5f5; color: #ccc; cursor: not-allowed; }
-.page-jump { display: flex; align-items: center; gap: 5px; margin: 0 8px; }
-.jump-input { width: 45px; padding: 4px 6px; text-align: center; border: 1px solid #ddd; border-radius: 4px; }
-.total-pages { color: #999; font-size: 0.9rem; }
+.sort-dir {
+  margin-left: 4px;
+  font-size: 0.7rem;
+  opacity: 0.8;
+  font-weight: bold;
+}
 
-.styled-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.styled-table th, .styled-table td { padding: 12px 8px; text-align: left; border-bottom: 1px solid #eee; vertical-align: middle; }
+.remove-sort {
+  margin-left: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  opacity: 0.6;
+}
+
+.remove-sort:hover {
+  opacity: 1;
+  color: #c62828;
+}
+
+.clear-sort-btn {
+  background: none;
+  border: none;
+  color: #666;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0 4px;
+}
+
+.clear-sort-btn:hover {
+  color: #d32f2f;
+}
+
+.sort-hint {
+  margin-left: auto;
+  color: #888;
+  font-style: italic;
+  font-size: 0.8rem;
+}
+
+.pagination-controls {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+}
+
+.page-size-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.page-size-selector select {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+}
+
+.page-nav {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.page-nav button {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fff;
+  color: #555;
+  transition: all 0.2s;
+}
+
+.page-nav button:hover:not(:disabled) {
+  border-color: #3498db;
+  color: #3498db;
+  background: #f7fbff;
+}
+
+.page-nav button:disabled {
+  background: #f5f5f5;
+  color: #ccc;
+  cursor: not-allowed;
+}
+
+.page-jump {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 8px;
+}
+
+.jump-input {
+  width: 45px;
+  padding: 4px 6px;
+  text-align: center;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.total-pages {
+  color: #999;
+  font-size: 0.9rem;
+}
+
+.styled-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.styled-table th, .styled-table td {
+  padding: 12px 8px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+  vertical-align: middle;
+}
 
 .styled-table tbody tr:hover {
   background-color: #f7fbff;
 }
 
-.styled-table th { background-color: #f8f9fa; color: #333; font-weight: 600; font-size: 0.9em; }
-.styled-table th.sortable { cursor: pointer; user-select: none; }
-.styled-table th.sortable:hover { background: #edf2f7; color: #3498db; }
+.styled-table th {
+  background-color: #f8f9fa;
+  color: #333;
+  font-weight: 600;
+  font-size: 0.9em;
+}
+
+.styled-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.styled-table th.sortable:hover {
+  background: #edf2f7;
+  color: #3498db;
+}
 
 .job-link {
   color: #3498db;
   text-decoration: none;
   font-weight: 600;
 }
+
 .job-link:hover {
   text-decoration: underline;
   color: #2980b9;
@@ -525,12 +712,29 @@ watch(() => props.appId, () => {
   white-space: nowrap;
 }
 
-.stage-id-link { font-weight: bold; }
-.status-succeeded { color: #27ae60; }
-.status-failed { color: #e74c3c; }
-.status-running { color: #3498db; }
-.status-skipped { color: #95a5a6; }
-.status-unknown { color: #f39c12; }
+.stage-id-link {
+  font-weight: bold;
+}
+
+.status-succeeded {
+  color: #27ae60;
+}
+
+.status-failed {
+  color: #e74c3c;
+}
+
+.status-running {
+  color: #3498db;
+}
+
+.status-skipped {
+  color: #95a5a6;
+}
+
+.status-unknown {
+  color: #f39c12;
+}
 
 .progress-wrapper {
   display: flex;
@@ -569,11 +773,34 @@ watch(() => props.appId, () => {
   font-size: 0.75rem;
   font-weight: bold;
   color: #333;
-  text-shadow: 0 0 2px rgba(255,255,255,0.8);
+  text-shadow: 0 0 2px rgba(255, 255, 255, 0.8);
   white-space: nowrap;
 }
 
-.status-SUCCEEDED { color: #27ae60; font-weight: bold; background-color: rgba(39, 174, 96, 0.1); padding: 4px 8px; border-radius: 4px; font-size: 0.85em; }
-.status-FAILED { color: #e74c3c; font-weight: bold; background-color: rgba(231, 76, 60, 0.1); padding: 4px 8px; border-radius: 4px; font-size: 0.85em; }
-.status-RUNNING { color: #f39c12; font-weight: bold; background-color: rgba(243, 156, 18, 0.1); padding: 4px 8px; border-radius: 4px; font-size: 0.85em; }
+.status-SUCCEEDED {
+  color: #27ae60;
+  font-weight: bold;
+  background-color: rgba(39, 174, 96, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+.status-FAILED {
+  color: #e74c3c;
+  font-weight: bold;
+  background-color: rgba(231, 76, 60, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+.status-RUNNING {
+  color: #f39c12;
+  font-weight: bold;
+  background-color: rgba(243, 156, 18, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
 </style>

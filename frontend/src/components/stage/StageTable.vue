@@ -5,11 +5,12 @@
         <h4 v-if="!hideTitle">Stages List <small>(Total: {{ totalStages }})</small></h4>
         <span v-else class="total-count-text">Total: {{ totalStages }} stages</span>
         <div class="search-box">
-          <input type="number" v-model.number="searchStageId" placeholder="Search by Stage ID" @keyup.enter="handleSearch" class="search-input">
+          <input type="number" v-model.number="searchStageId" placeholder="Search by Stage ID"
+                 @keyup.enter="handleSearch" class="search-input">
           <button @click="handleSearch" class="search-btn">Search</button>
         </div>
       </div>
-      
+
       <div class="pagination-controls">
         <div class="page-size-selector">
           <span>Rows per page:</span>
@@ -23,14 +24,14 @@
         <div class="page-nav">
           <button @click="jumpToPage(1)" :disabled="currentPage === 1" title="First Page">«</button>
           <button @click="changePage(-1)" :disabled="currentPage === 1" title="Previous Page">‹</button>
-          
+
           <div class="page-jump">
-            <input type="number" 
-                   v-model.number="jumpPageInput" 
+            <input type="number"
+                   v-model.number="jumpPageInput"
                    @keyup.enter="handleJump"
-                   class="jump-input" 
-                   min="1" 
-                   :max="totalPages" />
+                   class="jump-input"
+                   min="1"
+                   :max="totalPages"/>
             <span class="total-pages">/ {{ totalPages }}</span>
           </div>
 
@@ -56,101 +57,105 @@
 
     <table class="styled-table">
       <thead>
-        <tr>
-          <th v-for="col in columns" 
-              :key="col.field"
-              @click="handleSort(col.field, $event)" 
-              class="sortable" 
-              :style="{ width: col.width }">
-            {{ col.label }} {{ getSortIcon(col.field) }}
-          </th>
-        </tr>
+      <tr>
+        <th v-for="col in columns"
+            :key="col.field"
+            @click="handleSort(col.field, $event)"
+            class="sortable"
+            :style="{ width: col.width }">
+          {{ col.label }} {{ getSortIcon(col.field) }}
+        </th>
+      </tr>
       </thead>
       <tbody>
-        <tr v-for="stage in stages" :key="stage.id">
-          <td v-for="col in columns" :key="col.field">
-            <!-- 1. Stage ID & Attempts -->
-            <template v-if="col.field === 'stageId'">
-              {{ stage.stageId }} 
-              <span v-if="hasRetries(stage.stageId)" class="attempt-badge">(Attempt {{ stage.attemptId }})</span>
-              <span v-if="isExpired(stage)" class="expired-badge">Expired</span>
-            </template>
+      <tr v-for="stage in stages" :key="stage.id">
+        <td v-for="col in columns" :key="col.field">
+          <!-- 1. Stage ID & Attempts -->
+          <template v-if="col.field === 'stageId'">
+            {{ stage.stageId }}
+            <span v-if="hasRetries(stage.stageId)" class="attempt-badge">(Attempt {{ stage.attemptId }})</span>
+            <span v-if="isExpired(stage)" class="expired-badge">Expired</span>
+          </template>
 
-            <!-- 2. Job ID Link -->
-            <template v-else-if="col.field === 'jobId'">
-              <a href="javascript:void(0)" @click="$emit('view-job-detail', stage.jobId)" class="stage-link">
-                {{ stage.jobId }}
-              </a>
-            </template>
+          <!-- 2. Job ID Link -->
+          <template v-else-if="col.field === 'jobId'">
+            <a href="javascript:void(0)" @click="$emit('view-job-detail', stage.jobId)" class="stage-link">
+              {{ stage.jobId }}
+            </a>
+          </template>
 
-            <!-- 3. Stage Name Link -->
-            <template v-else-if="col.field === 'stageName'">
-              <a href="javascript:void(0)" @click="$emit('view-stage-detail', { stageId: stage.stageId, attemptId: stage.attemptId })" class="stage-link">
-                {{ stage.stageName }}
-              </a>
-            </template>
+          <!-- 3. Stage Name Link -->
+          <template v-else-if="col.field === 'stageName'">
+            <a href="javascript:void(0)"
+               @click="$emit('view-stage-detail', { stageId: stage.stageId, attemptId: stage.attemptId })"
+               class="stage-link">
+              {{ stage.stageName }}
+            </a>
+          </template>
 
-            <!-- 4. Submission Time -->
-            <template v-else-if="col.field === 'submissionTime'">
-              {{ formatDateTime(stage.submissionTime) }}
-            </template>
+          <!-- 4. Submission Time -->
+          <template v-else-if="col.field === 'submissionTime'">
+            {{ formatDateTime(stage.submissionTime) }}
+          </template>
 
-            <!-- 5. Duration -->
-            <template v-else-if="col.field === 'duration'">
-              {{ stage.duration ? formatTime(stage.duration) : formatDuration(stage.submissionTime, stage.completionTime) }}
-            </template>
+          <!-- 5. Duration -->
+          <template v-else-if="col.field === 'duration'">
+            {{
+              stage.duration ? formatTime(stage.duration) : formatDuration(stage.submissionTime, stage.completionTime)
+            }}
+          </template>
 
-            <!-- 6. Tasks Progress Bar -->
-            <template v-else-if="col.field === 'numTasks'">
-              <div class="task-progress-wrapper">
-                <div class="progress-bar-container">
-                  <div class="progress-bar-success" 
-                       :style="{ width: getProgressWidth(stage.numCompletedTasks, stage.numTasks) + '%' }">
-                  </div>
-                  <div class="progress-bar-failed" 
-                       :style="{ 
+          <!-- 6. Tasks Progress Bar -->
+          <template v-else-if="col.field === 'numTasks'">
+            <div class="task-progress-wrapper">
+              <div class="progress-bar-container">
+                <div class="progress-bar-success"
+                     :style="{ width: getProgressWidth(stage.numCompletedTasks, stage.numTasks) + '%' }">
+                </div>
+                <div class="progress-bar-failed"
+                     :style="{
                           width: getProgressWidth(stage.numFailedTasks, stage.numTasks) + '%',
                           left: getProgressWidth(stage.numCompletedTasks, stage.numTasks) + '%' 
                        }">
-                  </div>
-                  <div class="task-count-overlay">
-                    {{ stage.numCompletedTasks }}/{{ stage.numTasks }}
-                    <span v-if="stage.numFailedTasks > 0" class="failed-count"> ({{ stage.numFailedTasks }} failed)</span>
-                  </div>
+                </div>
+                <div class="task-count-overlay">
+                  {{ stage.numCompletedTasks }}/{{ stage.numTasks }}
+                  <span v-if="stage.numFailedTasks > 0" class="failed-count"> ({{ stage.numFailedTasks }} failed)</span>
                 </div>
               </div>
-            </template>
+            </div>
+          </template>
 
-            <!-- 7. Dynamic Metric Columns (Bytes) -->
-            <template v-else-if="col.type === 'bytes'">
-              {{ formatBytes(stage[col.field]) }}
-            </template>
+          <!-- 7. Dynamic Metric Columns (Bytes) -->
+          <template v-else-if="col.type === 'bytes'">
+            {{ formatBytes(stage[col.field]) }}
+          </template>
 
-            <!-- Fallback -->
-            <template v-else>
-              {{ stage[col.field] }}
-            </template>
-          </td>
-        </tr>
-        <tr v-if="stages.length === 0">
-          <td :colspan="columns.length" style="text-align: center; padding: 40px;">No stages found.</td>
-        </tr>
+          <!-- Fallback -->
+          <template v-else>
+            {{ stage[col.field] }}
+          </template>
+        </td>
+      </tr>
+      <tr v-if="stages.length === 0">
+        <td :colspan="columns.length" style="text-align: center; padding: 40px;">No stages found.</td>
+      </tr>
       </tbody>
     </table>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue';
-import { getAppStages } from '../../api';
-import { formatTime, formatBytes, formatDateTime } from '../../utils/format';
+import {ref, onMounted, watch, computed} from 'vue';
+import {getAppStages} from '../../api';
+import {formatTime, formatBytes, formatDateTime} from '../../utils/format';
 
 const props = defineProps({
   appId: String,
   jobId: Number, // Optional filter
-  hideTitle: { type: Boolean, default: false },
-  plain: { type: Boolean, default: false },
-  visibleMetrics: { type: Array, default: null } // If null, show all default columns
+  hideTitle: {type: Boolean, default: false},
+  plain: {type: Boolean, default: false},
+  visibleMetrics: {type: Array, default: null} // If null, show all default columns
 });
 
 const emit = defineEmits(['view-stage-detail', 'view-job-detail']);
@@ -162,7 +167,7 @@ const currentPage = ref(1);
 const pageSize = ref(20);
 const jumpPageInput = ref(1);
 const searchStageId = ref(null);
-const sorts = ref([{ field: 'stageId', dir: 'desc' }]); // Default sort by Stage Id DESC
+const sorts = ref([{field: 'stageId', dir: 'desc'}]); // Default sort by Stage Id DESC
 
 // Compute max attempt ID per stage to detect retries and expiration
 const stageAttemptsMap = computed(() => {
@@ -189,27 +194,63 @@ const hasRetries = (stageId) => {
 };
 
 const baseColumns = [
-  { field: 'stageId', label: 'Stage Id', width: '140px', sortable: true },
-  { field: 'jobId', label: 'Job Id', width: '80px', sortable: true },
-  { field: 'stageName', label: 'Name', sortable: true },
-  { field: 'submissionTime', label: 'Submitted', width: '160px', sortable: true },
-  { field: 'numTasks', label: 'Tasks: Succeeded/Total', width: '180px', sortable: true }
+  {field: 'stageId', label: 'Stage Id', width: '140px', sortable: true},
+  {field: 'jobId', label: 'Job Id', width: '80px', sortable: true},
+  {field: 'stageName', label: 'Name', sortable: true},
+  {field: 'submissionTime', label: 'Submitted', width: '160px', sortable: true},
+  {field: 'numTasks', label: 'Tasks: Succeeded/Total', width: '180px', sortable: true}
 ];
 
 const metricColumnsMap = {
-  'duration': { field: 'duration', label: 'Duration', width: '100px', sortable: true, type: 'time' },
-  'gc_time': { field: 'gcTimeSum', label: 'GC Time', width: '100px', sortable: true, type: 'time' },
-  'scheduler_delay': { field: 'schedulerDelaySum', label: 'Scheduler Delay', width: '130px', sortable: true, type: 'time' },
-  'peak_execution_memory': { field: 'peakExecutionMemoryMax', label: 'Peak Exec Memory', width: '150px', sortable: true, type: 'bytes' },
-  'memory_spill': { field: 'memoryBytesSpilledSum', label: 'Spill (memory)', width: '120px', sortable: true, type: 'bytes' },
-  'disk_spill': { field: 'diskBytesSpilledSum', label: 'Spill (disk)', width: '120px', sortable: true, type: 'bytes' },
-  'input': { field: 'inputBytes', label: 'Input', width: '100px', sortable: true, type: 'bytes' },
-  'output': { field: 'outputBytes', label: 'Output', width: '100px', sortable: true, type: 'bytes' },
-  'shuffle_read': { field: 'shuffleReadBytes', label: 'Shuffle Read', width: '120px', sortable: true, type: 'bytes' },
-  'shuffle_write': { field: 'shuffleWriteBytes', label: 'Shuffle Write', width: '120px', sortable: true, type: 'bytes' },
-  'task_deserialization_time': { field: 'executorDeserializeTimeSum', label: 'Deserialization Time', width: '150px', sortable: true, type: 'time' },
-  'result_serialization_time': { field: 'resultSerializationTimeSum', label: 'Serialization Time', width: '150px', sortable: true, type: 'time' },
-  'getting_result_time': { field: 'gettingResultTimeSum', label: 'Getting Result Time', width: '150px', sortable: true, type: 'time' }
+  'duration': {field: 'duration', label: 'Duration', width: '100px', sortable: true, type: 'time'},
+  'gc_time': {field: 'gcTimeSum', label: 'GC Time', width: '100px', sortable: true, type: 'time'},
+  'scheduler_delay': {
+    field: 'schedulerDelaySum',
+    label: 'Scheduler Delay',
+    width: '130px',
+    sortable: true,
+    type: 'time'
+  },
+  'peak_execution_memory': {
+    field: 'peakExecutionMemoryMax',
+    label: 'Peak Exec Memory',
+    width: '150px',
+    sortable: true,
+    type: 'bytes'
+  },
+  'memory_spill': {
+    field: 'memoryBytesSpilledSum',
+    label: 'Spill (memory)',
+    width: '120px',
+    sortable: true,
+    type: 'bytes'
+  },
+  'disk_spill': {field: 'diskBytesSpilledSum', label: 'Spill (disk)', width: '120px', sortable: true, type: 'bytes'},
+  'input': {field: 'inputBytes', label: 'Input', width: '100px', sortable: true, type: 'bytes'},
+  'output': {field: 'outputBytes', label: 'Output', width: '100px', sortable: true, type: 'bytes'},
+  'shuffle_read': {field: 'shuffleReadBytes', label: 'Shuffle Read', width: '120px', sortable: true, type: 'bytes'},
+  'shuffle_write': {field: 'shuffleWriteBytes', label: 'Shuffle Write', width: '120px', sortable: true, type: 'bytes'},
+  'task_deserialization_time': {
+    field: 'executorDeserializeTimeSum',
+    label: 'Deserialization Time',
+    width: '150px',
+    sortable: true,
+    type: 'time'
+  },
+  'result_serialization_time': {
+    field: 'resultSerializationTimeSum',
+    label: 'Serialization Time',
+    width: '150px',
+    sortable: true,
+    type: 'time'
+  },
+  'getting_result_time': {
+    field: 'gettingResultTimeSum',
+    label: 'Getting Result Time',
+    width: '150px',
+    sortable: true,
+    type: 'time'
+  }
 };
 
 const columns = computed(() => {
@@ -223,7 +264,7 @@ const columns = computed(() => {
       metricColumnsMap['shuffle_write']
     ];
   }
-  
+
   const cols = [...baseColumns];
   // Ensure the order follows AVAILABLE_METRICS defined in constants
   props.visibleMetrics.forEach(key => {
@@ -254,7 +295,7 @@ const fetchStages = async () => {
   try {
     const sortStr = sorts.value.map(s => `${s.field},${s.dir}`).join(';');
     const res = await getAppStages(props.appId, currentPage.value, pageSize.value, sortStr, props.jobId, searchStageId.value);
-    
+
     if (res.data && res.data.items) {
       stages.value = res.data.items;
       totalStages.value = res.data.total;
@@ -311,7 +352,7 @@ const handleSort = (field, event) => {
     if (!isShift) {
       sorts.value = [];
     }
-    sorts.value.push({ field, dir: 'asc' });
+    sorts.value.push({field, dir: 'asc'});
   }
   currentPage.value = 1;
   fetchStages();
@@ -355,10 +396,10 @@ watch(() => props.appId, () => {
 
 <style scoped>
 .stage-table-view {
-  background: white; 
-  border-radius: 8px; 
-  padding: 1.5rem; 
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .stage-table-view.plain-mode {
@@ -368,23 +409,59 @@ watch(() => props.appId, () => {
   border-radius: 0;
 }
 
-.table-header { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  margin-bottom: 1rem; 
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid #eee;
 }
 
-.header-left h4 { margin: 0; color: #2c3e50; }
-.header-left small { color: #7f8c8d; font-weight: normal; margin-left: 8px; }
-.total-count-text { color: #7f8c8d; font-size: 0.9rem; font-weight: 500; }
+.header-left h4 {
+  margin: 0;
+  color: #2c3e50;
+}
 
-.search-box { display: inline-flex; margin-left: 20px; gap: 8px; align-items: center; }
-.search-input { padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85rem; width: 150px; }
-.search-btn { padding: 4px 12px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
-.search-btn:hover { background: #e9ecef; }
+.header-left small {
+  color: #7f8c8d;
+  font-weight: normal;
+  margin-left: 8px;
+}
+
+.total-count-text {
+  color: #7f8c8d;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.search-box {
+  display: inline-flex;
+  margin-left: 20px;
+  gap: 8px;
+  align-items: center;
+}
+
+.search-input {
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  width: 150px;
+}
+
+.search-btn {
+  padding: 4px 12px;
+  background: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.search-btn:hover {
+  background: #e9ecef;
+}
 
 /* Pagination & Sort Styles */
 .active-sorts-bar {
@@ -399,8 +476,17 @@ watch(() => props.appId, () => {
   font-size: 0.85rem;
 }
 
-.sort-label { font-weight: 600; color: #555; }
-.sort-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+.sort-label {
+  font-weight: 600;
+  color: #555;
+}
+
+.sort-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .sort-tag {
   display: inline-flex;
   align-items: center;
@@ -411,40 +497,157 @@ watch(() => props.appId, () => {
   font-size: 0.8rem;
   border: 1px solid #bbdefb;
 }
-.sort-dir { margin-left: 4px; font-size: 0.7rem; opacity: 0.8; font-weight: bold; }
-.remove-sort { margin-left: 6px; cursor: pointer; font-weight: bold; opacity: 0.6; }
-.remove-sort:hover { opacity: 1; color: #c62828; }
-.clear-sort-btn { background: none; border: none; color: #666; text-decoration: underline; cursor: pointer; font-size: 0.8rem; padding: 0 4px; }
-.clear-sort-btn:hover { color: #d32f2f; }
-.sort-hint { margin-left: auto; color: #888; font-style: italic; font-size: 0.8rem; }
 
-.pagination-controls { display: flex; gap: 24px; align-items: center; }
-.page-size-selector { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: #666; }
-.page-size-selector select { padding: 4px 8px; border-radius: 4px; border: 1px solid #ddd; }
-.page-nav { display: flex; gap: 8px; align-items: center; }
-.page-nav button { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid #ddd; border-radius: 4px; background: #fff; color: #555; transition: all 0.2s; }
-.page-nav button:hover:not(:disabled) { border-color: #3498db; color: #3498db; background: #f7fbff; }
-.page-nav button:disabled { background: #f5f5f5; color: #ccc; cursor: not-allowed; }
-.page-jump { display: flex; align-items: center; gap: 5px; margin: 0 8px; }
-.jump-input { width: 45px; padding: 4px 6px; text-align: center; border: 1px solid #ddd; border-radius: 4px; }
-.total-pages { color: #999; font-size: 0.9rem; }
+.sort-dir {
+  margin-left: 4px;
+  font-size: 0.7rem;
+  opacity: 0.8;
+  font-weight: bold;
+}
 
-.styled-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-.styled-table th, .styled-table td { padding: 12px 8px; text-align: left; border-bottom: 1px solid #eee; }
+.remove-sort {
+  margin-left: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  opacity: 0.6;
+}
+
+.remove-sort:hover {
+  opacity: 1;
+  color: #c62828;
+}
+
+.clear-sort-btn {
+  background: none;
+  border: none;
+  color: #666;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0 4px;
+}
+
+.clear-sort-btn:hover {
+  color: #d32f2f;
+}
+
+.sort-hint {
+  margin-left: auto;
+  color: #888;
+  font-style: italic;
+  font-size: 0.8rem;
+}
+
+.pagination-controls {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+}
+
+.page-size-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.page-size-selector select {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+}
+
+.page-nav {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.page-nav button {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fff;
+  color: #555;
+  transition: all 0.2s;
+}
+
+.page-nav button:hover:not(:disabled) {
+  border-color: #3498db;
+  color: #3498db;
+  background: #f7fbff;
+}
+
+.page-nav button:disabled {
+  background: #f5f5f5;
+  color: #ccc;
+  cursor: not-allowed;
+}
+
+.page-jump {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 8px;
+}
+
+.jump-input {
+  width: 45px;
+  padding: 4px 6px;
+  text-align: center;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.total-pages {
+  color: #999;
+  font-size: 0.9rem;
+}
+
+.styled-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.styled-table th, .styled-table td {
+  padding: 12px 8px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
 
 .styled-table tbody tr:hover {
   background-color: #f7fbff;
 }
 
-.styled-table th { background: #f1f3f5; color: #333; font-weight: 600; }
-.styled-table th.sortable { cursor: pointer; user-select: none; }
-.styled-table th.sortable:hover { background: #edf2f7; color: #3498db; }
+.styled-table th {
+  background: #f1f3f5;
+  color: #333;
+  font-weight: 600;
+}
+
+.styled-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.styled-table th.sortable:hover {
+  background: #edf2f7;
+  color: #3498db;
+}
 
 .stage-link {
   color: #3498db;
   text-decoration: none;
   font-weight: 600;
 }
+
 .stage-link:hover {
   text-decoration: underline;
   color: #2980b9;
@@ -492,7 +695,7 @@ watch(() => props.appId, () => {
   font-size: 0.7rem;
   font-weight: bold;
   color: #333;
-  text-shadow: 0 0 2px rgba(255,255,255,0.8);
+  text-shadow: 0 0 2px rgba(255, 255, 255, 0.8);
   white-space: nowrap;
 }
 

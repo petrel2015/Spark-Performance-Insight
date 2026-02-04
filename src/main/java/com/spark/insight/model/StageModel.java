@@ -2,6 +2,7 @@ package com.spark.insight.model;
 
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
+
 import java.time.LocalDateTime;
 
 @Data

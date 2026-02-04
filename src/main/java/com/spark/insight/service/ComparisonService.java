@@ -68,7 +68,7 @@ public class ComparisonService {
                 diff.setStageName(s1.getStageName());
                 diff.setStageId1(s1.getStageId());
                 diff.setStageId2(s2.getStageId());
-                
+
                 diff.setDurationP95_1(s1.getDurationP95());
                 diff.setDurationP95_2(s2.getDurationP95());
                 diff.setDurationDelta(calculateDelta(s1.getDurationP95(), s2.getDurationP95()));
@@ -79,7 +79,7 @@ public class ComparisonService {
 
                 diff.setShuffleRead1(s1.getShuffleReadBytes());
                 diff.setShuffleRead2(s2.getShuffleReadBytes());
-                
+
                 diffs.add(diff);
             }
         }

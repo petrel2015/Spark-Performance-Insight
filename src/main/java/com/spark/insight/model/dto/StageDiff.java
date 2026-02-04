@@ -7,7 +7,7 @@ public class StageDiff {
     private String stageName;
     private Integer stageId1;
     private Integer stageId2;
-    
+
     // 指标对比 (Value1, Value2, DeltaPercent)
     private Long durationP95_1;
     private Long durationP95_2;

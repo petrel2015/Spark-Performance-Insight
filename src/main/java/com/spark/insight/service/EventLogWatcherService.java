@@ -25,7 +25,7 @@ public class EventLogWatcherService {
     private final InsightProperties properties;
     private final EventParser eventParser;
     private final ParsedEventLogMapper parsedLogMapper;
-    
+
     // Create a pool for parsing to avoid blocking the scheduler thread
     private final ExecutorService parseExecutor = Executors.newFixedThreadPool(10);
 
@@ -35,7 +35,7 @@ public class EventLogWatcherService {
     @Scheduled(fixedDelayString = "${insight.scheduler.scan-interval-seconds:10}000")
     public void scan() {
         if (!properties.getScheduler().isEnabled()) return;
-        
+
         String logPath = properties.getEventLogPath();
         File dir = new File(logPath);
         if (!dir.exists() || !dir.isDirectory()) return;
@@ -93,8 +93,8 @@ public class EventLogWatcherService {
     private boolean isValidLogFile(File file) {
         String name = file.getName();
         // Support Spark History Server format, JSON, and ZSTD compressed logs
-        return name.startsWith("app-") || name.contains("events_") || 
-               name.endsWith(".json") || name.endsWith(".zstd") || name.endsWith(".zst");
+        return name.startsWith("app-") || name.contains("events_") ||
+                name.endsWith(".json") || name.endsWith(".zstd") || name.endsWith(".zst");
     }
 
     private void checkAndParse(File file, int currentIdx, int totalFiles) {
@@ -111,7 +111,7 @@ public class EventLogWatcherService {
         } else {
             // Check if file has been modified since last parse
             if (record.getLastModified() != lastModified || record.getFileSize() != fileSize) {
-                log.info("Log file changed: {} (Size: {} -> {}, Mod: {} -> {})", 
+                log.info("Log file changed: {} (Size: {} -> {}, Mod: {} -> {})",
                         file.getName(), record.getFileSize(), fileSize, record.getLastModified(), lastModified);
                 needsParse = true;
             }
@@ -122,9 +122,9 @@ public class EventLogWatcherService {
             parseExecutor.submit(() -> {
                 try {
                     // TODO: Ideally we should calculate hash here if required
-                    
+
                     eventParser.parse(file, currentIdx, totalFiles);
-                    
+
                     // Update record in DB
                     ParsedEventLogModel newRecord = new ParsedEventLogModel();
                     newRecord.setFilePath(absolutePath);
@@ -132,7 +132,7 @@ public class EventLogWatcherService {
                     newRecord.setFileSize(fileSize);
                     newRecord.setParsedAt(LocalDateTime.now());
                     newRecord.setStatus("SUCCESS");
-                    
+
                     if (record == null) {
                         parsedLogMapper.insert(newRecord);
                     } else {
@@ -147,7 +147,7 @@ public class EventLogWatcherService {
                     failedRecord.setFileSize(fileSize);
                     failedRecord.setParsedAt(LocalDateTime.now());
                     failedRecord.setStatus("FAILED");
-                    
+
                     if (record == null) {
                         parsedLogMapper.insert(failedRecord);
                     } else {

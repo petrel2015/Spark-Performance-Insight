@@ -51,9 +51,9 @@ public class InsightController {
         if (jobGroup != null && !jobGroup.isBlank()) {
             query.like(JobModel::getJobGroup, jobGroup); // Fuzzy search for convenience
         }
-        
+
         long total = query.count();
-        
+
         // Re-apply conditions for list
         var listQuery = jobService.lambdaQuery().eq(JobModel::getAppId, appId);
         if (jobId != null) {
@@ -188,7 +188,7 @@ public class InsightController {
         }
 
         long total = query.count();
-        
+
         // 重新构建查询以应用分页和排序
         var listQuery = stageService.lambdaQuery().eq(StageModel::getAppId, appId);
         if (jobId != null) {
@@ -209,21 +209,21 @@ public class InsightController {
      * 获取单个 Stage 的元数据
      */
     @GetMapping("/apps/{appId}/stages/{stageId}")
-    public StageModel getStage(@PathVariable String appId, 
+    public StageModel getStage(@PathVariable String appId,
                                @PathVariable Integer stageId,
                                @RequestParam(required = false) Integer attemptId) {
         checkAppReady(appId);
         var query = stageService.lambdaQuery()
                 .eq(StageModel::getAppId, appId)
                 .eq(StageModel::getStageId, stageId);
-        
+
         if (attemptId != null) {
             query.eq(StageModel::getAttemptId, attemptId);
         } else {
             query.orderByDesc(StageModel::getAttemptId);
             query.last("LIMIT 1");
         }
-        
+
         return query.one();
     }
 
@@ -252,7 +252,7 @@ public class InsightController {
      * 获取 Stage 的所有 Task 数据 (用于 Timeline 可视化)
      */
     @GetMapping("/apps/{appId}/stages/{stageId}/timeline")
-    public List<TaskModel> getStageTimeline(@PathVariable String appId, 
+    public List<TaskModel> getStageTimeline(@PathVariable String appId,
                                             @PathVariable Integer stageId,
                                             @RequestParam(required = false) Integer attemptId) {
         checkAppReady(appId);
@@ -260,7 +260,7 @@ public class InsightController {
                 .eq(TaskModel::getAppId, appId)
                 .eq(TaskModel::getStageId, stageId);
         if (attemptId != null) query.eq(TaskModel::getAttemptId, attemptId);
-        
+
         return query.orderByAsc(TaskModel::getLaunchTime).list();
     }
 

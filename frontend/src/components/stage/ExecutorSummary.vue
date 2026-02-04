@@ -16,47 +16,49 @@
     <div class="table-wrapper">
       <table class="styled-table">
         <thead>
-          <tr>
-            <th @click="handleSort('executorId', $event)" class="sortable" style="min-width: 100px;">
-              Executor {{ getSortIcon('executorId') }}
-            </th>
-            <th @click="handleSort('taskCount', $event)" class="sortable" style="min-width: 80px;">
-              Tasks {{ getSortIcon('taskCount') }}
-            </th>
-            <th v-for="col in visibleCols" 
-                :key="col.key" 
-                @click="handleSort(col.field, $event)"
-                class="sortable"
-                :style="{ minWidth: col.width }">
-              {{ col.label }} {{ getSortIcon(col.field) }}
-            </th>
-          </tr>
+        <tr>
+          <th @click="handleSort('executorId', $event)" class="sortable" style="min-width: 100px;">
+            Executor {{ getSortIcon('executorId') }}
+          </th>
+          <th @click="handleSort('taskCount', $event)" class="sortable" style="min-width: 80px;">
+            Tasks {{ getSortIcon('taskCount') }}
+          </th>
+          <th v-for="col in visibleCols"
+              :key="col.key"
+              @click="handleSort(col.field, $event)"
+              class="sortable"
+              :style="{ minWidth: col.width }">
+            {{ col.label }} {{ getSortIcon(col.field) }}
+          </th>
+        </tr>
         </thead>
         <tbody>
-          <tr v-for="row in sortedSummary" :key="row.executorId">
-            <td><strong>{{ row.executorId }}</strong></td>
-            <td>{{ row.taskCount }}</td>
-            <td v-for="col in visibleCols" :key="col.key">
-              <template v-if="col.type === 'time'">
-                {{ formatTime(row[col.field]) }}
-              </template>
-              <template v-else-if="col.type === 'bytes'">
-                {{ formatBytes(row[col.field]) }}
-              </template>
-              <template v-else-if="col.type === 'nanos'">
-                {{ formatTime(row[col.field] / 1000000) }}
-              </template>
-              <template v-else-if="col.type === 'composite'">
-                {{ formatBytes(row[col.subFields[0]]) }} / {{ formatNum(row[col.subFields[1]]) }}
-              </template>
-              <template v-else>
-                {{ row[col.field] }}
-              </template>
-            </td>
-          </tr>
-          <tr v-if="summary.length === 0">
-            <td :colspan="visibleCols.length + 2" style="text-align: center; padding: 20px;">No executor summary available.</td>
-          </tr>
+        <tr v-for="row in sortedSummary" :key="row.executorId">
+          <td><strong>{{ row.executorId }}</strong></td>
+          <td>{{ row.taskCount }}</td>
+          <td v-for="col in visibleCols" :key="col.key">
+            <template v-if="col.type === 'time'">
+              {{ formatTime(row[col.field]) }}
+            </template>
+            <template v-else-if="col.type === 'bytes'">
+              {{ formatBytes(row[col.field]) }}
+            </template>
+            <template v-else-if="col.type === 'nanos'">
+              {{ formatTime(row[col.field] / 1000000) }}
+            </template>
+            <template v-else-if="col.type === 'composite'">
+              {{ formatBytes(row[col.subFields[0]]) }} / {{ formatNum(row[col.subFields[1]]) }}
+            </template>
+            <template v-else>
+              {{ row[col.field] }}
+            </template>
+          </td>
+        </tr>
+        <tr v-if="summary.length === 0">
+          <td :colspan="visibleCols.length + 2" style="text-align: center; padding: 20px;">No executor summary
+            available.
+          </td>
+        </tr>
         </tbody>
       </table>
     </div>
@@ -64,31 +66,77 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
-import { formatTime, formatBytes, formatNum } from '../../utils/format';
+import {ref, computed} from 'vue';
+import {formatTime, formatBytes, formatNum} from '../../utils/format';
 
 const props = defineProps({
-  summary: { type: Array, default: () => [] },
-  visibleMetrics: { type: Array, default: () => [] }
+  summary: {type: Array, default: () => []},
+  visibleMetrics: {type: Array, default: () => []}
 });
 
-const sorts = ref([{ field: 'executorId', dir: 'asc' }]);
+const sorts = ref([{field: 'executorId', dir: 'asc'}]);
 
 const columnDefs = [
-  { key: 'task_deserialization_time', field: 'executorDeserializeTime', label: 'Task Deserialization Time', type: 'time', width: '150px' },
-  { key: 'duration', field: 'duration', label: 'Duration', type: 'time', width: '100px' },
-  { key: 'gc_time', field: 'gcTime', label: 'GC Time', type: 'time', width: '90px' },
-  { key: 'result_serialization_time', field: 'resultSerializationTime', label: 'Result Serialization Time', type: 'time', width: '160px' },
-  { key: 'getting_result_time', field: 'gettingResultTime', label: 'Getting Result Time', type: 'time', width: '130px' },
-  { key: 'scheduler_delay', field: 'schedulerDelay', label: 'Scheduler Delay', type: 'time', width: '130px' },
-  { key: 'peak_execution_memory', field: 'peakExecutionMemory', label: 'Peak Execution Memory', type: 'bytes', width: '150px' },
-  { key: 'memory_spill', field: 'memoryBytesSpilled', label: 'Spill (memory)', type: 'bytes', width: '110px' },
-  { key: 'disk_spill', field: 'diskBytesSpilled', label: 'Spill (disk)', type: 'bytes', width: '110px' },
-  { key: 'input', field: 'inputBytes', label: 'Input Size / Records', type: 'composite', subFields: ['inputBytes', 'inputRecords'], width: '200px' },
-  { key: 'output', field: 'outputBytes', label: 'Output Size / Records', type: 'composite', subFields: ['outputBytes', 'outputRecords'], width: '200px' },
-  { key: 'shuffle_read', field: 'shuffleReadBytes', label: 'Shuffle Read Size / Records', type: 'composite', subFields: ['shuffleReadBytes', 'shuffleReadRecords'], width: '220px' },
-  { key: 'shuffle_write', field: 'shuffleWriteBytes', label: 'Shuffle Write Size / Records', type: 'composite', subFields: ['shuffleWriteBytes', 'shuffleWriteRecords'], width: '220px' },
-  { key: 'shuffle_write_time', field: 'shuffleWriteTime', label: 'Shuffle Write Time', type: 'nanos', width: '130px' }
+  {
+    key: 'task_deserialization_time',
+    field: 'executorDeserializeTime',
+    label: 'Task Deserialization Time',
+    type: 'time',
+    width: '150px'
+  },
+  {key: 'duration', field: 'duration', label: 'Duration', type: 'time', width: '100px'},
+  {key: 'gc_time', field: 'gcTime', label: 'GC Time', type: 'time', width: '90px'},
+  {
+    key: 'result_serialization_time',
+    field: 'resultSerializationTime',
+    label: 'Result Serialization Time',
+    type: 'time',
+    width: '160px'
+  },
+  {key: 'getting_result_time', field: 'gettingResultTime', label: 'Getting Result Time', type: 'time', width: '130px'},
+  {key: 'scheduler_delay', field: 'schedulerDelay', label: 'Scheduler Delay', type: 'time', width: '130px'},
+  {
+    key: 'peak_execution_memory',
+    field: 'peakExecutionMemory',
+    label: 'Peak Execution Memory',
+    type: 'bytes',
+    width: '150px'
+  },
+  {key: 'memory_spill', field: 'memoryBytesSpilled', label: 'Spill (memory)', type: 'bytes', width: '110px'},
+  {key: 'disk_spill', field: 'diskBytesSpilled', label: 'Spill (disk)', type: 'bytes', width: '110px'},
+  {
+    key: 'input',
+    field: 'inputBytes',
+    label: 'Input Size / Records',
+    type: 'composite',
+    subFields: ['inputBytes', 'inputRecords'],
+    width: '200px'
+  },
+  {
+    key: 'output',
+    field: 'outputBytes',
+    label: 'Output Size / Records',
+    type: 'composite',
+    subFields: ['outputBytes', 'outputRecords'],
+    width: '200px'
+  },
+  {
+    key: 'shuffle_read',
+    field: 'shuffleReadBytes',
+    label: 'Shuffle Read Size / Records',
+    type: 'composite',
+    subFields: ['shuffleReadBytes', 'shuffleReadRecords'],
+    width: '220px'
+  },
+  {
+    key: 'shuffle_write',
+    field: 'shuffleWriteBytes',
+    label: 'Shuffle Write Size / Records',
+    type: 'composite',
+    subFields: ['shuffleWriteBytes', 'shuffleWriteRecords'],
+    width: '220px'
+  },
+  {key: 'shuffle_write_time', field: 'shuffleWriteTime', label: 'Shuffle Write Time', type: 'nanos', width: '130px'}
 ];
 
 const visibleCols = computed(() => {
@@ -97,7 +145,7 @@ const visibleCols = computed(() => {
 
 const sortedSummary = computed(() => {
   if (sorts.value.length === 0) return props.summary;
-  
+
   return [...props.summary].sort((a, b) => {
     for (const sort of sorts.value) {
       let valA = a[sort.field];
@@ -105,7 +153,7 @@ const sortedSummary = computed(() => {
       if (valA === valB) continue;
       if (valA == null) return 1;
       if (valB == null) return -1;
-      
+
       const res = valA < valB ? -1 : 1;
       return sort.dir === 'asc' ? res : -res;
     }
@@ -128,7 +176,7 @@ const handleSort = (field, event) => {
     if (!isShift) {
       sorts.value = [];
     }
-    sorts.value.push({ field, dir: 'asc' });
+    sorts.value.push({field, dir: 'asc'});
   }
 };
 
@@ -157,14 +205,47 @@ const getColumnLabel = (field) => {
 </script>
 
 <style scoped>
-.executor-summary-container { width: 100%; }
-.table-wrapper { overflow-x: auto; width: 100%; }
-.styled-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-.styled-table th, .styled-table td { padding: 12px 8px; text-align: left; border-bottom: 1px solid #eee; white-space: nowrap; }
-.styled-table th { background: #f8f9fa; color: #333; font-weight: 600; }
-.styled-table th.sortable { cursor: pointer; user-select: none; }
-.styled-table th.sortable:hover { background: #edf2f7; color: #3498db; }
-.styled-table tbody tr:hover { background-color: #f7fbff; }
+.executor-summary-container {
+  width: 100%;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.styled-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.styled-table th, .styled-table td {
+  padding: 12px 8px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+  white-space: nowrap;
+}
+
+.styled-table th {
+  background: #f8f9fa;
+  color: #333;
+  font-weight: 600;
+}
+
+.styled-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.styled-table th.sortable:hover {
+  background: #edf2f7;
+  color: #3498db;
+}
+
+.styled-table tbody tr:hover {
+  background-color: #f7fbff;
+}
 
 /* Active Sorts Bar (Sync from TaskTable) */
 .active-sorts-bar {
@@ -180,8 +261,17 @@ const getColumnLabel = (field) => {
   border: 1px solid #eee;
 }
 
-.sort-label { font-weight: 600; color: #555; }
-.sort-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+.sort-label {
+  font-weight: 600;
+  color: #555;
+}
+
+.sort-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .sort-tag {
   display: inline-flex;
   align-items: center;
@@ -192,9 +282,37 @@ const getColumnLabel = (field) => {
   font-size: 0.8rem;
   border: 1px solid #bbdefb;
 }
-.sort-dir { margin-left: 4px; font-size: 0.7rem; opacity: 0.8; font-weight: bold; }
-.remove-sort { margin-left: 6px; cursor: pointer; font-weight: bold; opacity: 0.6; }
-.remove-sort:hover { opacity: 1; color: #c62828; }
-.clear-sort-btn { background: none; border: none; color: #666; text-decoration: underline; cursor: pointer; font-size: 0.8rem; padding: 0 4px; }
-.clear-sort-btn:hover { color: #d32f2f; }
+
+.sort-dir {
+  margin-left: 4px;
+  font-size: 0.7rem;
+  opacity: 0.8;
+  font-weight: bold;
+}
+
+.remove-sort {
+  margin-left: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  opacity: 0.6;
+}
+
+.remove-sort:hover {
+  opacity: 1;
+  color: #c62828;
+}
+
+.clear-sort-btn {
+  background: none;
+  border: none;
+  color: #666;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0 4px;
+}
+
+.clear-sort-btn:hover {
+  color: #d32f2f;
+}
 </style>

@@ -1,3 +1,10 @@
+## 0.18.0 - 2026-02-05
+
+### Features
+- Infer App ID from event log filenames
+- Add search functionality to Job and Stage lists
+- Update task tracking in TODO.md
+
 ## 0.17.1 - 2026-02-04
 
 ### Performance

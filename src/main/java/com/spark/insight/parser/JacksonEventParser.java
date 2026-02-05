@@ -30,7 +30,8 @@ public class JacksonEventParser implements EventParser {
     private final ExecutorService executorService;
     private final SqlExecutionService sqlExecutionService;
     private final javax.sql.DataSource dataSource;
-    private final java.util.concurrent.ExecutorService dbExecutor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor(); // Use Virtual Threads for IO
+    // Use a single-threaded executor for ALL database writes to avoid DuckDB lock contention
+    private final java.util.concurrent.ExecutorService dbExecutor = java.util.concurrent.Executors.newSingleThreadExecutor();
 
     public JacksonEventParser(ApplicationService applicationService,
                               StageService stageService,
@@ -131,8 +132,10 @@ public class JacksonEventParser implements EventParser {
                                     applicationService.saveOrUpdate(app);
                                 } else if (versionFromLogStart != null && (app.getSparkVersion() == null || app.getSparkVersion().equals("unknown"))) {
                                     app.setSparkVersion(versionFromLogStart);
-                                    app.setParsingStatus("PARSING");
-                                    updateParsingProgress(app, currentFileIndex, totalFiles, lineCount);
+                                    if (!"READY".equals(app.getParsingStatus())) {
+                                        app.setParsingStatus("PARSING");
+                                        updateParsingProgress(app, currentFileIndex, totalFiles, lineCount);
+                                    }
                                     applicationService.updateById(app);
                                 }
                             }
@@ -209,17 +212,33 @@ public class JacksonEventParser implements EventParser {
                 }
                 if (!envBatch.isEmpty()) saveDeduplicatedEnv(envBatch);
 
-                // 触发后期预计算
+                // Update final progress for this specific file
+                updateParsingProgress(currentAppId, currentFileIndex, totalFiles, lineCount);
+
+                // 触发后期预计算 - 只在最后一个文件处理完后，或者每个文件都触发但标记 READY 要谨慎
                 if (currentAppId != null) {
                     final String appIdFinal = currentAppId;
+                    final boolean isLastFile = currentFileIndex >= totalFiles;
+                    
                     dbExecutor.submit(() -> {
-                        log.info("Starting post-calculation for App: {}", appIdFinal);
-                        stageService.calculateStageMetrics(appIdFinal);
-                        jobService.calculateJobMetrics(appIdFinal);
-                        executorService.calculateExecutorMetrics(appIdFinal);
+                        try {
+                            log.info("Starting post-calculation for App: {} (File {}/{})", appIdFinal, currentFileIndex, totalFiles);
+                            
+                            // Optimization: Mark as READY *before* calculating complex metrics if it's the last file,
+                            // so user can at least see the basic Job/Stage lists.
+                            if (isLastFile) {
+                                finalizeAppQuality(appIdFinal);
+                            }
 
-                        // Finalize Data Quality Check
-                        finalizeAppQuality(appIdFinal);
+                            stageService.calculateStageMetrics(appIdFinal);
+                            jobService.calculateJobMetrics(appIdFinal);
+                            executorService.calculateExecutorMetrics(appIdFinal);
+                        } catch (Exception ex) {
+                            log.error("Failed to complete post-calculation for App: " + appIdFinal, ex);
+                            if (isLastFile) {
+                                forceMarkReady(appIdFinal);
+                            }
+                        }
                     });
                 }
             }
@@ -247,6 +266,7 @@ public class JacksonEventParser implements EventParser {
 
             if (!"READY".equals(app.getParsingStatus())) {
                 app.setParsingStatus("READY");
+                app.setParsingProgress(null); // Clear progress message when ready
                 isUpdated = true;
             }
 
@@ -254,6 +274,16 @@ public class JacksonEventParser implements EventParser {
                 applicationService.updateById(app);
                 log.info("Updated App Data Quality for {}: Status={}, ParsingStatus=READY", appId, app.getDataQualityStatus());
             }
+        }
+    }
+
+    private void forceMarkReady(String appId) {
+        ApplicationModel app = applicationService.getById(appId);
+        if (app != null && !"READY".equals(app.getParsingStatus())) {
+            app.setParsingStatus("READY");
+            app.setParsingProgress(null);
+            applicationService.updateById(app);
+            log.warn("Force marked App {} as READY due to errors in post-calculation", appId);
         }
     }
 
@@ -358,8 +388,10 @@ public class JacksonEventParser implements EventParser {
             app = new ApplicationModel();
             app.setAppId(appId);
         }
-        app.setParsingStatus("PARSING");
-        updateParsingProgress(app, fileIdx, totalFiles, 0);
+        if (!"READY".equals(app.getParsingStatus())) {
+            app.setParsingStatus("PARSING");
+            updateParsingProgress(app, fileIdx, totalFiles, 0);
+        }
         app.setAppName(node.get("App Name").asText());
         app.setUserName(node.get("User").asText());
         app.setStartTime(parseTimestamp(node.get("Timestamp").asLong()));

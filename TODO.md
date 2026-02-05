@@ -22,8 +22,9 @@
 - [ ] **可视化：** Stage 详情能够显示与其关联的上下游 Stage 图。
 - [ ] **可视化：** Stage 对比红绿灯。
 - [ ] **可视化：** 诊断页面，让 Gemini Pro 根据论文给出“专家模型”思路，然后让 Gemini CLI 根据设计去补充接口和展示，显示出一份报告。
-- [ ] **可视化：** 具备单个 Job/Stage 性能瓶颈分析，多个 Job/Stage 对比分析劣化点。
-- [ ] 重新编写智能诊断策略
+- [x] **可视化：** 具备单个 Job/Stage 性能瓶颈分析，多个 Job/Stage 对比分析劣化点。
+- [x] 重新编写智能诊断策略
+- [x] 在计算stage汇总指标时增加一个计算逻辑，你是一个spark性能专家，你想通过stage详情目前能得到的信息进行性能瓶颈分析，给出top10关键影响维度。并生辰一个json格式的诊断信息，结构如：维度=“gc耗时”，得分=xx，这样一个10个维度的数组。然后将这json存储到stage表中一个新列。另外再加一个列来计算总分，这个总分可以按照你觉得重要程度加权得来。然后再在stage详情页加一个卡片比如诊断报告，显示这些信息。
 - [x] 多个相同stage id的stage会报错，tooManyResults Exception，在eventlog中还有Stage attempt id的概念，同一个stage可能有多个attempt。所以stage Id不唯一，但是Stage Id+attempt id是唯一的，需要改表结构。另外注意stage列表和详情页，如果有多个attempt，需要在stage id后面增加一个（Attempt 0）（Attempt 1）。如果attempt 1是最后一个，代表attempt 0失效了，主要要加一个过期的标志，比如一个badge写着expired。详情页则显示Details for Stage 26 （Attempt 1）
 - [x] job列表页面，默认用job id倒序，和spark web ui保持一致
 - [x] job列表页面（jobtab.vue）job id列改为job id（Job Group）和spark web ui保持一致。另外，job-group-badge显示的太短了，可能会比较长。

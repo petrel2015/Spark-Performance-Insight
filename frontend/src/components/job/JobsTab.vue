@@ -19,44 +19,47 @@
 
     <!-- Main Jobs Table Card -->
     <div class="jobs-table-card">
-      <div class="table-header">
+      <div class="table-header-toolbar">
         <div class="header-left">
           <h4>Jobs List <small>(Total: {{ totalJobs }})</small></h4>
+        </div>
+        
+        <div class="header-right">
           <div class="search-box">
-            <input type="number" v-model.number="searchJobId" placeholder="Search by Job ID" @keyup.enter="handleSearch"
-                   class="search-input">
-            <input type="text" v-model="searchJobGroup" placeholder="Search by Job Group" @keyup.enter="handleSearch"
+            <input type="number" v-model.number="searchJobId" placeholder="Job ID" @keyup.enter="handleSearch"
+                   class="search-input" style="width: 100px;">
+            <input type="text" v-model="searchJobGroup" placeholder="Job Group" @keyup.enter="handleSearch"
                    class="search-input" style="width: 180px;">
             <button @click="handleSearch" class="search-btn">Search</button>
           </div>
-        </div>
 
-        <div class="pagination-controls">
-          <div class="page-size-selector">
-            <span>Rows per page:</span>
-            <select v-model="pageSize" @change="handleSizeChange">
-              <option :value="20">20</option>
-              <option :value="50">50</option>
-              <option :value="100">100</option>
-            </select>
-          </div>
-
-          <div class="page-nav">
-            <button @click="jumpToPage(1)" :disabled="currentPage === 1" title="First Page">«</button>
-            <button @click="changePage(-1)" :disabled="currentPage === 1" title="Previous Page">‹</button>
-
-            <div class="page-jump">
-              <input type="number"
-                     v-model.number="jumpPageInput"
-                     @keyup.enter="handleJump"
-                     class="jump-input"
-                     min="1"
-                     :max="totalPages"/>
-              <span class="total-pages">/ {{ totalPages }}</span>
+          <div class="pagination-controls">
+            <div class="page-size-selector">
+              <span>Rows:</span>
+              <select v-model="pageSize" @change="handleSizeChange">
+                <option :value="20">20</option>
+                <option :value="50">50</option>
+                <option :value="100">100</option>
+              </select>
             </div>
 
-            <button @click="changePage(1)" :disabled="currentPage === totalPages" title="Next Page">›</button>
-            <button @click="jumpToPage(totalPages)" :disabled="currentPage === totalPages" title="Last Page">»</button>
+            <div class="page-nav">
+              <button @click="jumpToPage(1)" :disabled="currentPage === 1" title="First Page">«</button>
+              <button @click="changePage(-1)" :disabled="currentPage === 1" title="Previous Page">‹</button>
+
+              <div class="page-jump">
+                <input type="number"
+                       v-model.number="jumpPageInput"
+                       @keyup.enter="handleJump"
+                       class="jump-input"
+                       min="1"
+                       :max="totalPages"/>
+                <span class="total-pages">/ {{ totalPages }}</span>
+              </div>
+
+              <button @click="changePage(1)" :disabled="currentPage === totalPages" title="Next Page">›</button>
+              <button @click="jumpToPage(totalPages)" :disabled="currentPage === totalPages" title="Last Page">»</button>
+            </div>
           </div>
         </div>
       </div>
@@ -385,18 +388,26 @@ watch(() => props.appId, () => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
-.table-header {
+.table-header-toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
 }
 
 .header-left h4 {
   margin: 0;
   color: #2c3e50;
+  display: flex;
+  align-items: center;
 }
 
 .header-left small {
@@ -406,31 +417,38 @@ watch(() => props.appId, () => {
 }
 
 .search-box {
-  display: inline-flex;
-  margin-left: 20px;
+  display: flex;
   gap: 8px;
   align-items: center;
 }
 
 .search-input {
-  padding: 4px 8px;
+  padding: 6px 10px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 0.85rem;
-  width: 150px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.search-input:focus {
+  border-color: #3498db;
 }
 
 .search-btn {
-  padding: 4px 12px;
-  background: #f8f9fa;
-  border: 1px solid #ddd;
+  padding: 6px 14px;
+  background: #3498db;
+  color: white;
+  border: none;
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.85rem;
+  font-weight: 500;
+  transition: background 0.2s;
 }
 
 .search-btn:hover {
-  background: #e9ecef;
+  background: #2980b9;
 }
 
 /* Metric Selector Styles */

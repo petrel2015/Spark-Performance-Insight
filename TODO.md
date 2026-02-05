@@ -24,3 +24,43 @@
 - [ ] **可视化：** 诊断页面，让 Gemini Pro 根据论文给出“专家模型”思路，然后让 Gemini CLI 根据设计去补充接口和展示，显示出一份报告。
 - [ ] **可视化：** 具备单个 Job/Stage 性能瓶颈分析，多个 Job/Stage 对比分析劣化点。
 - [ ] 重新编写智能诊断策略
+- [x] 多个相同stage id的stage会报错，tooManyResults Exception，在eventlog中还有Stage attempt id的概念，同一个stage可能有多个attempt。所以stage Id不唯一，但是Stage Id+attempt id是唯一的，需要改表结构。另外注意stage列表和详情页，如果有多个attempt，需要在stage id后面增加一个（Attempt 0）（Attempt 1）。如果attempt 1是最后一个，代表attempt 0失效了，主要要加一个过期的标志，比如一个badge写着expired。详情页则显示Details for Stage 26 （Attempt 1）
+- [x] job列表页面，默认用job id倒序，和spark web ui保持一致
+- [x] job列表页面（jobtab.vue）job id列改为job id（Job Group）和spark web ui保持一致。另外，job-group-badge显示的太短了，可能会比较长。
+- [x] diagnois去掉for llm
+- [x] diagnois用中文显示
+- [x] app 列表页面中，appid显示的可能更长，如spark123456790101111111111.这么长。
+- [x] application.properties改为yml
+- [x] stage详情页，标题里的of job x，点击后目前返回的是job列表页，其实应该是详情页。
+- [x] Job ID(Job Group)中job-group-badge和id目前换行了，我希望在一行。
+- [x] stage list页面中stage id显示时，如果有同名的stage id，attempt 0 要显示出来，目前没有显示attempt 0，只显示了attempt 1及以后。另外最新的attempt之前的attempt如attempt 0要标记出来是过期的，比如加一个灰色的badge
+- [x] 你之前有一次改动错误的删除了StageDetailView.vue中的内容，缺失了Metric Visibility Selector，Summary Metrics Cards， Executor Summary Card。加回来
+- [x] diagnois数据倾斜规则要更新，除了显著变化，还要看绝对值，比如duration最大超过1秒才告警，gc时间单个task超过800ms需要告警。这些阈值可以通过application.yml配置。
+- [x] eventlogs初始化这个操作改为定时操作。每10s(时间可以在application.yaml配置)检测一遍eventlogs，如果有新的eventlog/有变化就需要重新解析，可以考虑在数据库新增一个表，记录什么时候更新了那个eventlog，当时eventlog的大小，hash值是什么，以判断要不要重新解析
+- [x] 基于bitnami的spark 3.5的docker镜像构建我的镜像，创建dockerfile。另外创建docker-compose文件，同时启动spark-history-server，让他们使用的eventlog是在同一个目录，eventlog目录，duckdb数据库目录，application.yaml文件暴露为挂载，可配。
+- [x] job详情页需要加DAG图，也就是stage详情页的dag图拼接在一起，注意要再加一个框区分出来每个stage，然后 stage之间用箭头来连接算子。
+- [x] job详情页需要加event timeline，分成上下两部分，第一部分是executor的事件，有executor add， remove。第二部分是stage的存活状态，从哪个时间开始启动了stage x然后结束。
+- [x] 多个eventlog文件代表同一个spark app时要能够处理，不是只处理一个。比如event-1-spark-6e12345，event-2-spark-6e12345，event-3-spark-6e12345，你先去检查一下saprk eventlog 生成逻辑再处理。
+- [x] Job ID(Job Group)列拆分为job和job group，并且能够分别排序
+- [x] Job列表页面增加一列，表示这个id所属的所有stage（不用点击跳转，不用排序），另外再增加一列，表示这个job有多少个stage，需要可以排序。
+- [x] stage列表页面增加一列，表示这个stagei所属的job（可以点击跳转，可以排序）
+- [x] job详情页列表目前显示指标有些多了，全都展示有些臃肿，参考stage详情页中，增加Select Metrics to Display:卡片来筛选要展示的列。
+- [x] job列表中每一行页有些stage id是其实是不存在的，空的。没有真实的stage详情页。那么在job列表页中，显示stage ids时要标记出来哪些是成功的，失败的，跳过的。用不同字体颜色显示出来就可以
+- [] 增加传统的event timeline
+- [] job详情页的dag图样式和stage详情页相同（默认高度，stage背景颜色，线条颜色，箭头颜色），另外卡片默认关闭
+- [] Detail for Stage 中增加Locality Level Summary。代表数据本地级别，比如node local:2,Any:11,Process local:21
+- [x] 在Summary Metrics for stage x 卡片中，那些时间指标（除了duration），增加一个百分比，表示这部分时间占用了整体耗时多少，比如GC Time显示的是GC Time/Duration的百分比
+- [x] 在解析eventlog时，我注意到你目前读多个文件有多线程，但重要的是解析也需要多线程，比如线程池是10，用多线程去读数据，去解析，去入库。不然像2G大的eventlog，导入一次可能要花10分钟时间。
+- [x] 在解析过程中，有些页面展示会有问题。所以在解析时，有人访问这个spark app相关接口，不能直接查询，而是先查这个spark app的状态是否解析并预处理成功，否则不能访问。访问的话提示一个弹窗比如该spark app正在导入，稍后再试。
+- [x] spark解析过程如被访问返回接口时需要增加进度条，可以是处理到该spark app文件的第1/2个，处理条数10%。类似这样的提示。另外app list该spark app也要有这个提示，出现时不能点击进入下一步，然后可以设置为websocket去动态请求这个spark app的处理状态
+- [x] 除 getApp 外的相关接口会不要返回 503 错误，而是跳转到app list页，然后弹出提示“处理到该spark app文件的第1/2个，处理条数10%”类似这样的提示
+- [] 在直接通过url访问job时，会卡住，我发现是因为调用了/report接口，这个接口返回耗时。但其实用户访问非diagnois时不需要调用该接口。所以修改一下，通过url访问时，访问哪个页签，才调用哪个页签的相关接口。加速查询。
+- [] 调用report接口时我发现是实时计算，应当改为解析eventlog，预计算后存入一张表缓存。
+- [] 所有列表中的链接，目前时js实现的，需要改为一个url，要做到让用户可以右键在新标签页打开。
+- [x] job list，stage list中需要添加搜索框，可以根据id精确搜索。
+- [x] job list，需要添加搜索框，可以根据job group搜索
+- [x] job list，stage list中的搜索框位置不太好看，重新处理一下
+- [x] 根据eventlog文件名推断所属spark app，eventlog格式都如下event_1_xxx，也就是从左往右第二个下划线右边内容全都是spark app名字，如果文件名中spark app名字相同，当作同一个spark app的eventlog处理。
+- [x] 解析eventlog文件时，先筛选文件，只处理小写event开头的文件。如果是目录则递归读目录下的内容，直到文件
+- [ ] 总共2G的eventlog文件，66万行数据，3000多job，5000多stage，32万task，目前花费3分钟导入，首先在解析时增加耗时统计并打印日志。另外如何提速，目前瓶颈在batch存储duckdb。
+- [] 图标不要使用emoji而是使用Material Design Icons / Symbols，包括解锁，排序箭头等等

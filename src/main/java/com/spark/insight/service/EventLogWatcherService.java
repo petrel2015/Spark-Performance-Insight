@@ -81,6 +81,15 @@ public class EventLogWatcherService {
     }
 
     private String inferAppId(String filename) {
+        // 首先尝试按照 event_index_appId 格式解析 (从左往右第二个下划线右边全都是 app id)
+        if (filename.startsWith("event")) {
+            String[] parts = filename.split("_", 3);
+            if (parts.length >= 3) {
+                return parts[2];
+            }
+        }
+
+        // 兜底方案：使用正则匹配 spark-xxx
         Matcher m = APP_ID_PATTERN.matcher(filename);
         return m.find() ? m.group(1) : null;
     }
@@ -92,9 +101,8 @@ public class EventLogWatcherService {
 
     private boolean isValidLogFile(File file) {
         String name = file.getName();
-        // Support Spark History Server format, JSON, and ZSTD compressed logs
-        return name.startsWith("app-") || name.contains("events_") ||
-                name.endsWith(".json") || name.endsWith(".zstd") || name.endsWith(".zst");
+        // 只处理以 event 开头的文件
+        return name.startsWith("event");
     }
 
     private void checkAndParse(File file, int currentIdx, int totalFiles) {

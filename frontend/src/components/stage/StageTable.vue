@@ -1,42 +1,45 @@
 <template>
   <div class="stage-table-view" :class="{ 'plain-mode': plain }">
-    <div class="table-header">
+    <div class="table-header-toolbar">
       <div class="header-left">
         <h4 v-if="!hideTitle">Stages List <small>(Total: {{ totalStages }})</small></h4>
         <span v-else class="total-count-text">Total: {{ totalStages }} stages</span>
-        <div class="search-box">
-          <input type="number" v-model.number="searchStageId" placeholder="Search by Stage ID"
-                 @keyup.enter="handleSearch" class="search-input">
-          <button @click="handleSearch" class="search-btn">Search</button>
-        </div>
       </div>
 
-      <div class="pagination-controls">
-        <div class="page-size-selector">
-          <span>Rows per page:</span>
-          <select v-model="pageSize" @change="handleSizeChange">
-            <option :value="20">20</option>
-            <option :value="50">50</option>
-            <option :value="100">100</option>
-          </select>
+      <div class="header-right">
+        <div class="search-box">
+          <input type="number" v-model.number="searchStageId" placeholder="Stage ID"
+                 @keyup.enter="handleSearch" class="search-input" style="width: 100px;">
+          <button @click="handleSearch" class="search-btn">Search</button>
         </div>
 
-        <div class="page-nav">
-          <button @click="jumpToPage(1)" :disabled="currentPage === 1" title="First Page">«</button>
-          <button @click="changePage(-1)" :disabled="currentPage === 1" title="Previous Page">‹</button>
-
-          <div class="page-jump">
-            <input type="number"
-                   v-model.number="jumpPageInput"
-                   @keyup.enter="handleJump"
-                   class="jump-input"
-                   min="1"
-                   :max="totalPages"/>
-            <span class="total-pages">/ {{ totalPages }}</span>
+        <div class="pagination-controls">
+          <div class="page-size-selector">
+            <span>Rows:</span>
+            <select v-model="pageSize" @change="handleSizeChange">
+              <option :value="20">20</option>
+              <option :value="50">50</option>
+              <option :value="100">100</option>
+            </select>
           </div>
 
-          <button @click="changePage(1)" :disabled="currentPage === totalPages" title="Next Page">›</button>
-          <button @click="jumpToPage(totalPages)" :disabled="currentPage === totalPages" title="Last Page">»</button>
+          <div class="page-nav">
+            <button @click="jumpToPage(1)" :disabled="currentPage === 1" title="First Page">«</button>
+            <button @click="changePage(-1)" :disabled="currentPage === 1" title="Previous Page">‹</button>
+
+            <div class="page-jump">
+              <input type="number"
+                     v-model.number="jumpPageInput"
+                     @keyup.enter="handleJump"
+                     class="jump-input"
+                     min="1"
+                     :max="totalPages"/>
+              <span class="total-pages">/ {{ totalPages }}</span>
+            </div>
+
+            <button @click="changePage(1)" :disabled="currentPage === totalPages" title="Next Page">›</button>
+            <button @click="jumpToPage(totalPages)" :disabled="currentPage === totalPages" title="Last Page">»</button>
+          </div>
         </div>
       </div>
     </div>
@@ -409,13 +412,24 @@ watch(() => props.appId, () => {
   border-radius: 0;
 }
 
-.table-header {
+.table-header-toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
 }
 
 .header-left h4 {
@@ -436,31 +450,38 @@ watch(() => props.appId, () => {
 }
 
 .search-box {
-  display: inline-flex;
-  margin-left: 20px;
+  display: flex;
   gap: 8px;
   align-items: center;
 }
 
 .search-input {
-  padding: 4px 8px;
+  padding: 6px 10px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 0.85rem;
-  width: 150px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.search-input:focus {
+  border-color: #3498db;
 }
 
 .search-btn {
-  padding: 4px 12px;
-  background: #f8f9fa;
-  border: 1px solid #ddd;
+  padding: 6px 14px;
+  background: #3498db;
+  color: white;
+  border: none;
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.85rem;
+  font-weight: 500;
+  transition: background 0.2s;
 }
 
 .search-btn:hover {
-  background: #e9ecef;
+  background: #2980b9;
 }
 
 /* Pagination & Sort Styles */

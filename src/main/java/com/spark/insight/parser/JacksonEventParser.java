@@ -62,9 +62,17 @@ public class JacksonEventParser implements EventParser {
 
         // 尝试从文件名推断 App ID (支持滚动日志)
         String inferredAppId = null;
-        java.util.regex.Matcher matcher = APP_ID_PATTERN.matcher(logFile.getName());
-        if (matcher.find()) {
-            inferredAppId = matcher.group(1);
+        if (logFile.getName().startsWith("event")) {
+            String[] parts = logFile.getName().split("_", 3);
+            if (parts.length >= 3) {
+                inferredAppId = parts[2];
+            }
+        }
+        if (inferredAppId == null) {
+            java.util.regex.Matcher matcher = APP_ID_PATTERN.matcher(logFile.getName());
+            if (matcher.find()) {
+                inferredAppId = matcher.group(1);
+            }
         }
 
         try {

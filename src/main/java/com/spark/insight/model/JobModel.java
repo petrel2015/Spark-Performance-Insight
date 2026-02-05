@@ -31,6 +31,7 @@ public class JobModel {
     private Integer numFailedTasks;
     private Integer numActiveTasks;
     private Integer numSkippedTasks;
+    private Long sqlExecutionId;
 
     @TableField(exist = false)
     private List<StageModel> stageList;

@@ -28,6 +28,7 @@ public class JacksonEventParser implements EventParser {
     private final EnvironmentConfigService envService;
     private final JobService jobService;
     private final ExecutorService executorService;
+    private final SqlExecutionService sqlExecutionService;
     private final javax.sql.DataSource dataSource;
     private final java.util.concurrent.ExecutorService dbExecutor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor(); // Use Virtual Threads for IO
 
@@ -37,6 +38,7 @@ public class JacksonEventParser implements EventParser {
                               EnvironmentConfigService envService,
                               JobService jobService,
                               ExecutorService executorService,
+                              SqlExecutionService sqlExecutionService,
                               javax.sql.DataSource dataSource) {
         JsonFactory factory = JsonFactory.builder()
                 .streamReadConstraints(StreamReadConstraints.builder().maxStringLength(Integer.MAX_VALUE).build())
@@ -48,6 +50,7 @@ public class JacksonEventParser implements EventParser {
         this.envService = envService;
         this.jobService = jobService;
         this.executorService = executorService;
+        this.sqlExecutionService = sqlExecutionService;
         this.dataSource = dataSource;
     }
 
@@ -187,6 +190,12 @@ public class JacksonEventParser implements EventParser {
                                 break;
                             case "SparkListenerApplicationEnd":
                                 if (currentAppId != null) handleAppEnd(node, currentAppId);
+                                break;
+                            case "org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart":
+                                if (currentAppId != null) handleSqlStart(node, currentAppId);
+                                break;
+                            case "org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd":
+                                if (currentAppId != null) handleSqlEnd(node, currentAppId);
                                 break;
                         }
                     } catch (Exception lineEx) {
@@ -382,6 +391,10 @@ public class JacksonEventParser implements EventParser {
 
             if (props.has("spark.jobGroup.id")) {
                 job.setJobGroup(props.get("spark.jobGroup.id").asText());
+            }
+
+            if (props.has("spark.sql.execution.id")) {
+                job.setSqlExecutionId(props.get("spark.sql.execution.id").asLong());
             }
         }
 
@@ -656,6 +669,34 @@ public class JacksonEventParser implements EventParser {
             app.setDuration(java.time.Duration.between(app.getStartTime(), app.getEndTime()).toMillis());
             app.setStatus("FINISHED");
             applicationService.updateById(app);
+        }
+    }
+
+    private void handleSqlStart(JsonNode node, String appId) {
+        long executionId = node.get("executionId").asLong();
+        SqlExecutionModel sql = new SqlExecutionModel();
+        sql.setId(appId + ":" + executionId);
+        sql.setAppId(appId);
+        sql.setExecutionId(executionId);
+        sql.setDescription(node.get("description").asText());
+        sql.setDetails(node.get("details").asText());
+        sql.setPhysicalPlan(node.get("physicalPlanDescription").asText());
+        sql.setStartTime(parseTimestamp(node.get("time").asLong()));
+        sql.setStatus("RUNNING");
+        sqlExecutionService.saveOrUpdate(sql);
+    }
+
+    private void handleSqlEnd(JsonNode node, String appId) {
+        long executionId = node.get("executionId").asLong();
+        SqlExecutionModel sql = sqlExecutionService.getById(appId + ":" + executionId);
+        if (sql != null) {
+            LocalDateTime endTime = parseTimestamp(node.get("time").asLong());
+            sql.setEndTime(endTime);
+            if (sql.getStartTime() != null && endTime != null) {
+                sql.setDuration(java.time.Duration.between(sql.getStartTime(), endTime).toMillis());
+            }
+            sql.setStatus("SUCCEEDED"); // We don't easily have 'failed' here without more info
+            sqlExecutionService.updateById(sql);
         }
     }
 

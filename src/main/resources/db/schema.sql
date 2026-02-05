@@ -81,7 +81,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     num_completed_tasks INT DEFAULT 0,
     num_failed_tasks INT DEFAULT 0,
     num_active_tasks INT DEFAULT 0,
-    num_skipped_tasks INT DEFAULT 0
+    num_skipped_tasks INT DEFAULT 0,
+    sql_execution_id BIGINT
 );
 
 -- Stage 详情
@@ -202,4 +203,18 @@ CREATE TABLE IF NOT EXISTS parsed_event_logs (
     file_hash VARCHAR,
     parsed_at TIMESTAMP,
     status VARCHAR
+);
+
+-- SQL 执行详情
+CREATE TABLE IF NOT EXISTS sql_executions (
+    id VARCHAR PRIMARY KEY, -- appId:executionId
+    app_id VARCHAR,
+    execution_id BIGINT,
+    description TEXT,
+    details TEXT,
+    physical_plan TEXT,
+    start_time TIMESTAMP,
+    end_time TIMESTAMP,
+    duration BIGINT DEFAULT 0,
+    status VARCHAR -- RUNNING, SUCCEEDED, FAILED
 );

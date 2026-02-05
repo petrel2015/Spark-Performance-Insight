@@ -35,20 +35,36 @@
       <StageDAG ref="dagRef" :stage="currentStage"/>
     </CollapsibleCard>
 
-    <!-- Timeline Chart -->
+    <!-- Event Timeline Chart (Gantt/Waterfall) -->
     <CollapsibleCard v-if="currentStage" title="Event Timeline" :initial-collapsed="true">
       <template #actions>
         <button class="lock-btn"
-                v-if="timelineRef"
-                @click="timelineRef.toggleZoomLock()"
-                :title="timelineRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
+                v-if="taskTimelineRef"
+                @click="taskTimelineRef.toggleZoomLock()"
+                :title="taskTimelineRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
           <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle; margin-right: 4px;">
-            {{ timelineRef.isZoomLocked ? 'lock' : 'lock_open' }}
+            {{ taskTimelineRef.isZoomLocked ? 'lock' : 'lock_open' }}
           </span>
-          {{ timelineRef.isZoomLocked ? 'Locked' : 'Unlocked' }}
+          {{ taskTimelineRef.isZoomLocked ? 'Locked' : 'Unlocked' }}
         </button>
       </template>
-      <StageTimeline ref="timelineRef" :app-id="appId" :stage-id="stageId" :attempt-id="currentStage?.attemptId"/>
+      <StageTaskTimeline ref="taskTimelineRef" :app-id="appId" :stage-id="stageId" :attempt-id="currentStage?.attemptId"/>
+    </CollapsibleCard>
+
+    <!-- Active Tasks Trend Chart -->
+    <CollapsibleCard v-if="currentStage" title="Active Tasks Trend" :initial-collapsed="true">
+      <template #actions>
+        <button class="lock-btn"
+                v-if="trendRef"
+                @click="trendRef.toggleZoomLock()"
+                :title="trendRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
+          <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle; margin-right: 4px;">
+            {{ trendRef.isZoomLocked ? 'lock' : 'lock_open' }}
+          </span>
+          {{ trendRef.isZoomLocked ? 'Locked' : 'Unlocked' }}
+        </button>
+      </template>
+      <StageTrendChart ref="trendRef" :app-id="appId" :stage-id="stageId" :attempt-id="currentStage?.attemptId"/>
     </CollapsibleCard>
 
     <!-- Metric Visibility Selector -->
@@ -110,7 +126,8 @@ import {AVAILABLE_METRICS, DEFAULT_METRICS} from '../../constants/metrics';
 import CollapsibleCard from '../common/CollapsibleCard.vue';
 import StageSummary from './StageSummary.vue';
 import ExecutorSummary from './ExecutorSummary.vue';
-import StageTimeline from './StageTimeline.vue';
+import StageTrendChart from './StageTrendChart.vue';
+import StageTaskTimeline from './StageTaskTimeline.vue';
 import TaskTable from '../task/TaskTable.vue';
 import StageDAG from './StageDAG.vue';
 
@@ -136,7 +153,8 @@ const stageStats = ref([]);
 const executorSummary = ref([]);
 const selectedMetrics = ref([...DEFAULT_METRICS]);
 
-const timelineRef = ref(null);
+const taskTimelineRef = ref(null);
+const trendRef = ref(null);
 const dagRef = ref(null);
 
 const selectAllMetrics = () => {

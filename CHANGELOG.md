@@ -1,3 +1,20 @@
+## 0.19.0 - 2026-02-05
+
+### Features
+- Implement traditional event timeline with vertical flags for executor lifecycle
+- Add Locality Level Summary to Stage Details
+- Improve Job DAG visualization with correct nesting and styling
+- Add zoom lock controls to timeline charts
+- Use Material Design Icons throughout the UI
+- Display percentage for time-based metrics in summary tables
+- Track and log event log parsing duration
+
+### Improvements
+- Optimize /report API to use pre-calculated metrics
+- Enable opening list items and tabs in new browser tabs (real links)
+- Collapse Job DAG and Event Timeline cards by default
+- Unified styling for Stage and Job DAGs
+
 ## 0.18.0 - 2026-02-05
 
 ### Features

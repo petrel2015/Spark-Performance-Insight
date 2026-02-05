@@ -7,7 +7,9 @@
         <span v-for="(sort, index) in sorts" :key="sort.field" class="sort-tag">
           {{ getColumnLabel(sort.field) }} 
           <span class="sort-dir">{{ sort.dir === 'asc' ? 'ASC' : 'DESC' }}</span>
-          <span @click="removeSort(index)" class="remove-sort" title="Remove sort">×</span>
+          <span @click="removeSort(index)" class="remove-sort" title="Remove sort">
+            <span class="material-symbols-outlined" style="font-size: 14px;">close</span>
+          </span>
         </span>
       </div>
       <button @click="clearSorts" class="clear-sort-btn">Clear All</button>
@@ -17,12 +19,28 @@
       <table class="matrix-table">
         <thead>
         <tr>
-          <th @click="handleSort('label', $event)" class="sortable">Metric {{ getSortIcon('label') }}</th>
-          <th @click="handleSort('minValue', $event)" class="sortable">Min {{ getSortIcon('minValue') }}</th>
-          <th @click="handleSort('p25', $event)" class="sortable">25th Pct {{ getSortIcon('p25') }}</th>
-          <th @click="handleSort('p50', $event)" class="sortable">Median {{ getSortIcon('p50') }}</th>
-          <th @click="handleSort('p75', $event)" class="sortable">75th Pct {{ getSortIcon('p75') }}</th>
-          <th @click="handleSort('maxValue', $event)" class="sortable">Max {{ getSortIcon('maxValue') }}</th>
+          <th @click="handleSort('label', $event)" class="sortable">
+            <div class="header-container justify-start">
+              Metric
+              <div class="sort-indicator">
+                <span class="material-symbols-outlined sort-icon" :class="{ active: isFieldSorted('label') }">
+                  {{ getSortIcon('label') }}
+                </span>
+                <span v-if="getSortOrder('label')" class="sort-order">{{ getSortOrder('label') }}</span>
+              </div>
+            </div>
+          </th>
+          <th v-for="key in ['minValue', 'p25', 'p50', 'p75', 'maxValue']" :key="key" @click="handleSort(key, $event)" class="sortable">
+            <div class="header-container">
+              {{ getColumnLabel(key) }}
+              <div class="sort-indicator">
+                <span class="material-symbols-outlined sort-icon" :class="{ active: isFieldSorted(key) }">
+                  {{ getSortIcon(key) }}
+                </span>
+                <span v-if="getSortOrder(key)" class="sort-order">{{ getSortOrder(key) }}</span>
+              </div>
+            </div>
+          </th>
           <th class="total-col">Total</th>
         </tr>
         </thead>
@@ -134,11 +152,20 @@ const clearSorts = () => {
 };
 const getSortIcon = (field) => {
   const index = sorts.value.findIndex(x => x.field === field);
-  if (index === -1) return '↕';
+  if (index === -1) return 'unfold_more';
   const s = sorts.value[index];
-  const icon = s.dir === 'asc' ? '↑' : '↓';
-  return sorts.value.length > 1 ? `${icon}${index + 1}` : icon;
+  return s.dir === 'asc' ? 'arrow_upward' : 'arrow_downward';
 };
+
+const getSortOrder = (field) => {
+  const index = sorts.value.findIndex(x => x.field === field);
+  return (index !== -1 && sorts.value.length > 1) ? index + 1 : null;
+};
+
+const isFieldSorted = (field) => {
+  return sorts.value.some(x => x.field === field);
+};
+
 const getColumnLabel = (field) => {
   const labels = {label: 'Metric', minValue: 'Min', p25: '25th Pct', p50: 'Median', p75: '75th Pct', maxValue: 'Max'};
   return labels[field] || field;
@@ -156,33 +183,7 @@ const formatCell = (row, key) => {
 
   if (row.type === 'time' || row.type === 'nanos') {
     const msValue = row.type === 'nanos' ? val / 1000000 : val;
-    const timeStr = formatTime(msValue);
-
-    // Show percentage for time metrics other than Duration
-    if (row.key !== 'duration' && props.stage && props.stage.duration > 0) {
-      // Note: We compare individual task metric stats vs Stage TOTAL duration? 
-      // Actually, Stage Duration is usually wall clock time.
-      // But typically, we compare Task metric vs Task Duration.
-      // The summary table shows stats (Min, Median, Max) of metrics across tasks.
-      // So if Max GC is 1s, and Max Task Duration is 10s, it's 10%.
-      // BUT here we don't have the corresponding "Total Task Duration" for that specific task in this context easily (it's aggregated stats).
-      // However, we can use the P50/Max of the specific metric vs P50/Max of the 'duration' row to give a rough idea?
-      // Or simply % of the Stage Duration?
-      // Spark UI shows % of "Task Duration" usually.
-      // Since we don't have the reference "Task Duration" for the specific task that had Min/Max GC, 
-      // we can't be 100% precise unless we know it's the SAME task.
-      // But usually, comparing Median GC vs Median Duration is a valid statistical insight.
-
-      const durationStat = getStat('duration');
-      if (durationStat && durationStat[key]) { // key is 'minValue', 'p50', etc.
-        const refDuration = durationStat[key];
-        if (refDuration > 0) {
-          const pct = Math.round((msValue / refDuration) * 100);
-          return `${timeStr} (${pct}%)`;
-        }
-      }
-    }
-    return timeStr;
+    return formatTime(msValue);
   }
 
   if (row.type === 'bytes') return formatBytes(val);
@@ -266,6 +267,48 @@ const formatTotal = (row) => {
 .matrix-table th.sortable:hover {
   background: #edf2f7;
   color: #3498db;
+}
+
+.header-container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.header-container.justify-start {
+  justify-content: flex-start;
+}
+
+.sort-indicator {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+}
+
+.sort-icon {
+  font-size: 16px !important;
+  color: #ccc;
+  transition: color 0.2s;
+}
+
+.sort-icon.active {
+  color: #3498db;
+}
+
+.sort-order {
+  font-size: 10px;
+  background: #3498db;
+  color: white;
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  right: -8px;
+  top: -4px;
 }
 
 .matrix-table tbody tr:hover {

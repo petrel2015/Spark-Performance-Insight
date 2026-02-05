@@ -146,7 +146,7 @@ ${callSite}`, parentId: parentScopeId
     const scopeNodesData = Array.from(scopeMap.values()).map(s => ({
       id: s.id, shape: 'rect', width: 100, height: 100, parent: s.parentId,
       attrs: {
-        body: {fill: 'rgba(160, 223, 255, 1)', stroke: '#3EC0FF', strokeWidth: 1, rx: 4, ry: 4},
+        body: {fill: 'rgba(160, 223, 255, 1)', stroke: '#3EC0FF', strokeWidth: 1, strokeDasharray: '5 5', rx: 4, ry: 4},
         label: {text: s.label, refY: 15, fontSize: 10, fill: '#333', fontWeight: 'bold'}
       },
       zIndex: 0

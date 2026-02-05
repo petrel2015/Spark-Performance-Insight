@@ -41,4 +41,5 @@ public class TaskModel {
     private Long shuffleRemoteRead;
     private Boolean speculative;
     private String status;
+    private String locality;
 }

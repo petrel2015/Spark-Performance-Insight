@@ -31,8 +31,51 @@
             duration_p95 = m.p95,
             duration_p99 = m.p99,
             max_task_duration = m.max_dur,
-            is_skewed = (CASE WHEN m.max_dur > m.p50 * 2 THEN TRUE ELSE FALSE END)
+            is_skewed = (CASE WHEN m.max_dur > m.p50 * 2 THEN TRUE ELSE FALSE END),
+            locality_summary = m.loc_summary
         FROM (
+            SELECT 
+                app_id, 
+                stage_id,
+                attempt_id,
+                count(case when status = 'SUCCESS' or status = 'SUCCEEDED' then 1 end) as done_tasks,
+                count(case when status = 'FAILED' then 1 end) as failed_tasks,
+                sum(gc_time) as total_gc,
+                sum(duration) as total_duration,
+                sum(executor_deserialize_time) as total_deser,
+                sum(result_serialization_time) as total_ser,
+                sum(getting_result_time) as total_get_res,
+                sum(scheduler_delay) as total_delay,
+                max(peak_execution_memory) as max_peak_mem,
+                sum(peak_execution_memory) as total_peak_mem,
+                sum(memory_bytes_spilled) as total_mem_spill,
+                sum(disk_bytes_spilled) as total_disk_spill,
+                sum(shuffle_write_time) as total_sw_time,
+                sum(input_bytes) as total_input,
+                sum(input_records) as total_input_records,
+                sum(output_bytes) as total_output,
+                sum(output_records) as total_output_records,
+                sum(shuffle_read_bytes) as total_shuffle_read,
+                sum(shuffle_read_records) as total_shuffle_read_records,
+                sum(shuffle_write_bytes) as total_shuffle_write,
+                sum(shuffle_write_records) as total_shuffle_write_records,
+                approx_quantile(duration, 0.5) as p50,
+                approx_quantile(duration, 0.95) as p95,
+                approx_quantile(duration, 0.99) as p99,
+                max(duration) as max_dur,
+                string_agg(k || ': ' || v, ', ') as loc_summary
+            FROM (
+                SELECT app_id, stage_id, attempt_id, locality as k, count(*) as v
+                FROM tasks
+                WHERE app_id = #{appId} AND locality IS NOT NULL
+                GROUP BY app_id, stage_id, attempt_id, locality
+            ) loc_agg
+            RIGHT JOIN (
+                SELECT DISTINCT app_id, stage_id, attempt_id FROM tasks WHERE app_id = #{appId}
+            ) base ON loc_agg.app_id = base.app_id AND loc_agg.stage_id = base.stage_id AND loc_agg.attempt_id = base.attempt_id
+            GROUP BY base.app_id, base.stage_id, base.attempt_id
+        ) m_loc
+        JOIN (
             SELECT 
                 app_id, 
                 stage_id,
@@ -65,7 +108,7 @@
             FROM tasks
             WHERE app_id = #{appId}
             GROUP BY app_id, stage_id, attempt_id
-        ) m
+        ) m ON m.app_id = m_loc.app_id AND m.stage_id = m_loc.stage_id AND m.attempt_id = m_loc.attempt_id
         WHERE s.app_id = m.app_id AND s.stage_id = m.stage_id AND s.attempt_id = m.attempt_id
     </update>
 

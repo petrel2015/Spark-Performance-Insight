@@ -41,7 +41,7 @@ const initGraph = () => {
   graph = new Graph({
     container: graphContainer.value,
     width: graphContainer.value.offsetWidth,
-    height: 500, // Taller for Job DAG
+    height: 300, // Matching StageDAG height
     background: {color: '#f8f9fa'},
     panning: !isZoomLocked.value,
     mousewheel: !isZoomLocked.value,
@@ -106,10 +106,49 @@ const renderDAG = async () => {
     const edges = [];
     const rddIdToStageId = new Map();
     const processedRdds = new Set();
+    const scopeMap = new Map(); // Global scope map across stages
 
     // 1. Process Stages (Clusters) and RDDs
     // Sort stages by ID to ensure order (optional)
     const sortedStages = [...stages.value].sort((a, b) => a.stageId - b.stageId);
+
+    const parseScope = (scopeStr) => {
+      if (!scopeStr) return null;
+      try {
+        return JSON.parse(scopeStr);
+      } catch (e) {
+        return null;
+      }
+    };
+
+    const getOrCreateScope = (scopeObj, stageGroupId) => {
+      if (!scopeObj) return null;
+      const globalScopeId = `${stageGroupId}-scope-${scopeObj.id}`;
+      if (scopeMap.has(globalScopeId)) return scopeMap.get(globalScopeId);
+      
+      let parentId = stageGroupId; // Default parent is the Stage
+      if (scopeObj.parent) {
+        const p = getOrCreateScope(scopeObj.parent, stageGroupId);
+        if (p) parentId = p.id;
+      }
+      
+      const scopeNode = {
+        id: globalScopeId, 
+        label: scopeObj.name, 
+        parent: parentId,
+        shape: 'rect',
+        width: 100, // Placeholder
+        height: 100,
+        zIndex: 1,
+        attrs: {
+          body: {fill: 'rgba(160, 223, 255, 1)', stroke: '#3EC0FF', strokeWidth: 1, strokeDasharray: '5 5', rx: 4, ry: 4},
+          label: {text: scopeObj.name, refY: 15, fontSize: 10, fill: '#333', fontWeight: 'bold'}
+        }
+      };
+      scopeMap.set(globalScopeId, scopeNode);
+      allNodes.push(scopeNode);
+      return scopeNode;
+    };
 
     // Prepare Stage Groups
     sortedStages.forEach(stage => {
@@ -117,18 +156,18 @@ const renderDAG = async () => {
       allNodes.push({
         id: stageGroupId,
         shape: 'rect',
-        width: 300, // Initial estimate, dagre will resize but we need placeholders
+        width: 300, 
         height: 200,
         label: `Stage ${stage.stageId}`,
         zIndex: 0,
         attrs: {
-          body: {fill: '#F0F4F8', stroke: '#999', strokeDasharray: '5 5', rx: 8, ry: 8},
+          body: {fill: 'rgba(255, 235, 238, 0.5)', stroke: '#FFCDD2', strokeDasharray: '5 5', strokeWidth: 1, rx: 4, ry: 4},
           label: {
             text: `Stage ${stage.stageId}`,
-            refY: -20,
-            fontSize: 14,
+            refY: 12,
+            fontSize: 10,
             fontWeight: 'bold',
-            fill: '#555',
+            fill: '#333',
             textWrap: {width: 280, ellipsis: true}
           }
         }
@@ -139,17 +178,20 @@ const renderDAG = async () => {
           const rddInfos = JSON.parse(stage.rddInfo);
           rddInfos.forEach(rdd => {
             const rddId = rdd['RDD ID'];
-            // Only add if not already processed (RDD might appear in multiple stages if cached or shuffle boundary)
-            // Actually, for visualization, we want to place the RDD in the stage that *computes* it.
-            // Assuming rddInfo lists RDDs computed or used.
-            // We assign RDD to the first stage that lists it (usually the producer).
             if (!processedRdds.has(rddId)) {
               processedRdds.add(rddId);
-              rddIdToStageId.set(rddId, stageGroupId);
+              
+              let parentNodeId = stageGroupId;
+              const scopeStr = rdd['Scope'];
+              if (scopeStr) {
+                const scopeObj = parseScope(scopeStr);
+                const s = getOrCreateScope(scopeObj, stageGroupId);
+                if (s) parentNodeId = s.id;
+              }
 
               allNodes.push({
                 id: `rdd-${rddId}`,
-                parent: stageGroupId, // Nest inside Stage
+                parent: parentNodeId,
                 shape: 'rect',
                 width: 200,
                 height: 60,
@@ -157,7 +199,7 @@ const renderDAG = async () => {
                 zIndex: 10,
                 attrs: {
                   body: {fill: '#C3EBFF', stroke: '#3EC0FF', strokeWidth: 1, rx: 6, ry: 6},
-                  label: {text: `[${rddId}] ${rdd.Name}`, fontSize: 11, textWrap: {width: 180, ellipsis: true}}
+                  label: {text: `[${rddId}] ${rdd.Name}`, fontSize: 11, textWrap: {width: 180, ellipsis: true}, fill: '#333'}
                 }
               });
             }
@@ -189,7 +231,7 @@ const renderDAG = async () => {
     }
 
     const g = new GraphLib({compound: true});
-    g.setGraph({rankdir: 'LR', nodesep: 50, ranksep: 80, marginx: 20, marginy: 20});
+    g.setGraph({rankdir: 'LR', nodesep: 50, ranksep: 80, marginx: 30, marginy: 100});
     g.setDefaultEdgeLabel(() => ({}));
 
     // Add nodes to dagre
@@ -224,52 +266,26 @@ const renderDAG = async () => {
 
     dagre.layout(g);
 
-    // Convert back to X6
+    // Convert back to X6 using absolute positions and FLATTEN the hierarchy
+    // (X6 nesting can be tricky with coordinates, flattening matches StageDAG's approach)
     const finalNodes = allNodes.map(n => {
       const dagreNode = g.node(n.id);
-      // If it's a group, Dagre calculates its bounding box based on children
-      // We need to apply that to X6 node
       return {
         ...n,
         x: dagreNode.x - dagreNode.width / 2,
         y: dagreNode.y - dagreNode.height / 2,
         width: dagreNode.width,
         height: dagreNode.height,
-        parent: undefined // Flatten for X6 fromJSON? No, X6 supports parent/children.
-        // But if we pass 'parent' property in array, X6 handles nesting.
-        // However, we calculated absolute positions. If we use nesting in X6, coordinates should be relative to parent?
-        // X6 `fromJSON` with nesting usually expects absolute coordinates if not specified otherwise, OR we flatten them.
-        // Let's try flattening (removing parent) but keeping visual hierarchy?
-        // Actually, if we remove `parent`, they become independent nodes.
-        // We want them grouped.
-        // If we keep `parent`, X6 expects relative coordinates.
-        // Dagre gives absolute coordinates.
-        // So we should:
-        // 1. Calculate relative coordinates for children.
-        // 2. Or, just flatten them and visual grouping is done by the Group Node being behind.
-        // Flattening is safer for simple rendering. We just ensure Z-index is correct.
-        // But then "moving group" won't move children.
-        // Ideally we convert to relative.
+        parent: undefined // Flatten for reliable positioning
       };
     });
 
-    // Fix coordinates for children to be relative to parent
-    const nodesWithRelativeCoords = finalNodes.map(node => {
-      if (node.parent) {
-        const parentNode = finalNodes.find(p => p.id === node.parent);
-        if (parentNode) {
-          return {
-            ...node,
-            x: node.x - parentNode.x,
-            y: node.y - parentNode.y,
-            parent: node.parent // Keep parent link
-          };
-        }
-      }
-      return node;
-    });
+    graph.fromJSON({nodes: finalNodes, edges: validEdges});
 
-    graph.fromJSON({nodes: nodesWithRelativeCoords, edges: validEdges});
+    // Explicitly update size and zoom
+    if (graphContainer.value) {
+      graph.resize(graphContainer.value.offsetWidth, 300);
+    }
 
     setTimeout(() => {
       graph.zoomToFit({padding: 40, maxScale: 1});
@@ -295,8 +311,7 @@ onMounted(() => {
   fetchStages();
   resizeObserver = new ResizeObserver(() => {
     if (graphContainer.value && graphContainer.value.offsetWidth > 0) {
-      // Only resize, don't re-fetch
-      if (graph) graph.resize(graphContainer.value.offsetWidth, 500);
+      triggerReload();
     }
   });
   if (graphContainer.value) resizeObserver.observe(graphContainer.value.parentElement);
@@ -323,7 +338,7 @@ onBeforeUnmount(() => {
 
 .graph-container {
   width: 100%;
-  height: 500px;
+  height: 300px;
 }
 
 .no-data-msg {

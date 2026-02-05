@@ -9,26 +9,32 @@
     </div>
 
     <!-- 0. Job DAG Visualization -->
-    <CollapsibleCard v-if="currentJob" title="Job DAG Visualization" :initial-collapsed="false">
+    <CollapsibleCard v-if="currentJob" title="Job DAG Visualization" :initial-collapsed="true">
       <template #actions>
         <button class="lock-btn"
                 v-if="dagRef"
                 @click="dagRef.toggleZoomLock()"
                 :title="dagRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
-          {{ dagRef.isZoomLocked ? '🔒 Locked' : '🔓 Unlocked' }}
+          <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle; margin-right: 4px;">
+            {{ dagRef.isZoomLocked ? 'lock' : 'lock_open' }}
+          </span>
+          {{ dagRef.isZoomLocked ? 'Locked' : 'Unlocked' }}
         </button>
       </template>
       <JobDAG ref="dagRef" :app-id="appId" :job-id="jobId"/>
     </CollapsibleCard>
 
     <!-- 0.5. Job Event Timeline -->
-    <CollapsibleCard v-if="currentJob" title="Event Timeline (Executors & Stages)" :initial-collapsed="false">
+    <CollapsibleCard v-if="currentJob" title="Event Timeline (Executors & Stages)" :initial-collapsed="true">
       <template #actions>
         <button class="lock-btn"
                 v-if="timelineRef"
                 @click="timelineRef.toggleZoomLock()"
                 :title="timelineRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
-          {{ timelineRef.isZoomLocked ? '🔒 Locked' : '🔓 Unlocked' }}
+          <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle; margin-right: 4px;">
+            {{ timelineRef.isZoomLocked ? 'lock' : 'lock_open' }}
+          </span>
+          {{ timelineRef.isZoomLocked ? 'Locked' : 'Unlocked' }}
         </button>
       </template>
       <JobTimeline ref="timelineRef" :app-id="appId" :job-id="jobId"/>

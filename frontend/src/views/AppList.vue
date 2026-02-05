@@ -3,10 +3,12 @@
     <!-- Processing Alert -->
     <div v-if="processingMessage" class="processing-alert">
       <div class="alert-content">
-        <span class="icon">⏳</span>
+        <span class="icon material-symbols-outlined">hourglass_top</span>
         <span>{{ processingMessage }}</span>
       </div>
-      <button @click="processingMessage = null" class="close-alert">×</button>
+      <button @click="processingMessage = null" class="close-alert">
+        <span class="material-symbols-outlined">close</span>
+      </button>
     </div>
 
     <div class="header-section">
@@ -15,7 +17,10 @@
         <div class="search-box">
           <input type="text" v-model="searchQuery" placeholder="Search by name, ID or user..."
                  @keyup.enter="handleSearch" class="search-input">
-          <button @click="handleSearch" class="search-btn">Search</button>
+          <button @click="handleSearch" class="search-btn">
+            <span class="material-symbols-outlined" style="font-size: 18px; vertical-align: middle; margin-right: 4px;">search</span>
+            Search
+          </button>
         </div>
         <button :disabled="selectedApps.length !== 2" @click="handleCompare" class="compare-btn">
           Compare Selected ({{ selectedApps.length }}/2)
@@ -40,8 +45,12 @@
           </div>
 
           <div class="page-nav">
-            <button @click="jumpToPage(1)" :disabled="currentPage === 1" title="First Page">«</button>
-            <button @click="changePage(-1)" :disabled="currentPage === 1" title="Previous Page">‹</button>
+            <button @click="jumpToPage(1)" :disabled="currentPage === 1" title="First Page">
+              <span class="material-symbols-outlined" style="font-size: 18px;">first_page</span>
+            </button>
+            <button @click="changePage(-1)" :disabled="currentPage === 1" title="Previous Page">
+              <span class="material-symbols-outlined" style="font-size: 18px;">chevron_left</span>
+            </button>
 
             <div class="page-jump">
               <input type="number"
@@ -53,8 +62,12 @@
               <span class="total-pages">/ {{ totalPages }}</span>
             </div>
 
-            <button @click="changePage(1)" :disabled="currentPage === totalPages" title="Next Page">›</button>
-            <button @click="jumpToPage(totalPages)" :disabled="currentPage === totalPages" title="Last Page">»</button>
+            <button @click="changePage(1)" :disabled="currentPage === totalPages" title="Next Page">
+              <span class="material-symbols-outlined" style="font-size: 18px;">chevron_right</span>
+            </button>
+            <button @click="jumpToPage(totalPages)" :disabled="currentPage === totalPages" title="Last Page">
+              <span class="material-symbols-outlined" style="font-size: 18px;">last_page</span>
+            </button>
           </div>
         </div>
       </div>
@@ -66,7 +79,9 @@
           <span v-for="(sort, index) in sorts" :key="sort.field" class="sort-tag">
             {{ getColumnLabel(sort.field) }} 
             <span class="sort-dir">{{ sort.dir === 'asc' ? 'ASC' : 'DESC' }}</span>
-            <span @click="removeSort(index)" class="remove-sort" title="Remove sort">×</span>
+            <span @click="removeSort(index)" class="remove-sort" title="Remove sort">
+              <span class="material-symbols-outlined" style="font-size: 14px;">close</span>
+            </span>
           </span>
         </div>
         <button @click="clearSorts" class="clear-sort-btn">Clear All</button>
@@ -83,7 +98,15 @@
                 @click="handleSort(col.field, $event)"
                 class="sortable"
                 :style="{ width: col.width }">
-              {{ col.label }} {{ getSortIcon(col.field) }}
+              <div class="header-container">
+                {{ col.label }}
+                <div class="sort-indicator">
+                  <span class="material-symbols-outlined sort-icon" :class="{ active: isFieldSorted(col.field) }">
+                    {{ getSortIcon(col.field) }}
+                  </span>
+                  <span v-if="getSortOrder(col.field)" class="sort-order">{{ getSortOrder(col.field) }}</span>
+                </div>
+              </div>
             </th>
           </tr>
           </thead>
@@ -94,9 +117,9 @@
                      :disabled="selectedApps.length >= 2 && !selectedApps.includes(app.appId)">
             </td>
             <td>
-              <a href="javascript:void(0)" @click="$router.push('/app/' + app.appId)" class="app-link">
+              <router-link :to="'/app/' + app.appId" class="app-link">
                 {{ app.appName }}
-              </a>
+              </router-link>
             </td>
 
             <td>
@@ -240,13 +263,18 @@ const getColumnLabel = (field) => {
 
 const getSortIcon = (field) => {
   const index = sorts.value.findIndex(x => x.field === field);
-  if (index === -1) return '↕';
+  if (index === -1) return 'unfold_more';
   const s = sorts.value[index];
-  const icon = s.dir === 'asc' ? '↑' : '↓';
-  if (sorts.value.length > 1) {
-    return `${icon}${index + 1}`;
-  }
-  return icon;
+  return s.dir === 'asc' ? 'arrow_upward' : 'arrow_downward';
+};
+
+const getSortOrder = (field) => {
+  const index = sorts.value.findIndex(x => x.field === field);
+  return (index !== -1 && sorts.value.length > 1) ? index + 1 : null;
+};
+
+const isFieldSorted = (field) => {
+  return sorts.value.some(x => x.field === field);
 };
 
 const handleCompare = () => {
@@ -572,6 +600,43 @@ onMounted(() => {
 .styled-table th.sortable:hover {
   background: #edf2f7;
   color: #3498db;
+}
+
+.header-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sort-indicator {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+}
+
+.sort-icon {
+  font-size: 16px !important;
+  color: #ccc;
+  transition: color 0.2s;
+}
+
+.sort-icon.active {
+  color: #3498db;
+}
+
+.sort-order {
+  font-size: 10px;
+  background: #3498db;
+  color: white;
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  right: -8px;
+  top: -4px;
 }
 
 .styled-table tbody tr:hover {

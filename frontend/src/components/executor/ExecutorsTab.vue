@@ -20,7 +20,18 @@
 
     <!-- 2.5. Executor Timeline Card -->
     <CollapsibleCard title="Executor Lifecycle Timeline" :initial-collapsed="false">
-      <ExecutorTimeline :executors="executors"/>
+      <template #actions>
+        <button class="lock-btn"
+                v-if="timelineRef"
+                @click="timelineRef.toggleZoomLock()"
+                :title="timelineRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
+          <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle; margin-right: 4px;">
+            {{ timelineRef.isZoomLocked ? 'lock' : 'lock_open' }}
+          </span>
+          {{ timelineRef.isZoomLocked ? 'Locked' : 'Unlocked' }}
+        </button>
+      </template>
+      <ExecutorTimeline ref="timelineRef" :executors="executors"/>
     </CollapsibleCard>
 
     <!-- 3. Executors List Card -->
@@ -32,7 +43,9 @@
           <span v-for="(sort, index) in sorts" :key="sort.field" class="sort-tag">
             {{ getColumnLabel(sort.field) }} 
             <span class="sort-dir">{{ sort.dir === 'asc' ? 'ASC' : 'DESC' }}</span>
-            <span @click="removeSort(index)" class="remove-sort" title="Remove sort">×</span>
+            <span @click="removeSort(index)" class="remove-sort" title="Remove sort">
+              <span class="material-symbols-outlined" style="font-size: 14px;">close</span>
+            </span>
           </span>
         </div>
         <button @click="clearSorts" class="clear-sort-btn">Clear All</button>
@@ -48,7 +61,15 @@
                 @click="handleSort(col.field, $event)"
                 :class="{ sortable: true }"
                 :style="{ minWidth: col.width || '100px' }">
-              {{ col.label }} {{ getSortIcon(col.field) }}
+              <div class="header-container">
+                {{ col.label }}
+                <div class="sort-indicator">
+                  <span class="material-symbols-outlined sort-icon" :class="{ active: isFieldSorted(col.field) }">
+                    {{ getSortIcon(col.field) }}
+                  </span>
+                  <span v-if="getSortOrder(col.field)" class="sort-order">{{ getSortOrder(col.field) }}</span>
+                </div>
+              </div>
             </th>
           </tr>
           </thead>
@@ -128,6 +149,7 @@ const props = defineProps({
   executors: {type: Array, default: () => []}
 });
 
+const timelineRef = ref(null);
 const sorts = ref([{field: 'executorId', dir: 'asc'}]);
 const selectedFields = ref([
   'executorId', 'host', 'status', 'addTime', 'totalCores', 'storageMemory', 'totalTasks', 'completedTasks', 'failedTasks', 'inputBytes'
@@ -210,10 +232,18 @@ const handleSort = (field, event) => {
 
 const getSortIcon = (field) => {
   const index = sorts.value.findIndex(x => x.field === field);
-  if (index === -1) return '↕';
+  if (index === -1) return 'unfold_more';
   const s = sorts.value[index];
-  const icon = s.dir === 'asc' ? '↑' : '↓';
-  return sorts.value.length > 1 ? `${icon}${index + 1}` : icon;
+  return s.dir === 'asc' ? 'arrow_upward' : 'arrow_downward';
+};
+
+const getSortOrder = (field) => {
+  const index = sorts.value.findIndex(x => x.field === field);
+  return (index !== -1 && sorts.value.length > 1) ? index + 1 : null;
+};
+
+const isFieldSorted = (field) => {
+  return sorts.value.some(x => x.field === field);
 };
 
 const removeSort = (index) => {
@@ -414,6 +444,43 @@ const selectDefault = () => {
   color: #3498db;
 }
 
+.header-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sort-indicator {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+}
+
+.sort-icon {
+  font-size: 16px !important;
+  color: #ccc;
+  transition: color 0.2s;
+}
+
+.sort-icon.active {
+  color: #3498db;
+}
+
+.sort-order {
+  font-size: 10px;
+  background: #3498db;
+  color: white;
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  right: -8px;
+  top: -4px;
+}
+
 .styled-table tbody tr:hover {
   background-color: #f7fbff;
 }
@@ -477,5 +544,23 @@ const selectDefault = () => {
   padding: 1px 4px;
   font-size: 0.7rem;
   cursor: pointer;
+}
+
+.lock-btn {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  color: #555;
+  transition: all 0.2s;
+  min-width: 80px;
+  text-align: center;
+}
+
+.lock-btn:hover {
+  background: #f0f0f0;
+  color: #333;
 }
 </style>

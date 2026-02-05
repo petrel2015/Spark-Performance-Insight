@@ -7,11 +7,14 @@
           Details for Stage {{ stageId }}
           <span v-if="currentStage?.attemptId > 0" class="attempt-badge">(Attempt {{ currentStage.attemptId }})</span>
           <small v-if="currentStage?.jobId">
-            of Job <a href="#" class="job-link"
-                      @click.prevent="$emit('view-job', currentStage.jobId)">{{ currentStage.jobId }}</a>
+            of Job <router-link :to="'/app/' + appId + '/job/' + currentStage.jobId" class="job-link">{{ currentStage.jobId }}</router-link>
           </small>
         </h3>
         <span v-if="currentStage" class="stage-name-subtitle">{{ currentStage.stageName }}</span>
+        <div v-if="currentStage?.localitySummary" class="locality-summary">
+          <span class="locality-label">Locality Level:</span>
+          <span class="locality-value">{{ currentStage.localitySummary }}</span>
+        </div>
       </div>
     </div>
 
@@ -23,7 +26,10 @@
                 v-if="dagRef"
                 @click="dagRef.toggleZoomLock()"
                 :title="dagRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
-          {{ dagRef.isZoomLocked ? '🔒 Locked' : '🔓 Unlocked' }}
+          <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle; margin-right: 4px;">
+            {{ dagRef.isZoomLocked ? 'lock' : 'lock_open' }}
+          </span>
+          {{ dagRef.isZoomLocked ? 'Locked' : 'Unlocked' }}
         </button>
       </template>
       <StageDAG ref="dagRef" :stage="currentStage"/>
@@ -36,7 +42,10 @@
                 v-if="timelineRef"
                 @click="timelineRef.toggleZoomLock()"
                 :title="timelineRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
-          {{ timelineRef.isZoomLocked ? '🔒 Locked' : '🔓 Unlocked' }}
+          <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle; margin-right: 4px;">
+            {{ timelineRef.isZoomLocked ? 'lock' : 'lock_open' }}
+          </span>
+          {{ timelineRef.isZoomLocked ? 'Locked' : 'Unlocked' }}
         </button>
       </template>
       <StageTimeline ref="timelineRef" :app-id="appId" :stage-id="stageId" :attempt-id="currentStage?.attemptId"/>
@@ -217,6 +226,21 @@ watch(() => props.stageId, fetchStageDetails);
 .stage-name-subtitle {
   font-size: 0.8rem;
   color: #7f8c8d;
+}
+
+.locality-summary {
+  font-size: 0.8rem;
+  margin-top: 4px;
+}
+
+.locality-label {
+  font-weight: 600;
+  color: #555;
+  margin-right: 6px;
+}
+
+.locality-value {
+  color: #34495e;
 }
 
 .metric-selector-card {

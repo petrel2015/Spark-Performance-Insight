@@ -125,7 +125,8 @@ CREATE TABLE IF NOT EXISTS stages (
     status VARCHAR,
     is_skewed BOOLEAN DEFAULT FALSE,
     parent_stage_ids TEXT,
-    rdd_info TEXT
+    rdd_info TEXT,
+    locality_summary TEXT
 );
 
 -- Task 细节
@@ -163,7 +164,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     shuffle_write_records BIGINT DEFAULT 0,
     shuffle_remote_read BIGINT,
     speculative BOOLEAN,
-    status VARCHAR
+    status VARCHAR,
+    locality VARCHAR
 );
 
 -- 诊断建议表

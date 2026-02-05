@@ -50,4 +50,5 @@ public class StageModel {
     private Boolean isSkewed = false;
     private String parentStageIds;
     private String rddInfo; // JSON string of RDD Lineage
+    private String localitySummary;
 }

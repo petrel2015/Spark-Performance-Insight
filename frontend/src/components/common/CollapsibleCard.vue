@@ -2,7 +2,9 @@
   <div class="collapsible-card" :class="{ collapsed: isCollapsed }">
     <div class="card-header" @click="toggle">
       <div class="header-left">
-        <span class="toggle-icon">{{ isCollapsed ? '▶' : '▼' }}</span>
+        <span class="toggle-icon material-symbols-outlined">
+          {{ isCollapsed ? 'chevron_right' : 'expand_more' }}
+        </span>
         <slot name="title">
           <h4 class="default-title">{{ title }}</h4>
         </slot>
@@ -68,9 +70,9 @@ const toggle = () => {
 }
 
 .toggle-icon {
-  font-size: 0.7rem;
+  font-size: 20px !important;
   color: #999;
-  width: 12px;
+  width: 20px;
 }
 
 .default-title {

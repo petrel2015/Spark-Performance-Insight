@@ -46,21 +46,27 @@
 - [x] stage列表页面增加一列，表示这个stagei所属的job（可以点击跳转，可以排序）
 - [x] job详情页列表目前显示指标有些多了，全都展示有些臃肿，参考stage详情页中，增加Select Metrics to Display:卡片来筛选要展示的列。
 - [x] job列表中每一行页有些stage id是其实是不存在的，空的。没有真实的stage详情页。那么在job列表页中，显示stage ids时要标记出来哪些是成功的，失败的，跳过的。用不同字体颜色显示出来就可以
-- [] 增加传统的event timeline
-- [] job详情页的dag图样式和stage详情页相同（默认高度，stage背景颜色，线条颜色，箭头颜色），另外卡片默认关闭
-- [] Detail for Stage 中增加Locality Level Summary。代表数据本地级别，比如node local:2,Any:11,Process local:21
 - [x] 在Summary Metrics for stage x 卡片中，那些时间指标（除了duration），增加一个百分比，表示这部分时间占用了整体耗时多少，比如GC Time显示的是GC Time/Duration的百分比
 - [x] 在解析eventlog时，我注意到你目前读多个文件有多线程，但重要的是解析也需要多线程，比如线程池是10，用多线程去读数据，去解析，去入库。不然像2G大的eventlog，导入一次可能要花10分钟时间。
 - [x] 在解析过程中，有些页面展示会有问题。所以在解析时，有人访问这个spark app相关接口，不能直接查询，而是先查这个spark app的状态是否解析并预处理成功，否则不能访问。访问的话提示一个弹窗比如该spark app正在导入，稍后再试。
 - [x] spark解析过程如被访问返回接口时需要增加进度条，可以是处理到该spark app文件的第1/2个，处理条数10%。类似这样的提示。另外app list该spark app也要有这个提示，出现时不能点击进入下一步，然后可以设置为websocket去动态请求这个spark app的处理状态
 - [x] 除 getApp 外的相关接口会不要返回 503 错误，而是跳转到app list页，然后弹出提示“处理到该spark app文件的第1/2个，处理条数10%”类似这样的提示
-- [] 在直接通过url访问job时，会卡住，我发现是因为调用了/report接口，这个接口返回耗时。但其实用户访问非diagnois时不需要调用该接口。所以修改一下，通过url访问时，访问哪个页签，才调用哪个页签的相关接口。加速查询。
-- [] 调用report接口时我发现是实时计算，应当改为解析eventlog，预计算后存入一张表缓存。
-- [] 所有列表中的链接，目前时js实现的，需要改为一个url，要做到让用户可以右键在新标签页打开。
 - [x] job list，stage list中需要添加搜索框，可以根据id精确搜索。
 - [x] job list，需要添加搜索框，可以根据job group搜索
 - [x] job list，stage list中的搜索框位置不太好看，重新处理一下
 - [x] 根据eventlog文件名推断所属spark app，eventlog格式都如下event_1_xxx，也就是从左往右第二个下划线右边内容全都是spark app名字，如果文件名中spark app名字相同，当作同一个spark app的eventlog处理。
 - [x] 解析eventlog文件时，先筛选文件，只处理小写event开头的文件。如果是目录则递归读目录下的内容，直到文件
-- [ ] 总共2G的eventlog文件，66万行数据，3000多job，5000多stage，32万task，目前花费3分钟导入，首先在解析时增加耗时统计并打印日志。另外如何提速，目前瓶颈在batch存储duckdb。
-- [] 图标不要使用emoji而是使用Material Design Icons / Symbols，包括解锁，排序箭头等等
+- [x] 总共2G的eventlog文件，66万行数据，3000多job，5000多stage，32万task，目前花费3分钟导入，首先在解析时增加耗时统计并打印日志。另外如何提速，目前瓶颈在batch存储duckdb。
+- [x] 图标不要使用emoji而是使用Material Design Icons / Symbols，包括目前卡片中的解锁，排序箭头等等
+- [x] 增加解析耗时统计，JacksonEventParser.parse方法，在日志打印总耗时
+- [x] Summary Metrics for Stage耗时百分比只需要在总计显示
+- [x] Aggregated Metrics by Executor加上耗时百分比
+- [x] Event timeline (Executors & stages)显示有问题，首先现在有2个锁，只保留一个，和其他有锁的卡片相同。另外目前画布上没有元素
+- [x] 在直接通过url访问job时，会卡住，我发现是因为调用了/report接口，这个接口返回耗时。但其实用户访问非diagnois时不需要调用该接口。所以修改一下，通过url访问时，访问哪个页签，才调用哪个页签的相关接口。加速查询。
+- [x] 调用report接口时我发现是实时计算，应当改为解析eventlog，预计算后存入一张表缓存。
+- [x] 所有列表中的链接，目前是一个js方法，右键在新标签页打不开。需要做到让用户可以右键在新标签页打开。
+- [x] job详情页的dag图样式和stage详情页相同（默认高度，stage背景颜色，线条颜色，箭头颜色），另外卡片默认关闭
+- [x] Detail for Stage 中增加Locality Level Summary。代表数据本地级别，比如node local:2,Any:11,Process local:21
+- [x] job详情页的event time line默认关闭
+- [] stage详情页增加一个卡片传统的event timeline（横向的瀑布图）每个task是一个横条，每个executor的task放在一块是一组。去参考spark ui中event timline显示
+- [] 生成sql /dataframe页签

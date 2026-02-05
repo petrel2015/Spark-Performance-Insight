@@ -7,7 +7,9 @@
         <span v-for="(sort, index) in sorts" :key="sort.field" class="sort-tag">
           {{ getColumnLabel(sort.field) }} 
           <span class="sort-dir">{{ sort.dir === 'asc' ? 'ASC' : 'DESC' }}</span>
-          <span @click="removeSort(index)" class="remove-sort" title="Remove sort">×</span>
+          <span @click="removeSort(index)" class="remove-sort" title="Remove sort">
+            <span class="material-symbols-outlined" style="font-size: 14px;">close</span>
+          </span>
         </span>
       </div>
       <button @click="clearSorts" class="clear-sort-btn">Clear All</button>
@@ -18,17 +20,41 @@
         <thead>
         <tr>
           <th @click="handleSort('executorId', $event)" class="sortable" style="min-width: 100px;">
-            Executor {{ getSortIcon('executorId') }}
+            <div class="header-container">
+              Executor
+              <div class="sort-indicator">
+                <span class="material-symbols-outlined sort-icon" :class="{ active: isFieldSorted('executorId') }">
+                  {{ getSortIcon('executorId') }}
+                </span>
+                <span v-if="getSortOrder('executorId')" class="sort-order">{{ getSortOrder('executorId') }}</span>
+              </div>
+            </div>
           </th>
           <th @click="handleSort('taskCount', $event)" class="sortable" style="min-width: 80px;">
-            Tasks {{ getSortIcon('taskCount') }}
+            <div class="header-container">
+              Tasks
+              <div class="sort-indicator">
+                <span class="material-symbols-outlined sort-icon" :class="{ active: isFieldSorted('taskCount') }">
+                  {{ getSortIcon('taskCount') }}
+                </span>
+                <span v-if="getSortOrder('taskCount')" class="sort-order">{{ getSortOrder('taskCount') }}</span>
+              </div>
+            </div>
           </th>
           <th v-for="col in visibleCols"
               :key="col.key"
               @click="handleSort(col.field, $event)"
               class="sortable"
               :style="{ minWidth: col.width }">
-            {{ col.label }} {{ getSortIcon(col.field) }}
+            <div class="header-container">
+              {{ col.label }}
+              <div class="sort-indicator">
+                <span class="material-symbols-outlined sort-icon" :class="{ active: isFieldSorted(col.field) }">
+                  {{ getSortIcon(col.field) }}
+                </span>
+                <span v-if="getSortOrder(col.field)" class="sort-order">{{ getSortOrder(col.field) }}</span>
+              </div>
+            </div>
           </th>
         </tr>
         </thead>
@@ -37,21 +63,7 @@
           <td><strong>{{ row.executorId }}</strong></td>
           <td>{{ row.taskCount }}</td>
           <td v-for="col in visibleCols" :key="col.key">
-            <template v-if="col.type === 'time'">
-              {{ formatTime(row[col.field]) }}
-            </template>
-            <template v-else-if="col.type === 'bytes'">
-              {{ formatBytes(row[col.field]) }}
-            </template>
-            <template v-else-if="col.type === 'nanos'">
-              {{ formatTime(row[col.field] / 1000000) }}
-            </template>
-            <template v-else-if="col.type === 'composite'">
-              {{ formatBytes(row[col.subFields[0]]) }} / {{ formatNum(row[col.subFields[1]]) }}
-            </template>
-            <template v-else>
-              {{ row[col.field] }}
-            </template>
+            {{ formatCellValue(row, col) }}
           </td>
         </tr>
         <tr v-if="summary.length === 0">
@@ -190,10 +202,52 @@ const clearSorts = () => {
 
 const getSortIcon = (field) => {
   const index = sorts.value.findIndex(x => x.field === field);
-  if (index === -1) return '↕';
+  if (index === -1) return 'unfold_more';
   const s = sorts.value[index];
-  const icon = s.dir === 'asc' ? '↑' : '↓';
-  return sorts.value.length > 1 ? `${icon}${index + 1}` : icon;
+  return s.dir === 'asc' ? 'arrow_upward' : 'arrow_downward';
+};
+
+const getSortOrder = (field) => {
+  const index = sorts.value.findIndex(x => x.field === field);
+  return (index !== -1 && sorts.value.length > 1) ? index + 1 : null;
+};
+
+const isFieldSorted = (field) => {
+  return sorts.value.some(x => x.field === field);
+};
+
+const formatCellValue = (row, col) => {
+  const val = row[col.field];
+  if (val === undefined || val === null) return '-';
+
+  if (col.type === 'time') {
+    const timeStr = formatTime(val);
+    if (col.field !== 'duration' && row.duration > 0) {
+      const pct = Math.round((val / row.duration) * 100);
+      return `${timeStr} (${pct}%)`;
+    }
+    return timeStr;
+  }
+
+  if (col.type === 'bytes') {
+    return formatBytes(val);
+  }
+
+  if (col.type === 'nanos') {
+    const msValue = val / 1000000;
+    const timeStr = formatTime(msValue);
+    if (row.duration > 0) {
+      const pct = Math.round((msValue / row.duration) * 100);
+      return `${timeStr} (${pct}%)`;
+    }
+    return timeStr;
+  }
+
+  if (col.type === 'composite') {
+    return `${formatBytes(row[col.subFields[0]])} / ${formatNum(row[col.subFields[1]])}`;
+  }
+
+  return val;
 };
 
 const getColumnLabel = (field) => {
@@ -241,6 +295,43 @@ const getColumnLabel = (field) => {
 .styled-table th.sortable:hover {
   background: #edf2f7;
   color: #3498db;
+}
+
+.header-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sort-indicator {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+}
+
+.sort-icon {
+  font-size: 16px !important;
+  color: #ccc;
+  transition: color 0.2s;
+}
+
+.sort-icon.active {
+  color: #3498db;
+}
+
+.sort-order {
+  font-size: 10px;
+  background: #3498db;
+  color: white;
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  right: -8px;
+  top: -4px;
 }
 
 .styled-table tbody tr:hover {

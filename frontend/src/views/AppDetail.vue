@@ -2,11 +2,12 @@
   <div class="app-detail">
     <div class="header-bar">
       <div class="tabs">
-        <button v-for="tab in tabList" :key="tab"
-                :class="{ active: activeTab === tab }"
-                @click="navigateToTab(tab)">
+        <router-link v-for="tab in tabList" :key="tab"
+                :to="getTabRoute(tab)"
+                class="tab-link"
+                :class="{ active: activeTab === tab }">
           {{ tab }}
-        </button>
+        </router-link>
       </div>
       <div class="app-info" v-if="app">
         <h2>
@@ -104,6 +105,16 @@ const loading = ref({
 });
 
 const tabList = ['Diagnosis', 'Jobs', 'Stages', 'Executors', 'Environment'];
+
+const getTabRoute = (tab) => {
+  const appId = route.params.id;
+  if (tab === 'Diagnosis') return `/app/${appId}`;
+  if (tab === 'Jobs') return `/app/${appId}/jobs`;
+  if (tab === 'Stages') return `/app/${appId}/stages`;
+  if (tab === 'Executors') return `/app/${appId}/executors`;
+  if (tab === 'Environment') return `/app/${appId}/environment`;
+  return `/app/${appId}`;
+};
 
 const selectedStageId = computed(() => {
   return route.params.stageId ? parseInt(route.params.stageId) : null;
@@ -283,9 +294,10 @@ onMounted(async () => {
   height: 50px;
 }
 
-.tabs button {
-  background: none;
-  border: none;
+.tab-link {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
   padding: 0 1.2rem;
   cursor: pointer;
   font-weight: 600;
@@ -296,12 +308,12 @@ onMounted(async () => {
   font-size: 0.9rem;
 }
 
-.tabs button:hover {
+.tab-link:hover {
   color: #3498db;
   background: #f9f9f9;
 }
 
-.tabs button.active {
+.tab-link.active {
   color: #3498db;
   border-bottom-color: #3498db;
 }

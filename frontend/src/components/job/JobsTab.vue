@@ -30,7 +30,10 @@
                    class="search-input" style="width: 100px;">
             <input type="text" v-model="searchJobGroup" placeholder="Job Group" @keyup.enter="handleSearch"
                    class="search-input" style="width: 180px;">
-            <button @click="handleSearch" class="search-btn">Search</button>
+            <button @click="handleSearch" class="search-btn">
+              <span class="material-symbols-outlined" style="font-size: 18px; vertical-align: middle; margin-right: 4px;">search</span>
+              Search
+            </button>
           </div>
 
           <div class="pagination-controls">
@@ -44,8 +47,12 @@
             </div>
 
             <div class="page-nav">
-              <button @click="jumpToPage(1)" :disabled="currentPage === 1" title="First Page">«</button>
-              <button @click="changePage(-1)" :disabled="currentPage === 1" title="Previous Page">‹</button>
+              <button @click="jumpToPage(1)" :disabled="currentPage === 1" title="First Page">
+                <span class="material-symbols-outlined" style="font-size: 18px;">first_page</span>
+              </button>
+              <button @click="changePage(-1)" :disabled="currentPage === 1" title="Previous Page">
+                <span class="material-symbols-outlined" style="font-size: 18px;">chevron_left</span>
+              </button>
 
               <div class="page-jump">
                 <input type="number"
@@ -57,8 +64,12 @@
                 <span class="total-pages">/ {{ totalPages }}</span>
               </div>
 
-              <button @click="changePage(1)" :disabled="currentPage === totalPages" title="Next Page">›</button>
-              <button @click="jumpToPage(totalPages)" :disabled="currentPage === totalPages" title="Last Page">»</button>
+              <button @click="changePage(1)" :disabled="currentPage === totalPages" title="Next Page">
+                <span class="material-symbols-outlined" style="font-size: 18px;">chevron_right</span>
+              </button>
+              <button @click="jumpToPage(totalPages)" :disabled="currentPage === totalPages" title="Last Page">
+                <span class="material-symbols-outlined" style="font-size: 18px;">last_page</span>
+              </button>
             </div>
           </div>
         </div>
@@ -71,7 +82,9 @@
           <span v-for="(sort, index) in sorts" :key="sort.field" class="sort-tag">
             {{ getColumnLabel(sort.field) }} 
             <span class="sort-dir">{{ sort.dir === 'asc' ? 'ASC' : 'DESC' }}</span>
-            <span @click="removeSort(index)" class="remove-sort" title="Remove sort">×</span>
+            <span @click="removeSort(index)" class="remove-sort" title="Remove sort">
+              <span class="material-symbols-outlined" style="font-size: 14px;">close</span>
+            </span>
           </span>
         </div>
         <button @click="clearSorts" class="clear-sort-btn">Clear All</button>
@@ -87,7 +100,15 @@
                 @click="handleSort(col.field, $event)"
                 :class="{ sortable: col.sortable }"
                 :style="{ width: col.width }">
-              {{ col.label }} <span v-if="col.sortable">{{ getSortIcon(col.field) }}</span>
+              <div class="header-container">
+                {{ col.label }}
+                <div class="sort-indicator" v-if="col.sortable">
+                  <span class="material-symbols-outlined sort-icon" :class="{ active: isFieldSorted(col.field) }">
+                    {{ getSortIcon(col.field) }}
+                  </span>
+                  <span v-if="getSortOrder(col.field)" class="sort-order">{{ getSortOrder(col.field) }}</span>
+                </div>
+              </div>
             </th>
           </tr>
           </thead>
@@ -107,9 +128,9 @@
 
               <!-- 3. Description (Link) -->
               <template v-else-if="col.field === 'description'">
-                <a href="javascript:void(0)" @click="$emit('view-job-detail', job.jobId)" class="job-link">
+                <router-link :to="'/app/' + appId + '/job/' + job.jobId" class="job-link">
                   {{ job.description || 'Job ' + job.jobId }}
-                </a>
+                </router-link>
               </template>
 
               <!-- 4. Stages Count -->
@@ -122,7 +143,7 @@
                 <div class="stage-ids-list" :title="job.stageIds">
                   <template v-if="job.stageIds">
                       <span v-for="(sid, idx) in job.stageIds.split(',')" :key="sid">
-                        <span :class="'stage-id-link ' + getStageStatusClass(job, sid)">{{ sid }}</span>
+                        <router-link :to="'/app/' + appId + '/stage/' + sid" :class="'stage-id-link ' + getStageStatusClass(job, sid)">{{ sid }}</router-link>
                         <span v-if="idx < job.stageIds.split(',').length - 1">, </span>
                       </span>
                   </template>
@@ -335,13 +356,18 @@ const getColumnLabel = (field) => {
 
 const getSortIcon = (field) => {
   const index = sorts.value.findIndex(x => x.field === field);
-  if (index === -1) return '↕';
+  if (index === -1) return 'unfold_more';
   const s = sorts.value[index];
-  const icon = s.dir === 'asc' ? '↑' : '↓';
-  if (sorts.value.length > 1) {
-    return `${icon}${index + 1}`;
-  }
-  return icon;
+  return s.dir === 'asc' ? 'arrow_upward' : 'arrow_downward';
+};
+
+const getSortOrder = (field) => {
+  const index = sorts.value.findIndex(x => x.field === field);
+  return (index !== -1 && sorts.value.length > 1) ? index + 1 : null;
+};
+
+const isFieldSorted = (field) => {
+  return sorts.value.some(x => x.field === field);
 };
 
 const formatTime = (t) => t ? new Date(t).toLocaleString() : '-';
@@ -699,6 +725,43 @@ watch(() => props.appId, () => {
   color: #3498db;
 }
 
+.header-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sort-indicator {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+}
+
+.sort-icon {
+  font-size: 16px !important;
+  color: #ccc;
+  transition: color 0.2s;
+}
+
+.sort-icon.active {
+  color: #3498db;
+}
+
+.sort-order {
+  font-size: 10px;
+  background: #3498db;
+  color: white;
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  right: -8px;
+  top: -4px;
+}
+
 .job-link {
   color: #3498db;
   text-decoration: none;
@@ -732,6 +795,11 @@ watch(() => props.appId, () => {
 
 .stage-id-link {
   font-weight: bold;
+  text-decoration: none;
+}
+
+.stage-id-link:hover {
+  text-decoration: underline;
 }
 
 .status-succeeded {

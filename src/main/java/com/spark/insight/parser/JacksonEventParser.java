@@ -58,6 +58,7 @@ public class JacksonEventParser implements EventParser {
 
     @Override
     public void parse(File logFile, int currentFileIndex, int totalFiles) {
+        long startTime = System.currentTimeMillis();
         log.info("Processing log: {} ({}/{})", logFile.getName(), currentFileIndex, totalFiles);
 
         // 尝试从文件名推断 App ID (支持滚动日志)
@@ -213,6 +214,8 @@ public class JacksonEventParser implements EventParser {
                     });
                 }
             }
+            long durationMs = System.currentTimeMillis() - startTime;
+            log.info("Finished processing log: {} in {}", logFile.getName(), formatDuration(durationMs));
         } catch (Exception e) {
             log.error("Error parsing " + logFile.getPath(), e);
         }
@@ -280,8 +283,8 @@ public class JacksonEventParser implements EventParser {
                 "peak_execution_memory, input_bytes, input_records, output_bytes, output_records, " +
                 "memory_bytes_spilled, disk_bytes_spilled, shuffle_read_bytes, shuffle_read_records, " +
                 "shuffle_fetch_wait_time, shuffle_write_bytes, shuffle_write_time, shuffle_write_records, " +
-                "shuffle_remote_read, speculative, status" +
-                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                "shuffle_remote_read, speculative, status, locality" +
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (java.sql.Connection conn = dataSource.getConnection();
              java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -324,6 +327,7 @@ public class JacksonEventParser implements EventParser {
                 ps.setLong(idx++, t.getShuffleRemoteRead());
                 ps.setBoolean(idx++, t.getSpeculative());
                 ps.setString(idx++, t.getStatus());
+                ps.setString(idx++, t.getLocality());
                 
                 ps.addBatch();
             }
@@ -573,6 +577,7 @@ public class JacksonEventParser implements EventParser {
         task.setTaskIndex(taskIndex);
         task.setExecutorId(info.has("Executor ID") ? info.get("Executor ID").asText() : "unknown");
         task.setHost(info.has("Host") ? info.get("Host").asText() : "unknown");
+        task.setLocality(info.has("Locality") ? info.get("Locality").asText() : "unknown");
         task.setLaunchTime(launchTime);
         task.setFinishTime(finishTime);
         task.setDuration(duration);
@@ -657,6 +662,22 @@ public class JacksonEventParser implements EventParser {
     private LocalDateTime parseTimestamp(long timestamp) {
         if (timestamp <= 0) return null;
         return LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), TimeZone.getDefault().toZoneId());
+    }
+
+    private String formatDuration(long ms) {
+        if (ms < 1000) return ms + "ms";
+        long s = (ms / 1000) % 60;
+        long m = (ms / (1000 * 60)) % 60;
+        long h = (ms / (1000 * 60 * 60));
+
+        StringBuilder sb = new StringBuilder();
+        if (h > 0) sb.append(h).append("h ");
+        if (m > 0 || h > 0) sb.append(m).append("m ");
+        sb.append(s).append("s");
+        if (h == 0 && ms % 1000 > 0) {
+            sb.append(" ").append(ms % 1000).append("ms");
+        }
+        return sb.toString();
     }
 
     @Override

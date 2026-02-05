@@ -31,6 +31,21 @@
         </div>
       </div>
 
+      <!-- 1.5 SQL Tab -->
+      <div v-if="activeTab === 'SQL'" class="sql-view">
+        <SQLTab
+            v-if="selectedExecutionId === null && app"
+            :app-id="app.appId"
+            @view-sql-detail="navigateToSql"
+        />
+        <SQLDetailView
+            v-else-if="app"
+            :app-id="app.appId"
+            :execution-id="selectedExecutionId"
+            @back="navigateBackToSqlList"
+        />
+      </div>
+
       <!-- 2. Jobs Tab -->
       <div v-if="activeTab === 'Jobs'" class="jobs-view">
         <JobsTab
@@ -83,6 +98,8 @@ import {getDiagnosisReport, getAppExecutors, getApp, getAppEnvironment} from '..
 import {marked} from 'marked';
 import JobsTab from '../components/job/JobsTab.vue';
 import JobDetailView from '../components/job/JobDetailView.vue';
+import SQLTab from '../components/sql/SQLTab.vue';
+import SQLDetailView from '../components/sql/SQLDetailView.vue';
 import ExecutorsTab from '../components/executor/ExecutorsTab.vue';
 import StageTable from '../components/stage/StageTable.vue';
 import StageDetailView from '../components/stage/StageDetailView.vue';
@@ -104,11 +121,12 @@ const loading = ref({
   environment: false
 });
 
-const tabList = ['Diagnosis', 'Jobs', 'Stages', 'Executors', 'Environment'];
+const tabList = ['Diagnosis', 'SQL', 'Jobs', 'Stages', 'Executors', 'Environment'];
 
 const getTabRoute = (tab) => {
   const appId = route.params.id;
   if (tab === 'Diagnosis') return `/app/${appId}`;
+  if (tab === 'SQL') return `/app/${appId}/sql`;
   if (tab === 'Jobs') return `/app/${appId}/jobs`;
   if (tab === 'Stages') return `/app/${appId}/stages`;
   if (tab === 'Executors') return `/app/${appId}/executors`;
@@ -126,6 +144,10 @@ const selectedAttemptId = computed(() => {
 
 const selectedJobId = computed(() => {
   return route.params.jobId ? parseInt(route.params.jobId) : null;
+});
+
+const selectedExecutionId = computed(() => {
+  return route.params.executionId ? parseInt(route.params.executionId) : null;
 });
 
 const renderedReport = computed(() => marked(report.value));
@@ -168,6 +190,8 @@ const syncTabWithRoute = () => {
     newTab = 'Stages';
   } else if (path.includes('/job/')) {
     newTab = 'Jobs';
+  } else if (path.includes('/sql')) {
+    newTab = 'SQL';
   } else if (path.endsWith('/jobs')) {
     newTab = 'Jobs';
   } else if (path.endsWith('/stages')) {
@@ -197,6 +221,14 @@ const navigateToJob = (jobId) => {
 
 const navigateBackToJobs = () => {
   router.push(`/app/${route.params.id}/jobs`);
+};
+
+const navigateToSql = (executionId) => {
+  router.push(`/app/${route.params.id}/sql/${executionId}`);
+};
+
+const navigateBackToSqlList = () => {
+  router.push(`/app/${route.params.id}/sql`);
 };
 
 const navigateToStage = (payload) => {

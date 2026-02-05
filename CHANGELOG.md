@@ -1,3 +1,15 @@
+## 0.21.0 - 2026-02-05
+
+### Features
+- Implement SQL / DataFrame tab mimicking Spark UI
+- Add SQL execution list with associated Job IDs
+- Add SQL detail view with physical plan and linked Jobs
+- Parse SparkListenerSQLExecution events from logs
+
+### Improvements
+- Links now support opening in new browser tabs (using router-link)
+- Updated TODO.md with latest task progress
+
 ## 0.20.1 - 2026-02-05
 
 ### Configuration

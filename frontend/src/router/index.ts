@@ -7,6 +7,8 @@ const router = createRouter({
     routes: [
         {path: '/', component: AppList},
         {path: '/app/:id', component: AppDetail},
+        {path: '/app/:id/sql', component: AppDetail},
+        {path: '/app/:id/sql/:executionId', component: AppDetail},
         {path: '/app/:id/jobs', component: AppDetail},
         {path: '/app/:id/stages', component: AppDetail},
         {path: '/app/:id/executors', component: AppDetail},

@@ -37,6 +37,13 @@ export const getAppJobs = (appId: string, page = 1, size = 20, sort = '', jobId 
 };
 export const getJob = (appId: string, jobId: number) => request.get(`/apps/${appId}/jobs/${jobId}`);
 export const getAppExecutors = (appId: string) => request.get(`/apps/${appId}/executors`);
+export const getAppSqlExecutions = (appId: string, page = 1, size = 20, sort = '', search = '') => {
+    let url = `/apps/${appId}/sql?page=${page}&size=${size}&sort=${sort}`;
+    if (search && search !== '') url += `&search=${encodeURIComponent(search)}`;
+    return request.get(url);
+};
+export const getSqlExecution = (appId: string, executionId: number) => 
+    request.get(`/apps/${appId}/sql/${executionId}`);
 export const getAppEnvironment = (appId: string) => request.get(`/apps/${appId}/environment`);
 export const getStageTasks = (appId: string, stageId: number, page = 1, size = 20, sort = '', attemptId?: number) => {
     let url = `/apps/${appId}/stages/${stageId}/tasks?page=${page}&size=${size}&sort=${sort}`;

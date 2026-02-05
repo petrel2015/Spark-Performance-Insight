@@ -24,6 +24,7 @@ public class InsightController {
     private final ExecutorService executorService;
     private final TaskService taskService;
     private final EnvironmentConfigService envService;
+    private final SqlExecutionService sqlExecutionService;
 
     private void checkAppReady(String appId) {
         ApplicationModel app = applicationService.getById(appId);
@@ -103,6 +104,56 @@ public class InsightController {
     public List<ExecutorModel> listExecutors(@PathVariable String appId) {
         checkAppReady(appId);
         return executorService.lambdaQuery().eq(ExecutorModel::getAppId, appId).list();
+    }
+
+    /**
+     * 获取 SQL 执行列表
+     */
+    @GetMapping("/apps/{appId}/sql")
+    public PageResponse<SqlExecutionModel> listSqlExecutions(@PathVariable String appId,
+                                                             @RequestParam(defaultValue = "1") int page,
+                                                             @RequestParam(defaultValue = "20") int size,
+                                                             @RequestParam(required = false) String sort,
+                                                             @RequestParam(required = false) String search) {
+        checkAppReady(appId);
+        var query = sqlExecutionService.lambdaQuery().eq(SqlExecutionModel::getAppId, appId);
+        if (search != null && !search.isBlank()) {
+            query.like(SqlExecutionModel::getDescription, "%" + search + "%");
+        }
+
+        long total = query.count();
+
+        // Re-apply for list
+        var listQuery = sqlExecutionService.lambdaQuery().eq(SqlExecutionModel::getAppId, appId);
+        if (search != null && !search.isBlank()) {
+            listQuery.like(SqlExecutionModel::getDescription, "%" + search + "%");
+        }
+
+        listQuery.last(buildSqlSuffix(sort, page, size, "execution_id DESC"));
+
+        List<SqlExecutionModel> items = listQuery.list();
+        for (SqlExecutionModel sql : items) {
+            List<Integer> jobIds = jobService.lambdaQuery()
+                    .eq(JobModel::getAppId, appId)
+                    .eq(JobModel::getSqlExecutionId, sql.getExecutionId())
+                    .select(JobModel::getJobId)
+                    .list()
+                    .stream()
+                    .map(JobModel::getJobId)
+                    .toList();
+            sql.setJobIds(jobIds);
+        }
+        int totalPages = (int) Math.ceil((double) total / size);
+        return new PageResponse<>(items, total, page, size, totalPages);
+    }
+
+    @GetMapping("/apps/{appId}/sql/{executionId}")
+    public SqlExecutionModel getSqlExecution(@PathVariable String appId, @PathVariable Long executionId) {
+        checkAppReady(appId);
+        return sqlExecutionService.lambdaQuery()
+                .eq(SqlExecutionModel::getAppId, appId)
+                .eq(SqlExecutionModel::getExecutionId, executionId)
+                .one();
     }
 
     @GetMapping("/apps/{appId}/stages/{stageId}/tasks")

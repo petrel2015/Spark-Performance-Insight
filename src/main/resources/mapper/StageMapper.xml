@@ -32,7 +32,7 @@
             duration_p99 = m.p99,
             max_task_duration = m.max_dur,
             is_skewed = (CASE WHEN m.max_dur > m.p50 * 2 THEN TRUE ELSE FALSE END),
-            locality_summary = m.loc_summary,
+            locality_summary = m_loc.loc_summary,
             performance_score = (
                 COALESCE((m.total_gc * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.2 +
                 COALESCE((m.total_sw_time * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.2 +

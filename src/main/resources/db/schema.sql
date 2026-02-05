@@ -171,6 +171,13 @@ CREATE TABLE IF NOT EXISTS tasks (
     locality VARCHAR
 );
 
+-- Ensure columns exist for existing databases (DuckDB)
+ALTER TABLE stages ADD COLUMN IF NOT EXISTS locality_summary TEXT;
+ALTER TABLE stages ADD COLUMN IF NOT EXISTS diagnosis_info TEXT;
+ALTER TABLE stages ADD COLUMN IF NOT EXISTS performance_score DOUBLE DEFAULT 0.0;
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS sql_execution_id BIGINT;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS locality VARCHAR;
+
 -- 诊断建议表
 CREATE TABLE IF NOT EXISTS diagnosis_reports (
     id INTEGER PRIMARY KEY,

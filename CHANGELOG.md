@@ -1,3 +1,14 @@
+## 0.20.0 - 2026-02-05
+
+### Features
+- Ensure sequential parsing of rolling event logs for the same Spark application
+- Implement concurrency control in EventLogWatcherService to prevent duplicate parsing tasks
+- Add "PROCESSING" status tracking for event logs in the database
+
+### Improvements
+- Refined waterfall timeline with improved lane packing logic
+- Corrected RDD positioning in Job DAG visualization
+
 ## 0.19.0 - 2026-02-05
 
 ### Features

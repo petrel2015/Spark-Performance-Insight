@@ -23,3 +23,5 @@ mybatis-plus:
 
 insight:
   event-log-path: ./eventlogs
+  scheduler:
+    scan-interval-seconds: 3600

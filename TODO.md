@@ -73,3 +73,4 @@
 - [x] 同一个sparkapp多个eventlog如(event_1_xxx, event_2_xxx)同时导入会出现不导入到同一个sparkapp中
 - [x] 目前定时导入时，没有判断当前文件是否已在导入中，会导致导入冲突
 - [x] 倒入后统计stage summary信息时，会出现ambigous的stage_id,attempt_id。
+- [] 修改为一个小时扫描一次eventlog扫描路径 

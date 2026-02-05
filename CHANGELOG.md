@@ -1,3 +1,8 @@
+## 0.20.1 - 2026-02-05
+
+### Configuration
+- Change event log scan interval to one hour (3600 seconds)
+
 ## 0.20.0 - 2026-02-05
 
 ### Features

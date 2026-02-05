@@ -75,3 +75,7 @@
 - [x] 目前定时导入时，没有判断当前文件是否已在导入中，会导致导入冲突
 - [x] 倒入后统计stage summary信息时，会出现ambigous的stage_id,attempt_id。
 - [x] 修改为一个小时扫描一次eventlog扫描路径 
+- [] stage列表增加诊断分数列
+- [] job详情类似stage详情增加诊断分数，从stage诊断/汇总计算中得到
+- [] job列表增加诊断分数列
+- [] 诊断页签根据job和stage的诊断分数，给出top10的问题job和stage。

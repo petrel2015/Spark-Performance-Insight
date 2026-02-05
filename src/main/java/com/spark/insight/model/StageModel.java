@@ -51,4 +51,6 @@ public class StageModel {
     private String parentStageIds;
     private String rddInfo; // JSON string of RDD Lineage
     private String localitySummary;
+    private String diagnosisInfo; // JSON string of performance diagnosis
+    private Double performanceScore; // Weighted score (0-100)
 }

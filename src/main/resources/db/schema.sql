@@ -127,7 +127,9 @@ CREATE TABLE IF NOT EXISTS stages (
     is_skewed BOOLEAN DEFAULT FALSE,
     parent_stage_ids TEXT,
     rdd_info TEXT,
-    locality_summary TEXT
+    locality_summary TEXT,
+    diagnosis_info TEXT,
+    performance_score DOUBLE DEFAULT 0.0
 );
 
 -- Task 细节

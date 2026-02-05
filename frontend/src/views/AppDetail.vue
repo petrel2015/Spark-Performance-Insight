@@ -32,7 +32,7 @@
       </div>
 
       <!-- 1.5 SQL Tab -->
-      <div v-if="activeTab === 'SQL'" class="sql-view">
+      <div v-if="activeTab === 'SQL / DataFrame'" class="sql-view">
         <SQLTab
             v-if="selectedExecutionId === null && app"
             :app-id="app.appId"
@@ -121,12 +121,12 @@ const loading = ref({
   environment: false
 });
 
-const tabList = ['Diagnosis', 'SQL', 'Jobs', 'Stages', 'Executors', 'Environment'];
+const tabList = ['Diagnosis', 'Jobs', 'Stages', 'Executors', 'Environment', 'SQL / DataFrame'];
 
 const getTabRoute = (tab) => {
   const appId = route.params.id;
   if (tab === 'Diagnosis') return `/app/${appId}`;
-  if (tab === 'SQL') return `/app/${appId}/sql`;
+  if (tab === 'SQL / DataFrame') return `/app/${appId}/sql`;
   if (tab === 'Jobs') return `/app/${appId}/jobs`;
   if (tab === 'Stages') return `/app/${appId}/stages`;
   if (tab === 'Executors') return `/app/${appId}/executors`;
@@ -191,7 +191,7 @@ const syncTabWithRoute = () => {
   } else if (path.includes('/job/')) {
     newTab = 'Jobs';
   } else if (path.includes('/sql')) {
-    newTab = 'SQL';
+    newTab = 'SQL / DataFrame';
   } else if (path.endsWith('/jobs')) {
     newTab = 'Jobs';
   } else if (path.endsWith('/stages')) {
@@ -209,6 +209,7 @@ const syncTabWithRoute = () => {
 const navigateToTab = (tab) => {
   const appId = route.params.id;
   if (tab === 'Diagnosis') router.push(`/app/${appId}`);
+  else if (tab === 'SQL / DataFrame') router.push(`/app/${appId}/sql`);
   else if (tab === 'Jobs') router.push(`/app/${appId}/jobs`);
   else if (tab === 'Stages') router.push(`/app/${appId}/stages`);
   else if (tab === 'Executors') router.push(`/app/${appId}/executors`);

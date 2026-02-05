@@ -18,6 +18,12 @@
       </div>
     </div>
 
+    <!-- Performance Diagnosis Card -->
+    <CollapsibleCard v-if="currentStage && (currentStage.performanceScore > 0 || currentStage.diagnosisInfo)" 
+                     title="Performance Diagnosis" :initial-collapsed="false">
+      <StageDiagnosisCard :diagnosis-info="currentStage.diagnosisInfo" :performance-score="currentStage.performanceScore" />
+    </CollapsibleCard>
+
     <!-- RDD Lineage Visualization -->
     <CollapsibleCard v-if="currentStage && currentStage.rddInfo" title="DAG Visualization (RDD Lineage)"
                      :initial-collapsed="true">
@@ -128,6 +134,7 @@ import StageSummary from './StageSummary.vue';
 import ExecutorSummary from './ExecutorSummary.vue';
 import StageTrendChart from './StageTrendChart.vue';
 import StageTaskTimeline from './StageTaskTimeline.vue';
+import StageDiagnosisCard from './StageDiagnosisCard.vue';
 import TaskTable from '../task/TaskTable.vue';
 import StageDAG from './StageDAG.vue';
 

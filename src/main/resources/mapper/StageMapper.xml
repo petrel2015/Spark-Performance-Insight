@@ -32,37 +32,28 @@
             duration_p99 = m.p99,
             max_task_duration = m.max_dur,
             is_skewed = (CASE WHEN m.max_dur > m.p50 * 2 THEN TRUE ELSE FALSE END),
-            locality_summary = m.loc_summary
+            locality_summary = m.loc_summary,
+            performance_score = (
+                COALESCE((m.total_gc * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.2 +
+                COALESCE((m.total_sw_time * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.2 +
+                COALESCE(((m.total_ser + m.total_deser) * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.1 +
+                COALESCE((m.total_delay * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.1 +
+                CASE WHEN m.p50 > 0 THEN LEAST(100, (m.max_dur * 1.0 / m.p50 - 1) * 50) ELSE 0 END * 0.2 +
+                CASE WHEN m.total_disk_spill > 0 THEN 100 ELSE 0 END * 0.2
+            ),
+            diagnosis_info = json_array(
+                json_object('dimension', 'GC Impact', 'score', CAST(COALESCE((m.total_gc * 100.0 / NULLIF(m.total_duration, 0)), 0) AS INTEGER)),
+                json_object('dimension', 'Shuffle Write Impact', 'score', CAST(COALESCE((m.total_sw_time * 100.0 / NULLIF(m.total_duration, 0)), 0) AS INTEGER)),
+                json_object('dimension', 'Serialization Impact', 'score', CAST(COALESCE(((m.total_ser + m.total_deser) * 100.0 / NULLIF(m.total_duration, 0)), 0) AS INTEGER)),
+                json_object('dimension', 'Scheduler Delay Impact', 'score', CAST(COALESCE((m.total_delay * 100.0 / NULLIF(m.total_duration, 0)), 0) AS INTEGER)),
+                json_object('dimension', 'Data Skew', 'score', CAST(CASE WHEN m.p50 > 0 THEN LEAST(100, (m.max_dur * 1.0 / m.p50 - 1) * 50) ELSE 0 END AS INTEGER)),
+                json_object('dimension', 'Disk Spill', 'score', CASE WHEN m.total_disk_spill > 0 THEN 100 ELSE 0 END)
+            )
         FROM (
             SELECT 
-                app_id, 
-                stage_id,
-                attempt_id,
-                count(case when status = 'SUCCESS' or status = 'SUCCEEDED' then 1 end) as done_tasks,
-                count(case when status = 'FAILED' then 1 end) as failed_tasks,
-                sum(gc_time) as total_gc,
-                sum(duration) as total_duration,
-                sum(executor_deserialize_time) as total_deser,
-                sum(result_serialization_time) as total_ser,
-                sum(getting_result_time) as total_get_res,
-                sum(scheduler_delay) as total_delay,
-                max(peak_execution_memory) as max_peak_mem,
-                sum(peak_execution_memory) as total_peak_mem,
-                sum(memory_bytes_spilled) as total_mem_spill,
-                sum(disk_bytes_spilled) as total_disk_spill,
-                sum(shuffle_write_time) as total_sw_time,
-                sum(input_bytes) as total_input,
-                sum(input_records) as total_input_records,
-                sum(output_bytes) as total_output,
-                sum(output_records) as total_output_records,
-                sum(shuffle_read_bytes) as total_shuffle_read,
-                sum(shuffle_read_records) as total_shuffle_read_records,
-                sum(shuffle_write_bytes) as total_shuffle_write,
-                sum(shuffle_write_records) as total_shuffle_write_records,
-                approx_quantile(duration, 0.5) as p50,
-                approx_quantile(duration, 0.95) as p95,
-                approx_quantile(duration, 0.99) as p99,
-                max(duration) as max_dur,
+                base.app_id, 
+                base.stage_id,
+                base.attempt_id,
                 string_agg(k || ': ' || v, ', ') as loc_summary
             FROM (
                 SELECT app_id, stage_id, attempt_id, locality as k, count(*) as v

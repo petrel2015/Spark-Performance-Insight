@@ -68,5 +68,8 @@
 - [x] job详情页的dag图样式和stage详情页相同（默认高度，stage背景颜色，线条颜色，箭头颜色），另外卡片默认关闭
 - [x] Detail for Stage 中增加Locality Level Summary。代表数据本地级别，比如node local:2,Any:11,Process local:21
 - [x] job详情页的event time line默认关闭
-- [] stage详情页增加一个卡片传统的event timeline（横向的瀑布图）每个task是一个横条，每个executor的task放在一块是一组。去参考spark ui中event timline显示
+- [x] stage详情页增加一个卡片传统的event timeline（横向的瀑布图）每个task是一个横条，每个executor的task放在一块是一组。去参考spark ui中event timline显示
 - [] 生成sql /dataframe页签
+- [] 同一个sparkapp多个eventlog如(event_1_xxx, event_2_xxx)同时导入会出现不导入到同一个sparkapp中
+- [] 目前定时导入时，没有判断当前文件是否已在导入中，会导致导入冲突
+- [] 倒入后统计stage summary信息时，会出现ambigous的stage_id,attempt_id。

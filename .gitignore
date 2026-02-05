@@ -41,4 +41,4 @@ eventlogs/
 *.db
 *.db.wal
 frontend/node_modules/
-frontend/dist/
+frontend/dist/spark-insight/

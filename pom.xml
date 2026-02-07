@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.spark.insight</groupId>
     <artifactId>spark-performance-insight</artifactId>
-    <version>0.28.0</version>
+    <version>0.28.1</version>
     <name>spark-performance-insight</name>
     <description>Deep Insight for Spark Performance via Structured EventLog Analysis</description>
     <properties>

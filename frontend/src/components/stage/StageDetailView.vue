@@ -3,13 +3,24 @@
     <div class="breadcrumb-nav">
       <button @click="$emit('back')" class="back-btn">← Back to Stages</button>
       <div class="stage-title">
-        <h3>
-          Details for Stage {{ stageId }}
-          <span v-if="currentStage?.attemptId > 0" class="attempt-badge">(Attempt {{ currentStage.attemptId }})</span>
-          <small v-if="currentStage?.jobId">
-            of Job <router-link :to="'/app/' + appId + '/job/' + currentStage.jobId" class="job-link">{{ currentStage.jobId }}</router-link>
-          </small>
-        </h3>
+        <div class="stage-header-row">
+          <h3>
+            Details for Stage {{ stageId }}
+            <span v-if="currentStage?.attemptId > 0" class="attempt-badge">(Attempt {{ currentStage.attemptId }})</span>
+            <small v-if="currentStage?.jobId">
+              of Job <router-link :to="'/app/' + appId + '/job/' + currentStage.jobId" class="job-link">{{ currentStage.jobId }}</router-link>
+            </small>
+          </h3>
+          <button v-if="compareStore.isCompareMode && currentStage" 
+                  class="select-btn-large" 
+                  :class="{ selected: compareStore.hasItem('stage', appId, stageId) }"
+                  @click="toggleSelection">
+            <span class="material-symbols-outlined">
+              {{ compareStore.hasItem('stage', appId, stageId) ? 'check_box' : 'add_box' }}
+            </span>
+            {{ compareStore.hasItem('stage', appId, stageId) ? 'In Candidate Queue' : 'Add to Candidate' }}
+          </button>
+        </div>
         <span v-if="currentStage" class="stage-name-subtitle">{{ currentStage.stageName }}</span>
         <div v-if="currentStage?.localitySummary" class="locality-summary">
           <span class="locality-label">Locality Level:</span>
@@ -139,6 +150,7 @@ import StageTaskTimeline from './StageTaskTimeline.vue';
 import StageDiagnosisCard from './StageDiagnosisCard.vue';
 import TaskTable from '../task/TaskTable.vue';
 import StageDAG from './StageDAG.vue';
+import { compareStore } from '../../store/compareStore';
 
 const props = defineProps({
   appId: {
@@ -165,6 +177,27 @@ const selectedMetrics = ref([...DEFAULT_METRICS]);
 const taskTimelineRef = ref(null);
 const trendRef = ref(null);
 const dagRef = ref(null);
+
+const toggleSelection = () => {
+  if (!currentStage.value) return;
+  const stage = currentStage.value;
+  const key = `${props.appId}:stage:${stage.stageId}`;
+  
+  if (compareStore.hasItem('stage', props.appId, stage.stageId)) {
+    compareStore.removeItem(key);
+  } else {
+    compareStore.addItem({
+      type: 'stage',
+      appId: props.appId,
+      itemId: stage.stageId,
+      name: stage.stageName,
+      details: {
+        duration: stage.duration,
+        tasks: stage.numTasks
+      }
+    });
+  }
+};
 
 const selectAllMetrics = () => {
   selectedMetrics.value = AVAILABLE_METRICS.map(m => m.key);
@@ -248,6 +281,44 @@ watch(() => props.stageId, fetchStageDetails);
 .stage-title {
   display: flex;
   flex-direction: column;
+}
+
+.stage-header-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.select-btn-large {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: white;
+  border: 1px solid #dcdfe6;
+  padding: 4px 10px;
+  border-radius: 4px;
+  color: #606266;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  height: 28px;
+}
+
+.select-btn-large:hover {
+  border-color: #3498db;
+  color: #3498db;
+  background: #f0f7ff;
+}
+
+.select-btn-large.selected {
+  background: #f0f7ff;
+  border-color: #3498db;
+  color: #3498db;
+  font-weight: 500;
+}
+
+.select-btn-large .material-symbols-outlined {
+  font-size: 16px;
 }
 
 .stage-name-subtitle {

@@ -824,7 +824,21 @@ public class JacksonEventParser implements EventParser {
                     ps.setString(9, block.getHost());
                     ps.executeUpdate();
                     
-                    // 顺便更新汇总表中的缓存分区计数和大小 (简单实现：仅触发计算)
+                    // 核心修复：先确保 storage_rdds 表中有这一行
+                    try (java.sql.PreparedStatement psInsert = conn.prepareStatement(
+                            "INSERT OR IGNORE INTO storage_rdds (id, app_id, rdd_id, name, storage_level, num_partitions, num_cached_partitions) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?)")) {
+                        psInsert.setString(1, appId + ":" + rddId);
+                        psInsert.setString(2, appId);
+                        psInsert.setInt(3, rddId);
+                        psInsert.setString(4, "RDD " + rddId); // 默认名称，后续可通过其他事件丰富
+                        psInsert.setString(5, block.getStorageLevel());
+                        psInsert.setInt(6, 0); // 暂不可知总分区数
+                        psInsert.setInt(7, 0);
+                        psInsert.executeUpdate();
+                    }
+
+                    // 顺便更新汇总表中的缓存分区计数和大小
                     updateRddSummary(appId, rddId);
                 } catch (Exception e) {
                     log.error("Failed to update block info", e);

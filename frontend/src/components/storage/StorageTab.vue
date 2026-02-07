@@ -2,12 +2,12 @@
   <div class="storage-tab">
     <!-- RDD List View -->
     <CollapsibleCard v-if="!selectedRdd" title="Persisted RDDs / DataFrames">
-      <div class="table-wrapper">
+      <div v-if="rdds.length > 0" class="table-wrapper">
         <table class="styled-table">
           <thead>
           <tr>
             <th style="width: 80px;">ID</th>
-            <th>RDD Name</th>
+            <th>Name</th>
             <th style="width: 150px;">Storage Level</th>
             <th style="width: 150px;">Cached Partitions</th>
             <th style="width: 120px;">Size in Memory</th>
@@ -23,18 +23,20 @@
             <td>{{ rdd.storageLevel }}</td>
             <td>
               <div class="progress-container">
-                <div class="progress-bar" :style="{ width: (rdd.numCached_partitions / rdd.numPartitions * 100) + '%' }"></div>
-                <span class="progress-text">{{ rdd.numCached_partitions }} / {{ rdd.numPartitions }}</span>
+                <div class="progress-bar" :style="{ width: (rdd.numCachedPartitions / Math.max(1, rdd.numPartitions) * 100) + '%' }"></div>
+                <span class="progress-text">{{ rdd.numCachedPartitions }} / {{ rdd.numPartitions }}</span>
               </div>
             </td>
             <td>{{ formatBytes(rdd.memorySize) }}</td>
             <td>{{ formatBytes(rdd.diskSize) }}</td>
           </tr>
-          <tr v-if="rdds.length === 0">
-            <td colspan="6" class="empty-msg">No persisted RDDs found in this application.</td>
-          </tr>
           </tbody>
         </table>
+      </div>
+      <div v-else class="empty-storage">
+        <span class="material-symbols-outlined">inventory_2</span>
+        <p>No persisted RDDs/DataFrames found</p>
+        <small>Data only appears here if .cache() or .persist() was explicitly called in the Spark code and an Action was triggered.</small>
       </div>
     </CollapsibleCard>
 
@@ -196,11 +198,23 @@ onMounted(fetchStorageData);
   text-shadow: 0 0 2px white;
 }
 
-.empty-msg {
+.empty-storage {
   text-align: center;
-  padding: 40px;
-  color: #999;
-  font-style: italic;
+  padding: 60px 20px;
+  color: #909399;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.empty-storage .material-symbols-outlined {
+  font-size: 3rem;
+  color: #dcdfe6;
+}
+
+.empty-storage small {
+  color: #c0c4cc;
 }
 
 /* Detail View Styles */

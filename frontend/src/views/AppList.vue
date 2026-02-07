@@ -12,7 +12,7 @@
     </div>
 
     <div class="header-section">
-      <h2>Applications</h2>
+      <h2>Application List</h2>
       <div class="header-actions">
         <div class="search-box">
           <input type="text" v-model="searchQuery" placeholder="Search by name, ID or user..."
@@ -22,9 +22,6 @@
             Search
           </button>
         </div>
-        <button :disabled="selectedApps.length !== 2" @click="handleCompare" class="compare-btn">
-          Compare Selected ({{ selectedApps.length }}/2)
-        </button>
       </div>
     </div>
 
@@ -34,39 +31,39 @@
           <span>Total: {{ totalApps }}</span>
         </div>
 
-        <div class="pagination-controls">
-          <div class="page-size-selector">
+        <div class="modern-pagination">
+          <div class="page-size-picker">
             <span>Rows per page:</span>
-            <select v-model="pageSize" @change="handleSizeChange">
+            <select v-model="pageSize" @change="handleSizeChange" class="modern-select">
               <option :value="20">20</option>
               <option :value="50">50</option>
               <option :value="100">100</option>
             </select>
           </div>
 
-          <div class="page-nav">
-            <button @click="jumpToPage(1)" :disabled="currentPage === 1" title="First Page">
-              <span class="material-symbols-outlined" style="font-size: 18px;">first_page</span>
+          <div class="pager-actions">
+            <button class="pager-btn" @click="jumpToPage(1)" :disabled="currentPage === 1" title="First Page">
+              <span class="material-symbols-outlined">first_page</span>
             </button>
-            <button @click="changePage(-1)" :disabled="currentPage === 1" title="Previous Page">
-              <span class="material-symbols-outlined" style="font-size: 18px;">chevron_left</span>
+            <button class="pager-btn" @click="changePage(-1)" :disabled="currentPage === 1" title="Previous Page">
+              <span class="material-symbols-outlined">chevron_left</span>
             </button>
 
-            <div class="page-jump">
+            <div class="pager-info">
               <input type="number"
                      v-model.number="jumpPageInput"
                      @keyup.enter="handleJump"
-                     class="jump-input"
+                     class="pager-input"
                      min="1"
                      :max="totalPages"/>
-              <span class="total-pages">/ {{ totalPages }}</span>
+              <span class="pager-total">/ {{ totalPages }}</span>
             </div>
 
-            <button @click="changePage(1)" :disabled="currentPage === totalPages" title="Next Page">
-              <span class="material-symbols-outlined" style="font-size: 18px;">chevron_right</span>
+            <button class="pager-btn" @click="changePage(1)" :disabled="currentPage === totalPages" title="Next Page">
+              <span class="material-symbols-outlined">chevron_right</span>
             </button>
-            <button @click="jumpToPage(totalPages)" :disabled="currentPage === totalPages" title="Last Page">
-              <span class="material-symbols-outlined" style="font-size: 18px;">last_page</span>
+            <button class="pager-btn" @click="jumpToPage(totalPages)" :disabled="currentPage === totalPages" title="Last Page">
+              <span class="material-symbols-outlined">last_page</span>
             </button>
           </div>
         </div>
@@ -92,7 +89,6 @@
         <table class="styled-table">
           <thead>
           <tr>
-            <th style="width: 50px;">Select</th>
             <th v-for="col in columns"
                 :key="col.field"
                 @click="handleSort(col.field, $event)"
@@ -112,10 +108,6 @@
           </thead>
           <tbody>
           <tr v-for="app in apps" :key="app.appId">
-            <td>
-              <input type="checkbox" :value="app.appId" v-model="selectedApps"
-                     :disabled="selectedApps.length >= 2 && !selectedApps.includes(app.appId)">
-            </td>
             <td>
               <router-link :to="'/app/' + app.appId" class="app-link">
                 {{ app.appName }}
@@ -161,7 +153,6 @@ const pageSize = ref(20);
 const jumpPageInput = ref(1);
 const searchQuery = ref('');
 const sorts = ref([{field: 'startTime', dir: 'desc'}]);
-const selectedApps = ref([]);
 
 const columns = [
   {field: 'appName', label: 'App Name'},
@@ -277,11 +268,6 @@ const isFieldSorted = (field) => {
   return sorts.value.some(x => x.field === field);
 };
 
-const handleCompare = () => {
-  // Navigation to compare page or similar
-  alert('Comparing ' + selectedApps.value.join(' and '));
-};
-
 onMounted(() => {
   if (route.query.processingMsg) {
     processingMessage.value = route.query.processingMsg;
@@ -381,26 +367,6 @@ onMounted(() => {
   background: #e9ecef;
 }
 
-.compare-btn {
-  background: #3498db;
-  color: white;
-  border: none;
-  padding: 0.6rem 1.2rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: background 0.2s;
-}
-
-.compare-btn:hover:not(:disabled) {
-  background: #2980b9;
-}
-
-.compare-btn:disabled {
-  background: #bdc3c7;
-  cursor: not-allowed;
-}
-
 .table-card {
   background: white;
   border-radius: 8px;
@@ -423,77 +389,105 @@ onMounted(() => {
   font-weight: 500;
 }
 
-/* Pagination & Sorting styles */
-.pagination-controls {
+.modern-pagination {
   display: flex;
-  gap: 24px;
   align-items: center;
+  gap: 20px;
 }
 
-.page-size-selector {
+.page-size-picker {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.9rem;
-  color: #666;
+  font-size: 0.85rem;
+  color: #606266;
 }
 
-.page-size-selector select {
-  padding: 4px 8px;
+.modern-select {
+  padding: 4px 24px 4px 8px;
   border-radius: 4px;
-  border: 1px solid #ddd;
+  border: 1px solid #dcdfe6;
+  outline: none;
+  cursor: pointer;
+  background: white;
+  transition: all 0.2s;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  font-size: 0.85rem;
+  color: #606266;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 14px;
+  min-width: 60px;
+  height: 32px;
 }
 
-.page-nav {
+.modern-select:hover {
+  border-color: #3498db;
+}
+
+.pager-actions {
   display: flex;
-  gap: 8px;
   align-items: center;
+  gap: 4px;
 }
 
-.page-nav button {
+.pager-btn {
   width: 32px;
   height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  border: 1px solid #ddd;
+  border: 1px solid #dcdfe6;
+  background: white;
   border-radius: 4px;
-  background: #fff;
-  color: #555;
+  cursor: pointer;
+  color: #606266;
   transition: all 0.2s;
 }
 
-.page-nav button:hover:not(:disabled) {
+.pager-btn:hover:not(:disabled) {
   border-color: #3498db;
   color: #3498db;
-  background: #f7fbff;
+  background: #f0f7ff;
 }
 
-.page-nav button:disabled {
-  background: #f5f5f5;
-  color: #ccc;
+.pager-btn:disabled {
+  color: #c0c4cc;
   cursor: not-allowed;
+  background: #f5f7fa;
 }
 
-.page-jump {
+.pager-btn .material-symbols-outlined {
+  font-size: 1.2rem;
+}
+
+.pager-info {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   margin: 0 8px;
 }
 
-.jump-input {
-  width: 45px;
-  padding: 4px 6px;
-  text-align: center;
-  border: 1px solid #ddd;
+.pager-input {
+  width: 40px;
+  height: 28px;
+  border: 1px solid #dcdfe6;
   border-radius: 4px;
+  text-align: center;
+  font-size: 0.85rem;
+  outline: none;
 }
 
-.total-pages {
-  color: #999;
-  font-size: 0.9rem;
+.pager-input:focus {
+  border-color: #3498db;
+}
+
+.pager-total {
+  font-size: 0.85rem;
+  color: #909399;
 }
 
 .active-sorts-bar {

@@ -3,7 +3,18 @@
     <div class="breadcrumb-nav">
       <button @click="$emit('back')" class="back-btn">← Back to Jobs</button>
       <div class="job-title">
-        <h3>Details for Job {{ jobId }}</h3>
+        <div class="job-header-row">
+          <h3>Details for Job {{ jobId }}</h3>
+          <button v-if="compareStore.isCompareMode && currentJob" 
+                  class="select-btn-large" 
+                  :class="{ selected: compareStore.hasItem('job', appId, jobId) }"
+                  @click="toggleSelection">
+            <span class="material-symbols-outlined">
+              {{ compareStore.hasItem('job', appId, jobId) ? 'check_box' : 'add_box' }}
+            </span>
+            {{ compareStore.hasItem('job', appId, jobId) ? 'In Candidate Queue' : 'Add to Candidate' }}
+          </button>
+        </div>
         <span v-if="currentJob" class="job-description-subtitle">{{ currentJob.description }}</span>
       </div>
     </div>
@@ -101,6 +112,7 @@ import JobDAG from './JobDAG.vue';
 import JobTimeline from './JobTimeline.vue';
 import JobDiagnosisCard from './JobDiagnosisCard.vue';
 import {AVAILABLE_METRICS, DEFAULT_METRICS} from '../../constants/metrics';
+import { compareStore } from '../../store/compareStore';
 
 const props = defineProps({
   appId: {type: String, required: true},
@@ -114,6 +126,27 @@ const executorSummary = ref([]);
 const dagRef = ref(null);
 const timelineRef = ref(null);
 const selectedMetrics = ref([...DEFAULT_METRICS]);
+
+const toggleSelection = () => {
+  if (!currentJob.value) return;
+  const job = currentJob.value;
+  const key = `${props.appId}:job:${job.jobId}`;
+  
+  if (compareStore.hasItem('job', props.appId, job.jobId)) {
+    compareStore.removeItem(key);
+  } else {
+    compareStore.addItem({
+      type: 'job',
+      appId: props.appId,
+      itemId: job.jobId,
+      name: job.description || `Job ${job.jobId}`,
+      details: {
+        duration: job.duration,
+        stages: job.numStages
+      }
+    });
+  }
+};
 
 const selectAllMetrics = () => {
   selectedMetrics.value = AVAILABLE_METRICS.map(m => m.key);
@@ -162,10 +195,47 @@ watch(() => props.jobId, fetchJobDetails);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
+.job-header-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
 .job-title h3 {
   margin: 0;
   font-size: 1.1rem;
   color: #2c3e50;
+}
+
+.select-btn-large {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: white;
+  border: 1px solid #dcdfe6;
+  padding: 6px 12px;
+  border-radius: 4px;
+  color: #606266;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.select-btn-large:hover {
+  border-color: #3498db;
+  color: #3498db;
+  background: #f0f7ff;
+}
+
+.select-btn-large.selected {
+  background: #f0f7ff;
+  border-color: #3498db;
+  color: #3498db;
+  font-weight: 500;
+}
+
+.select-btn-large .material-symbols-outlined {
+  font-size: 18px;
 }
 
 .job-description-subtitle {

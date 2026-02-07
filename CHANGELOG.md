@@ -1,3 +1,11 @@
+## 0.26.0 - 2026-02-07
+
+### Features
+- Implement Storage tab to track RDD/DataFrame persistence
+- Standardize all scores to Health Score (0-100, higher is better)
+- Professional Rule-Based Diagnostic Report with Material Icons
+- Fix unit mismatch issues in I/O Wait calculations
+
 ## 0.25.0 - 2026-02-07
 
 ### Features

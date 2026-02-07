@@ -16,7 +16,7 @@ spring:
       schema-locations: classpath:db/schema.sql
   ai:
     zhipuai:
-      api-key: ${ZHIPU_API_KEY:xxx}
+      api-key: ${ZHIPU_API_KEY:fake_api_key}
       chat:
         options:
           model: glm-4.7

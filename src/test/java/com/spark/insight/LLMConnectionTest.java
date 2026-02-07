@@ -14,7 +14,7 @@ public class LLMConnectionTest {
     @Test
     public void testZhipuConnection() {
         // 智谱 AI 配置
-        String apiKey = "b49b90f8876c4c61a4e4c13714b030fe.6N6muPxHuHAbTgvK";
+        String apiKey = "fake_api_key";
         
         ZhiPuAiApi zhipuAiApi = new ZhiPuAiApi(apiKey);
         ZhiPuAiChatModel chatModel = new ZhiPuAiChatModel(zhipuAiApi);

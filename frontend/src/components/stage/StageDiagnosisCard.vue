@@ -3,18 +3,18 @@
     <div class="score-section">
       <div class="score-circle tooltip-container" :class="scoreClass">
         <span class="score-value">{{ Math.round(performanceScore || 0) }}</span>
-        <span class="score-label">Score</span>
+        <span class="score-label">Health</span>
         <div class="tooltip-text score-tooltip">
-          <strong>Weight Distribution:</strong><br/>
-          • GC, Shuffle (Read/Write), Skew, Spill: 15% each<br/>
+          <strong>Health Score Distribution:</strong><br/>
+          • GC, Shuffle, Skew, Spill: 15% each<br/>
           • I/O Wait: 10%<br/>
           • Delay, Serialization, Result: 5% each<br/>
-          <em>Higher score indicates more severe performance issues.</em>
+          <em>Higher score (up to 100) indicates a healthier application.</em>
         </div>
       </div>
       <div class="score-desc">
-        Performance Impact Score
-        <small>Weighted evaluation of bottleneck factors</small>
+        Application Health Score
+        <small>Weighted evaluation of efficiency factors</small>
       </div>
     </div>
 
@@ -77,27 +77,27 @@ const topDimensions = computed(() => {
 
 const scoreClass = computed(() => {
   const s = props.performanceScore;
-  if (s > 50) return 'critical';
-  if (s > 20) return 'warning';
+  if (s < 40) return 'critical';
+  if (s < 80) return 'warning';
   return 'good';
 });
 
 const getBarColor = (score) => {
-  if (score > 50) return '#e74c3c';
-  if (score > 20) return '#f39c12';
+  if (score < 40) return '#e74c3c';
+  if (score < 80) return '#f39c12';
   return '#2ecc71';
 };
 
 const tooltips = {
-  'GC Impact': 'Percentage of total task duration spent on Garbage Collection. High score (>10) indicates memory pressure. Lower is better.',
-  'Shuffle Write Impact': 'Percentage of total task duration spent writing shuffle data. High score (>20) suggests I/O bottlenecks. Lower is better.',
-  'Shuffle Read Blocked': 'Percentage of time tasks are blocked waiting for shuffle data from remote executors. High score means network issues or upstream slowness.',
-  'I/O Wait': 'Percentage of execution time not spent on CPU. Formula: 1 - (CPU Time / Run Time). High score (>80) indicates tasks are bottlenecked by reading/writing to storage (HDFS/S3).',
-  'Result Fetching': 'Percentage of time spent sending results back to Driver. High score implies "collect()" is fetching too much data, risking Driver OOM.',
-  'Serialization Impact': 'Percentage of time spent serializing/deserializing data. High score (>10) means CPU is busy converting data formats. Lower is better.',
-  'Scheduler Delay Impact': 'Percentage of time waiting for task scheduling. High score (>20) implies cluster or driver overload. Lower is better.',
-  'Data Skew': 'Skew severity based on (Max Duration / Median Duration). Score 0-100. High score indicates uneven work distribution. Lower is better.',
-  'Disk Spill': 'Indicates if data spilled from memory to disk (Score 100 if spilled). Causes severe slowdowns. Ideally should be 0.'
+  'GC Impact': 'Health score based on JVM GC time. 100 is perfect. Low score (<90) indicates memory pressure.',
+  'Shuffle Write Impact': 'Health score based on shuffle write duration. Low score (<80) suggests I/O bottlenecks.',
+  'Shuffle Read Blocked': 'Health score based on network fetch wait time. Low score means tasks are blocked by network or upstream stages.',
+  'I/O Wait': 'Health score based on CPU utilization. Formula: CPU Time / Run Time. Low score (<20) indicates heavy external storage I/O bottleneck.',
+  'Result Fetching': 'Health score based on driver result collection time. Low score risks Driver OOM.',
+  'Serialization Impact': 'Health score based on data conversion time. Low score indicates high serialization CPU overhead.',
+  'Scheduler Delay Impact': 'Health score based on wait time for task scheduling. Low score implies cluster or driver saturation.',
+  'Data Skew': 'Health score based on workload distribution. Low score indicates severe data skew (Max task much longer than Median).',
+  'Disk Spill': 'Health score based on memory-to-disk spill. 100 if no spill, 0 if spill occurred. Spilling causes major performance degradation.'
 };
 
 const getTooltip = (dimension) => tooltips[dimension] || 'Performance impact score based on resource usage ratio.';

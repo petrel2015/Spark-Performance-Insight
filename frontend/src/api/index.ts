@@ -46,6 +46,8 @@ export const getAppSqlExecutions = (appId: string, page = 1, size = 20, sort = '
 export const getSqlExecution = (appId: string, executionId: number) => 
     request.get(`/apps/${appId}/sql/${executionId}`);
 export const getAppEnvironment = (appId: string) => request.get(`/apps/${appId}/environment`);
+export const getAppStorage = (appId: string) => request.get(`/apps/${appId}/storage`);
+export const getRddStorage = (appId: string, rddId: number) => request.get(`/apps/${appId}/storage/${rddId}`);
 export const getStageTasks = (appId: string, stageId: number, page = 1, size = 20, sort = '', attemptId?: number) => {
     let url = `/apps/${appId}/stages/${stageId}/tasks?page=${page}&size=${size}&sort=${sort}`;
     if (attemptId !== undefined && attemptId !== null) url += `&attemptId=${attemptId}`;

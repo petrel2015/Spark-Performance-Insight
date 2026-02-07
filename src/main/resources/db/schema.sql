@@ -223,3 +223,29 @@ CREATE TABLE IF NOT EXISTS sql_executions (
     status VARCHAR, -- RUNNING, SUCCEEDED, FAILED
     performance_score DOUBLE DEFAULT 0.0
 );
+
+-- RDD 存储信息
+CREATE TABLE IF NOT EXISTS storage_rdds (
+    id VARCHAR PRIMARY KEY, -- appId:rddId
+    app_id VARCHAR,
+    rdd_id INT,
+    name VARCHAR,
+    storage_level VARCHAR,
+    num_partitions INT,
+    num_cached_partitions INT,
+    memory_size BIGINT DEFAULT 0,
+    disk_size BIGINT DEFAULT 0
+);
+
+-- RDD 分片明细 (Block 级别)
+CREATE TABLE IF NOT EXISTS storage_blocks (
+    id VARCHAR PRIMARY KEY, -- appId:rddId:blockName
+    app_id VARCHAR,
+    rdd_id INT,
+    block_name VARCHAR,
+    storage_level VARCHAR,
+    memory_size BIGINT DEFAULT 0,
+    disk_size BIGINT DEFAULT 0,
+    executor_id VARCHAR,
+    host VARCHAR
+);

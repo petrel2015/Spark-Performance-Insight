@@ -3,21 +3,21 @@
     <div class="score-section">
       <div class="score-circle tooltip-container" :class="scoreClass">
         <span class="score-value">{{ Math.round(performanceScore || 0) }}</span>
-        <span class="score-label">Score</span>
+        <span class="score-label">Health</span>
         <div class="tooltip-text score-tooltip">
-          <strong>SQL Execution Health Score:</strong><br/>
-          Weighted average of all associated Job scores based on their duration.<br/>
-          <em>Score = Sum(JobScore * Duration) / TotalDuration</em>
+          <strong>SQL Health Score:</strong><br/>
+          Weighted average of all associated Job health scores based on duration.<br/>
+          <em>Higher score is better.</em>
         </div>
       </div>
       <div class="score-desc">
-        SQL Performance Score
-        <small>Weighted by {{ jobs.length }} associated jobs</small>
+        SQL Health Score
+        <small>Weighted evaluation</small>
       </div>
     </div>
 
     <div class="top-jobs-list" v-if="jobs.length > 0">
-      <div class="list-title">Top Jobs (Sorted by Impact)</div>
+      <div class="list-title">Top Jobs (Sorted by Health Risk)</div>
       <div v-for="job in sortedJobs" :key="job.jobId" class="job-item" @click="$emit('view-job', job.jobId)">
         <div class="job-header">
           <div class="job-name-info">
@@ -54,7 +54,8 @@ const emit = defineEmits(['view-job']);
 
 const sortedJobs = computed(() => {
   return [...props.jobs].sort((a, b) => {
-    const scoreDiff = (b.performanceScore || 0) - (a.performanceScore || 0);
+    // Primary sort: Score ascending (show least healthy first)
+    const scoreDiff = (a.performanceScore || 0) - (b.performanceScore || 0);
     if (Math.abs(scoreDiff) > 0.1) return scoreDiff;
     return (b.duration || 0) - (a.duration || 0);
   }).slice(0, 5);
@@ -62,20 +63,20 @@ const sortedJobs = computed(() => {
 
 const scoreClass = computed(() => {
   const s = props.performanceScore;
-  if (s > 50) return 'critical';
-  if (s > 20) return 'warning';
+  if (s < 40) return 'critical';
+  if (s < 80) return 'warning';
   return 'good';
 });
 
 const getScoreClass = (score) => {
-  if (score > 50) return 'critical';
-  if (score > 20) return 'warning';
+  if (score < 40) return 'critical';
+  if (score < 80) return 'warning';
   return 'good';
 };
 
 const getBarColor = (score) => {
-  if (score > 50) return '#e74c3c';
-  if (score > 20) return '#f39c12';
+  if (score < 40) return '#e74c3c';
+  if (score < 80) return '#f39c12';
   return '#2ecc71';
 };
 </script>

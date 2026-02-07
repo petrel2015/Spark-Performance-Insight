@@ -29,6 +29,7 @@ public class JacksonEventParser implements EventParser {
     private final JobService jobService;
     private final ExecutorService executorService;
     private final SqlExecutionService sqlExecutionService;
+    private final StorageService storageService;
     private final javax.sql.DataSource dataSource;
     // Use a single-threaded executor for ALL database writes to avoid DuckDB lock contention
     private final java.util.concurrent.ExecutorService dbExecutor = java.util.concurrent.Executors.newSingleThreadExecutor();
@@ -40,6 +41,7 @@ public class JacksonEventParser implements EventParser {
                               JobService jobService,
                               ExecutorService executorService,
                               SqlExecutionService sqlExecutionService,
+                              StorageService storageService,
                               javax.sql.DataSource dataSource) {
         JsonFactory factory = JsonFactory.builder()
                 .streamReadConstraints(StreamReadConstraints.builder().maxStringLength(Integer.MAX_VALUE).build())
@@ -52,6 +54,7 @@ public class JacksonEventParser implements EventParser {
         this.jobService = jobService;
         this.executorService = executorService;
         this.sqlExecutionService = sqlExecutionService;
+        this.storageService = storageService;
         this.dataSource = dataSource;
     }
 
@@ -199,6 +202,12 @@ public class JacksonEventParser implements EventParser {
                                 break;
                             case "org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd":
                                 if (currentAppId != null) handleSqlEnd(node, currentAppId);
+                                break;
+                            case "SparkListenerBlockUpdated":
+                                if (currentAppId != null) handleBlockUpdated(node, currentAppId);
+                                break;
+                            case "SparkListenerUnpersistRDD":
+                                if (currentAppId != null) handleUnpersistRDD(node, currentAppId);
                                 break;
                         }
                     } catch (Exception lineEx) {
@@ -567,7 +576,49 @@ public class JacksonEventParser implements EventParser {
         }
 
         if (info.has("RDD Info")) {
-            stage.setRddInfo(info.get("RDD Info").toString());
+            JsonNode rddInfos = info.get("RDD Info");
+            stage.setRddInfo(rddInfos.toString());
+            
+            // --- 提取 RDD 存储元数据 ---
+            for (JsonNode r : rddInfos) {
+                if (r.has("Storage Level")) {
+                    String storageLevelStr = r.get("Storage Level").toString();
+                    // 只有设置了持久化的 RDD 才记录
+                    if (storageLevelStr.contains("useMemory") || storageLevelStr.contains("useDisk")) {
+                        StorageRddModel rdd = new StorageRddModel();
+                        int rddId = r.get("RDD ID").asInt();
+                        rdd.setId(appId + ":" + rddId);
+                        rdd.setAppId(appId);
+                        rdd.setRddId(rddId);
+                        rdd.setName(r.get("Name").asText());
+                        rdd.setStorageLevel(r.get("Storage Level").get("description").asText());
+                        rdd.setNumPartitions(r.get("Number of Partitions").asInt());
+                        rdd.setNumCached_partitions(r.get("Number of Cached Partitions").asInt());
+                        rdd.setMemorySize(r.get("Memory Size").asLong());
+                        rdd.setDiskSize(r.get("Disk Size").asLong());
+
+                        dbExecutor.submit(() -> {
+                            try (java.sql.Connection conn = dataSource.getConnection();
+                                 java.sql.PreparedStatement ps = conn.prepareStatement(
+                                         "INSERT OR REPLACE INTO storage_rdds (id, app_id, rdd_id, name, storage_level, num_partitions, num_cached_partitions, memory_size, disk_size) " +
+                                                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+                                ps.setString(1, rdd.getId());
+                                ps.setString(2, rdd.getAppId());
+                                ps.setInt(3, rdd.getRddId());
+                                ps.setString(4, rdd.getName());
+                                ps.setString(5, rdd.getStorageLevel());
+                                ps.setInt(6, rdd.getNumPartitions());
+                                ps.setInt(7, rdd.getNumCached_partitions());
+                                ps.setLong(8, rdd.getMemorySize());
+                                ps.setLong(9, rdd.getDiskSize());
+                                ps.executeUpdate();
+                            } catch (Exception e) {
+                                log.error("Failed to save RDD info", e);
+                            }
+                        });
+                    }
+                }
+            }
         }
 
         stageService.saveOrUpdate(stage);
@@ -736,6 +787,87 @@ public class JacksonEventParser implements EventParser {
             sql.setStatus("SUCCEEDED"); // We don't easily have 'failed' here without more info
             sqlExecutionService.updateById(sql);
         }
+    }
+
+    private void handleBlockUpdated(JsonNode node, String appId) {
+        JsonNode blockInfo = node.get("Block Updated Info");
+        String blockId = blockInfo.get("Block ID").asText();
+        if (blockId.startsWith("rdd_")) {
+            // 解析 rdd_1_5 -> rddId=1
+            String[] parts = blockId.split("_");
+            int rddId = Integer.parseInt(parts[1]);
+            
+            StorageBlockModel block = new StorageBlockModel();
+            block.setId(appId + ":" + rddId + ":" + blockId);
+            block.setAppId(appId);
+            block.setRddId(rddId);
+            block.setBlockName(blockId);
+            block.setStorageLevel(blockInfo.get("Storage Level").get("description").asText());
+            block.setMemorySize(blockInfo.get("Memory Size").asLong());
+            block.setDiskSize(blockInfo.get("Disk Size").asLong());
+            block.setExecutorId(blockInfo.get("Block Manager ID").get("Executor ID").asText());
+            block.setHost(blockInfo.get("Block Manager ID").get("Host").asText());
+
+            dbExecutor.submit(() -> {
+                try (java.sql.Connection conn = dataSource.getConnection();
+                     java.sql.PreparedStatement ps = conn.prepareStatement(
+                             "INSERT OR REPLACE INTO storage_blocks (id, app_id, rdd_id, block_name, storage_level, memory_size, disk_size, executor_id, host) " +
+                             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+                    ps.setString(1, block.getId());
+                    ps.setString(2, block.getAppId());
+                    ps.setInt(3, block.getRddId());
+                    ps.setString(4, block.getBlockName());
+                    ps.setString(5, block.getStorageLevel());
+                    ps.setLong(6, block.getMemorySize());
+                    ps.setLong(7, block.getDiskSize());
+                    ps.setString(8, block.getExecutorId());
+                    ps.setString(9, block.getHost());
+                    ps.executeUpdate();
+                    
+                    // 顺便更新汇总表中的缓存分区计数和大小 (简单实现：仅触发计算)
+                    updateRddSummary(appId, rddId);
+                } catch (Exception e) {
+                    log.error("Failed to update block info", e);
+                }
+            });
+        }
+    }
+
+    private void updateRddSummary(String appId, int rddId) {
+        // 在 DuckDB 中直接执行聚合更新
+        String sql = "UPDATE storage_rdds SET " +
+                "num_cached_partitions = (SELECT count(*) FROM storage_blocks WHERE app_id = ? AND rdd_id = ? AND (memory_size > 0 OR disk_size > 0)), " +
+                "memory_size = (SELECT COALESCE(sum(memory_size), 0) FROM storage_blocks WHERE app_id = ? AND rdd_id = ?), " +
+                "disk_size = (SELECT COALESCE(sum(disk_size), 0) FROM storage_blocks WHERE app_id = ? AND rdd_id = ?) " +
+                "WHERE app_id = ? AND rdd_id = ?";
+        try (java.sql.Connection conn = dataSource.getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, appId); ps.setInt(2, rddId);
+            ps.setString(3, appId); ps.setInt(4, rddId);
+            ps.setString(5, appId); ps.setInt(6, rddId);
+            ps.setString(7, appId); ps.setInt(8, rddId);
+            ps.executeUpdate();
+        } catch (Exception e) {
+            log.error("Failed to update RDD summary", e);
+        }
+    }
+
+    private void handleUnpersistRDD(JsonNode node, String appId) {
+        int rddId = node.get("RDD ID").asInt();
+        dbExecutor.submit(() -> {
+            try (java.sql.Connection conn = dataSource.getConnection()) {
+                try (java.sql.PreparedStatement ps = conn.prepareStatement("DELETE FROM storage_blocks WHERE app_id = ? AND rdd_id = ?")) {
+                    ps.setString(1, appId); ps.setInt(2, rddId);
+                    ps.executeUpdate();
+                }
+                try (java.sql.PreparedStatement ps = conn.prepareStatement("DELETE FROM storage_rdds WHERE app_id = ? AND rdd_id = ?")) {
+                    ps.setString(1, appId); ps.setInt(2, rddId);
+                    ps.executeUpdate();
+                }
+            } catch (Exception e) {
+                log.error("Failed to unpersist RDD", e);
+            }
+        });
     }
 
     private LocalDateTime parseTimestamp(long timestamp) {

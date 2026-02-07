@@ -76,10 +76,11 @@
 - [x] 倒入后统计stage summary信息时，会出现ambigous的stage_id,attempt_id。
 - [x] 修改为一个小时扫描一次eventlog扫描路径 
 - [x] stage列表增加诊断分数列
-- [] job详情类似stage详情增加诊断分数，从stage诊断/汇总计算中得到
-- [] job列表增加诊断分数列
+- [x] job详情类似stage详情增加诊断分数，从stage诊断/汇总计算中得到
+- [x] job列表增加诊断分数列
 - [] 诊断页签根据job和stage的诊断分数，给出top10的问题jobb和stage。
 - [] storage页签
 - [] 诊断汇总页面（规则）
 - [] 诊断汇总页面（大模型，集成Spring AI，对接）
 - [] job对比页面，stage对比页面
+- [] 导航栏页签跳转后，再次点回来还是之前点开的画面（比如筛选列，打不打开卡片，是不是在详情页里）

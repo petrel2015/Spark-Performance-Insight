@@ -38,7 +38,9 @@
           {{ dagRef.isZoomLocked ? 'Locked' : 'Unlocked' }}
         </button>
       </template>
-      <StageDAG ref="dagRef" :stage="currentStage"/>
+      <div class="dag-wrapper">
+        <StageDAG ref="dagRef" :stage="currentStage"/>
+      </div>
     </CollapsibleCard>
 
     <!-- Event Timeline Chart (Gantt/Waterfall) -->
@@ -266,6 +268,12 @@ watch(() => props.stageId, fetchStageDetails);
 
 .locality-value {
   color: #34495e;
+}
+
+.dag-wrapper {
+  width: 100%;
+  height: calc(100vh - 350px);
+  min-height: 600px;
 }
 
 .metric-selector-card {

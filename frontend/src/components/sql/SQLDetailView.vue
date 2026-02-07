@@ -56,7 +56,9 @@
             {{ dagRef.isZoomLocked ? 'Locked' : 'Unlocked' }}
           </button>
         </template>
-        <SQLDAG ref="dagRef" :plan-info="parsedPlanInfo" />
+        <div class="sql-dag-wrapper">
+          <SQLDAG ref="dagRef" :plan-info="parsedPlanInfo" />
+        </div>
       </CollapsibleCard>
 
       <!-- Physical Plan Card -->
@@ -223,6 +225,16 @@ watch(() => props.executionId, fetchDetails);
 
 .job-id-link:hover {
   text-decoration: underline;
+}
+
+.sql-dag-wrapper {
+  width: 100%;
+  /* 
+     100vh - 顶部导航 (60px) - 面包屑 (50px) - 评分卡片 (~120px) 
+     - 间距 (数个 1.5rem) - 卡片头 (~40px)
+  */
+  height: calc(100vh - 350px);
+  min-height: 600px;
 }
 
 .status-SUCCEEDED {

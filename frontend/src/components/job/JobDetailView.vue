@@ -30,7 +30,9 @@
           {{ dagRef.isZoomLocked ? 'Locked' : 'Unlocked' }}
         </button>
       </template>
-      <JobDAG ref="dagRef" :app-id="appId" :job-id="jobId"/>
+      <div class="dag-wrapper">
+        <JobDAG ref="dagRef" :app-id="appId" :job-id="jobId"/>
+      </div>
     </CollapsibleCard>
 
     <!-- 0.5. Job Event Timeline -->
@@ -169,6 +171,12 @@ watch(() => props.jobId, fetchJobDetails);
 .job-description-subtitle {
   font-size: 0.8rem;
   color: #7f8c8d;
+}
+
+.dag-wrapper {
+  width: 100%;
+  height: calc(100vh - 350px);
+  min-height: 600px;
 }
 
 .back-btn {

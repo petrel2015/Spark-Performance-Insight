@@ -25,6 +25,7 @@ public class InsightController {
     private final TaskService taskService;
     private final EnvironmentConfigService envService;
     private final SqlExecutionService sqlExecutionService;
+    private final StorageService storageService;
 
     private void checkAppReady(String appId) {
         ApplicationModel app = applicationService.getById(appId);
@@ -119,6 +120,24 @@ public class InsightController {
     public List<EnvironmentConfigModel> listEnvironment(@PathVariable String appId) {
         checkAppReady(appId);
         return envService.lambdaQuery().eq(EnvironmentConfigModel::getAppId, appId).orderByAsc(EnvironmentConfigModel::getParamKey).list();
+    }
+
+    /**
+     * 获取 RDD 存储列表
+     */
+    @GetMapping("/apps/{appId}/storage")
+    public List<StorageRddModel> listStorage(@PathVariable String appId) {
+        checkAppReady(appId);
+        return storageService.getRdds(appId);
+    }
+
+    /**
+     * 获取特定 RDD 的分片明细
+     */
+    @GetMapping("/apps/{appId}/storage/{rddId}")
+    public List<StorageBlockModel> getStorageDetails(@PathVariable String appId, @PathVariable Integer rddId) {
+        checkAppReady(appId);
+        return storageService.getRddBlocks(appId, rddId);
     }
 
     /**

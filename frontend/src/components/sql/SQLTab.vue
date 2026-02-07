@@ -294,8 +294,8 @@ const isFieldSorted = (field) => {
 };
 
 const getScoreClass = (score) => {
-  if (score > 50) return 'critical';
-  if (score > 20) return 'warning';
+  if (score < 40) return 'critical';
+  if (score < 80) return 'warning';
   return 'good';
 };
 

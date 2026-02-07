@@ -23,11 +23,13 @@
     <div class="content-area">
       <!-- 1. Diagnosis Tab -->
       <div v-if="activeTab === 'Diagnosis'" class="diagnosis-layout">
-        <div class="main-report">
-          <div v-if="loading.diagnosis" class="loading-placeholder">
-            Generating expert diagnosis report...
-          </div>
-          <div v-else class="markdown-body" v-html="renderedReport"></div>
+        <div v-if="loading.diagnosis" class="loading-placeholder">
+          Generating expert diagnosis report...
+        </div>
+        <div v-else class="report-wrapper">
+          <CollapsibleCard title="规则引擎诊断报告 (Rule-Based Diagnostic Report)" :initial-collapsed="false">
+            <div class="markdown-body" v-html="renderedReport"></div>
+          </CollapsibleCard>
         </div>
       </div>
 
@@ -85,6 +87,9 @@
       <!-- 4. Executors Tab -->
       <ExecutorsTab v-if="activeTab === 'Executors'" :executors="executors"/>
 
+      <!-- 4.5. Storage Tab -->
+      <StorageTab v-if="activeTab === 'Storage' && app" :app-id="app.appId" />
+
       <!-- 5. Environment Tab -->
       <EnvironmentTab v-if="activeTab === 'Environment'" :configs="environment"/>
     </div>
@@ -101,6 +106,7 @@ import JobDetailView from '../components/job/JobDetailView.vue';
 import SQLTab from '../components/sql/SQLTab.vue';
 import SQLDetailView from '../components/sql/SQLDetailView.vue';
 import ExecutorsTab from '../components/executor/ExecutorsTab.vue';
+import StorageTab from '../components/storage/StorageTab.vue';
 import StageTable from '../components/stage/StageTable.vue';
 import StageDetailView from '../components/stage/StageDetailView.vue';
 import EnvironmentTab from '../components/environment/EnvironmentTab.vue';
@@ -121,7 +127,7 @@ const loading = ref({
   environment: false
 });
 
-const tabList = ['Diagnosis', 'Jobs', 'Stages', 'Executors', 'Environment', 'SQL / DataFrame'];
+const tabList = ['Diagnosis', 'Jobs', 'Stages', 'Executors', 'Storage', 'Environment', 'SQL / DataFrame'];
 
 const getTabRoute = (tab) => {
   const appId = route.params.id;
@@ -130,6 +136,7 @@ const getTabRoute = (tab) => {
   if (tab === 'Jobs') return `/app/${appId}/jobs`;
   if (tab === 'Stages') return `/app/${appId}/stages`;
   if (tab === 'Executors') return `/app/${appId}/executors`;
+  if (tab === 'Storage') return `/app/${appId}/storage`;
   if (tab === 'Environment') return `/app/${appId}/environment`;
   return `/app/${appId}`;
 };
@@ -198,6 +205,8 @@ const syncTabWithRoute = () => {
     newTab = 'Stages';
   } else if (path.endsWith('/executors')) {
     newTab = 'Executors';
+  } else if (path.endsWith('/storage')) {
+    newTab = 'Storage';
   } else if (path.endsWith('/environment')) {
     newTab = 'Environment';
   }
@@ -213,6 +222,7 @@ const navigateToTab = (tab) => {
   else if (tab === 'Jobs') router.push(`/app/${appId}/jobs`);
   else if (tab === 'Stages') router.push(`/app/${appId}/stages`);
   else if (tab === 'Executors') router.push(`/app/${appId}/executors`);
+  else if (tab === 'Storage') router.push(`/app/${appId}/storage`);
   else if (tab === 'Environment') router.push(`/app/${appId}/environment`);
 };
 
@@ -380,21 +390,47 @@ onMounted(async () => {
 
 .diagnosis-layout {
   display: flex;
+  flex-direction: column;
   gap: 1.5rem;
-  height: 100%;
 }
 
-.main-report {
-  flex: 1;
-  background: white;
-  border-radius: 8px;
-  padding: 2rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  overflow-y: auto;
+.report-wrapper {
+  width: 100%;
 }
 
 .markdown-body {
-  line-height: 1.6;
+  line-height: 1.8;
+  color: #2c3e50;
+  font-size: 0.95rem;
+}
+
+.markdown-body :deep(h1), 
+.markdown-body :deep(h2) {
+  border-bottom: 2px solid #eee;
+  padding-bottom: 0.5rem;
+  margin-top: 1.5rem;
+  color: #34495e;
+}
+
+.markdown-body :deep(h3) {
+  color: #2980b9;
+  margin-top: 1.2rem;
+}
+
+.markdown-body :deep(code) {
+  background-color: #f8f9fa;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #e74c3c;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+.markdown-body :deep(blockquote) {
+  border-left: 4px solid #42b983;
+  padding: 0.5rem 1rem;
+  background: #f0fff4;
+  margin: 1rem 0;
+  border-radius: 0 4px 4px 0;
 }
 
 .loading-placeholder {

@@ -26,6 +26,7 @@ public class InsightController {
     private final EnvironmentConfigService envService;
     private final SqlExecutionService sqlExecutionService;
     private final StorageService storageService;
+    private final LLMDiagnosisService llmDiagnosisService;
 
     private void checkAppReady(String appId) {
         ApplicationModel app = applicationService.getById(appId);
@@ -271,6 +272,17 @@ public class InsightController {
     public String getReport(@PathVariable String appId) {
         checkAppReady(appId);
         return diagnosisService.generateMarkdownReport(appId);
+    }
+
+    /**
+     * 获取大模型生成的深度诊断报告
+     */
+    @GetMapping("/apps/{appId}/llm-report")
+    public String getLLMReport(
+            @PathVariable String appId,
+            @RequestParam(required = false, defaultValue = "false") boolean force) {
+        checkAppReady(appId);
+        return llmDiagnosisService.generateReport(appId, force);
     }
 
     /**

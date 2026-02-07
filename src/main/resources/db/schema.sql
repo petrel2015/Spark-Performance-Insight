@@ -11,7 +11,13 @@ CREATE TABLE IF NOT EXISTS applications (
     data_quality_status VARCHAR DEFAULT 'GOOD',
     data_quality_note TEXT,
     parsing_status VARCHAR DEFAULT 'READY',
-    parsing_progress VARCHAR
+    parsing_progress VARCHAR,
+    performance_score INTEGER,
+    diagnosis_info JSON,
+    llm_report TEXT,
+    llm_start_time BIGINT,
+    llm_end_time BIGINT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 环境配置

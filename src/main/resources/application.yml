@@ -14,6 +14,14 @@ spring:
     init:
       mode: always
       schema-locations: classpath:db/schema.sql
+  ai:
+    zhipuai:
+      api-key: ${ZHIPU_API_KEY:xxx}
+      chat:
+        options:
+          model: glm-4.7
+          temperature: 0.1
+          max-tokens: 4096
 
 mybatis-plus:
   mapper-locations: classpath:mapper/*.xml

@@ -22,4 +22,9 @@ public class ApplicationModel {
     private String dataQualityNote;
     private String parsingStatus;
     private String parsingProgress;
+    private Integer performanceScore;
+    private String diagnosisInfo;
+    private String llmReport;
+    private Long llmStartTime;
+    private Long llmEndTime;
 }

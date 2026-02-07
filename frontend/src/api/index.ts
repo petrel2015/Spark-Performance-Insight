@@ -76,5 +76,7 @@ export const getJobStages = (appId: string, jobId: number) =>
 
 export const getApp = (appId: string) => request.get(`/apps/${appId}`);
 export const getDiagnosisReport = (appId: string) => request.get(`/apps/${appId}/report`);
+export const getLLMReport = (appId: string, force = false) => 
+    request.get(`/apps/${appId}/llm-report?force=${force}`);
 export const compareApps = (appId1: string, appId2: string) =>
     request.get(`/compare?appId1=${appId1}&appId2=${appId2}`);

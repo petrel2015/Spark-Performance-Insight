@@ -31,7 +31,7 @@ export const formatNum = (num: number | null | undefined) => {
     return compact && num >= 1000 ? `${exact} (${compact})` : exact;
 };
 
-export const formatDateTime = (t: string | null | undefined) => {
+export const formatDateTime = (t: string | number | null | undefined) => {
     if (!t) return '-';
     return new Date(t).toLocaleString();
 };

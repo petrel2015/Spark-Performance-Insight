@@ -43,11 +43,15 @@ public class InsightController {
                                            @RequestParam(defaultValue = "20") int size,
                                            @RequestParam(required = false) String sort,
                                            @RequestParam(required = false) Integer jobId,
-                                           @RequestParam(required = false) String jobGroup) {
+                                           @RequestParam(required = false) String jobGroup,
+                                           @RequestParam(required = false) Long sqlExecutionId) {
         checkAppReady(appId);
         var query = jobService.lambdaQuery().eq(JobModel::getAppId, appId);
         if (jobId != null) {
             query.eq(JobModel::getJobId, jobId);
+        }
+        if (sqlExecutionId != null) {
+            query.eq(JobModel::getSqlExecutionId, sqlExecutionId);
         }
         if (jobGroup != null && !jobGroup.isBlank()) {
             query.like(JobModel::getJobGroup, jobGroup); // Fuzzy search for convenience
@@ -59,6 +63,9 @@ public class InsightController {
         var listQuery = jobService.lambdaQuery().eq(JobModel::getAppId, appId);
         if (jobId != null) {
             listQuery.eq(JobModel::getJobId, jobId);
+        }
+        if (sqlExecutionId != null) {
+            listQuery.eq(JobModel::getSqlExecutionId, sqlExecutionId);
         }
         if (jobGroup != null && !jobGroup.isBlank()) {
             listQuery.like(JobModel::getJobGroup, jobGroup);
@@ -82,10 +89,27 @@ public class InsightController {
     @GetMapping("/apps/{appId}/jobs/{jobId}")
     public JobModel getJob(@PathVariable String appId, @PathVariable Integer jobId) {
         checkAppReady(appId);
-        return jobService.lambdaQuery()
+        JobModel job = jobService.lambdaQuery()
                 .eq(JobModel::getAppId, appId)
                 .eq(JobModel::getJobId, jobId)
                 .one();
+        
+        if (job != null && job.getStageIds() != null) {
+            List<Integer> stageIds = java.util.Arrays.stream(job.getStageIds().split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .map(Integer::parseInt)
+                    .toList();
+            
+            if (!stageIds.isEmpty()) {
+                List<StageModel> jobStages = stageService.lambdaQuery()
+                        .eq(StageModel::getAppId, appId)
+                        .in(StageModel::getStageId, stageIds)
+                        .list();
+                job.setStageList(jobStages);
+            }
+        }
+        return job;
     }
 
     /**
@@ -114,19 +138,20 @@ public class InsightController {
                                                              @RequestParam(defaultValue = "1") int page,
                                                              @RequestParam(defaultValue = "20") int size,
                                                              @RequestParam(required = false) String sort,
-                                                             @RequestParam(required = false) String search) {
+                                                             @RequestParam(required = false) Integer jobId) {
         checkAppReady(appId);
         var query = sqlExecutionService.lambdaQuery().eq(SqlExecutionModel::getAppId, appId);
-        if (search != null && !search.isBlank()) {
-            query.like(SqlExecutionModel::getDescription, "%" + search + "%");
+        if (jobId != null) {
+            // 通过子查询找到关联该 Job ID 的 SQL Execution ID
+            query.apply("execution_id IN (SELECT sql_execution_id FROM jobs WHERE app_id = {0} AND job_id = {1})", appId, jobId);
         }
 
         long total = query.count();
 
-        // Re-apply for list
+        // 重新构建查询以应用分页
         var listQuery = sqlExecutionService.lambdaQuery().eq(SqlExecutionModel::getAppId, appId);
-        if (search != null && !search.isBlank()) {
-            listQuery.like(SqlExecutionModel::getDescription, "%" + search + "%");
+        if (jobId != null) {
+            listQuery.apply("execution_id IN (SELECT sql_execution_id FROM jobs WHERE app_id = {0} AND job_id = {1})", appId, jobId);
         }
 
         listQuery.last(buildSqlSuffix(sort, page, size, "execution_id DESC"));
@@ -150,10 +175,20 @@ public class InsightController {
     @GetMapping("/apps/{appId}/sql/{executionId}")
     public SqlExecutionModel getSqlExecution(@PathVariable String appId, @PathVariable Long executionId) {
         checkAppReady(appId);
-        return sqlExecutionService.lambdaQuery()
+        SqlExecutionModel sql = sqlExecutionService.lambdaQuery()
                 .eq(SqlExecutionModel::getAppId, appId)
                 .eq(SqlExecutionModel::getExecutionId, executionId)
                 .one();
+        
+        if (sql != null) {
+            List<JobModel> jobList = jobService.lambdaQuery()
+                    .eq(JobModel::getAppId, appId)
+                    .eq(JobModel::getSqlExecutionId, executionId)
+                    .list();
+            sql.setJobList(jobList);
+            sql.setJobIds(jobList.stream().map(JobModel::getJobId).toList());
+        }
+        return sql;
     }
 
     @GetMapping("/apps/{appId}/stages/{stageId}/tasks")

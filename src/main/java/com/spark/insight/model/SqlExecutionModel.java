@@ -18,11 +18,16 @@ public class SqlExecutionModel {
     private String description;
     private String details;
     private String physicalPlan;
+    private String planInfo;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private Long duration;
     private String status;
+    private Double performanceScore;
 
     @TableField(exist = false)
     private List<Integer> jobIds;
+
+    @TableField(exist = false)
+    private List<JobModel> jobList;
 }

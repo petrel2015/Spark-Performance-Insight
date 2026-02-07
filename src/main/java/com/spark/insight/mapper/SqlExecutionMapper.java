@@ -6,4 +6,5 @@ import org.apache.ibatis.annotations.Mapper;
 
 @Mapper
 public interface SqlExecutionMapper extends BaseMapper<SqlExecutionModel> {
+    void calculateSqlMetrics(String appId);
 }

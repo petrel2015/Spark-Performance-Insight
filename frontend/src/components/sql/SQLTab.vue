@@ -8,8 +8,8 @@
         
         <div class="header-right">
           <div class="search-box">
-            <input type="text" v-model="searchQuery" placeholder="Search Description" @keyup.enter="handleSearch"
-                   class="search-input" style="width: 200px;">
+            <input type="number" v-model.number="searchJobId" placeholder="Search Job ID" @keyup.enter="handleSearch"
+                   class="search-input" style="width: 150px;">
             <button @click="handleSearch" class="search-btn">
               <span class="material-symbols-outlined" style="font-size: 18px; vertical-align: middle; margin-right: 4px;">search</span>
               Search
@@ -99,6 +99,15 @@
                 {{ sql.executionId }}
               </template>
 
+              <!-- 1.5 Performance Score -->
+              <template v-else-if="col.field === 'performanceScore'">
+                <div class="score-cell-wrapper">
+                  <span class="score-badge" :class="getScoreClass(sql.performanceScore)">
+                    {{ Math.round(sql.performanceScore || 0) }}
+                  </span>
+                </div>
+              </template>
+
               <!-- Description -->
               <template v-else-if="col.field === 'description'">
                 <router-link :to="'/app/' + appId + '/sql/' + sql.executionId" class="sql-link">
@@ -164,11 +173,12 @@ const totalPages = ref(0);
 const currentPage = ref(1);
 const pageSize = ref(20);
 const jumpPageInput = ref(1);
-const searchQuery = ref('');
+const searchJobId = ref(null);
 const sorts = ref([{field: 'executionId', dir: 'desc'}]);
 
 const columns = [
   {field: 'executionId', label: 'ID', width: '80px', sortable: true},
+  {field: 'performanceScore', label: 'Score', width: '80px', sortable: true},
   {field: 'description', label: 'Description', sortable: true},
   {field: 'startTime', label: 'Submitted', width: '180px', sortable: true},
   {field: 'duration', label: 'Duration', width: '120px', sortable: true},
@@ -179,7 +189,7 @@ const columns = [
 const fetchSqls = async () => {
   try {
     const sortStr = sorts.value.map(s => `${s.field},${s.dir}`).join(';');
-    const res = await getAppSqlExecutions(props.appId, currentPage.value, pageSize.value, sortStr, searchQuery.value);
+    const res = await getAppSqlExecutions(props.appId, currentPage.value, pageSize.value, sortStr, searchJobId.value);
     if (res.data && res.data.items) {
       sqls.value = res.data.items;
       totalSqls.value = res.data.total;
@@ -281,6 +291,12 @@ const getSortOrder = (field) => {
 
 const isFieldSorted = (field) => {
   return sorts.value.some(x => x.field === field);
+};
+
+const getScoreClass = (score) => {
+  if (score > 50) return 'critical';
+  if (score > 20) return 'warning';
+  return 'good';
 };
 
 onMounted(fetchSqls);
@@ -611,5 +627,36 @@ watch(() => props.appId, () => {
 .status-RUNNING {
   color: #f39c12;
   font-weight: bold;
+}
+
+/* Score Badge Styles */
+.score-cell-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.score-badge {
+  display: inline-block;
+  min-width: 32px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 0.8rem;
+}
+
+.score-badge.good {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.score-badge.warning {
+  background-color: #fff3e0;
+  color: #ef6c00;
+}
+
+.score-badge.critical {
+  background-color: #ffebee;
+  color: #c62828;
 }
 </style>

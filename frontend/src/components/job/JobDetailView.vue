@@ -8,6 +8,15 @@
       </div>
     </div>
 
+    <!-- 0. Performance Diagnosis -->
+    <CollapsibleCard v-if="currentJob" title="Performance Diagnosis" :initial-collapsed="false">
+      <JobDiagnosisCard 
+        :performance-score="currentJob.performanceScore || currentJob.performance_score || 0" 
+        :stages="currentJob.stageList || []"
+        @view-stage="onViewStage"
+      />
+    </CollapsibleCard>
+
     <!-- 0. Job DAG Visualization -->
     <CollapsibleCard v-if="currentJob" title="Job DAG Visualization" :initial-collapsed="true">
       <template #actions>
@@ -88,6 +97,7 @@ import StageTable from '../stage/StageTable.vue';
 import ExecutorSummary from '../stage/ExecutorSummary.vue';
 import JobDAG from './JobDAG.vue';
 import JobTimeline from './JobTimeline.vue';
+import JobDiagnosisCard from './JobDiagnosisCard.vue';
 import {AVAILABLE_METRICS, DEFAULT_METRICS} from '../../constants/metrics';
 
 const props = defineProps({
@@ -119,6 +129,7 @@ const fetchJobDetails = async () => {
     ]);
     currentJob.value = jobRes.data;
     executorSummary.value = execRes.data;
+    console.log("Fetched Job Details:", currentJob.value);
   } catch (err) {
     console.error("Failed to fetch job details", err);
   }

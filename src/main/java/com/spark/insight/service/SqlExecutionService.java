@@ -7,4 +7,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class SqlExecutionService extends ServiceImpl<SqlExecutionMapper, SqlExecutionModel> {
+    public void calculateSqlMetrics(String appId) {
+        baseMapper.calculateSqlMetrics(appId);
+    }
 }

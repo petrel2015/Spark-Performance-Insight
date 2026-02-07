@@ -9,6 +9,15 @@
     </div>
 
     <div class="detail-cards" v-if="sql">
+      <!-- 0. Performance Diagnosis -->
+      <CollapsibleCard title="Performance Diagnosis" :initial-collapsed="false">
+        <SQLDiagnosisCard 
+          :performance-score="sql.performanceScore || sql.performance_score || 0" 
+          :jobs="sql.jobList || []"
+          @view-job="navigateToJob"
+        />
+      </CollapsibleCard>
+
       <!-- Info Card -->
       <div class="info-card">
         <div class="info-item">
@@ -34,9 +43,34 @@
         </div>
       </div>
 
+      <!-- Plan Visualization -->
+      <CollapsibleCard title="Plan Visualization" :initial-collapsed="true" v-if="parsedPlanInfo">
+        <template #actions>
+          <button class="lock-btn"
+                  v-if="dagRef"
+                  @click="dagRef.toggleZoomLock()"
+                  :title="dagRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
+          <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle; margin-right: 4px;">
+            {{ dagRef.isZoomLocked ? 'lock' : 'lock_open' }}
+          </span>
+            {{ dagRef.isZoomLocked ? 'Locked' : 'Unlocked' }}
+          </button>
+        </template>
+        <SQLDAG ref="dagRef" :plan-info="parsedPlanInfo" />
+      </CollapsibleCard>
+
       <!-- Physical Plan Card -->
-      <CollapsibleCard title="Physical Plan" :initial-collapsed="false">
+      <CollapsibleCard title="Physical Plan" :initial-collapsed="true">
         <pre class="physical-plan">{{ sql.physicalPlan }}</pre>
+      </CollapsibleCard>
+
+      <!-- Associated Jobs List -->
+      <CollapsibleCard title="Associated Jobs">
+        <JobsTab 
+          :app-id="appId" 
+          :sql-execution-id="executionId" 
+          :hide-toolbar="true"
+        />
       </CollapsibleCard>
     </div>
     
@@ -47,10 +81,14 @@
 </template>
 
 <script setup>
-import {ref, onMounted, watch} from 'vue';
+import {ref, onMounted, watch, computed} from 'vue';
 import {getSqlExecution} from '../../api';
 import {formatTime as formatDuration, formatDateTime} from '../../utils/format';
 import CollapsibleCard from '../common/CollapsibleCard.vue';
+import SQLDAG from './SQLDAG.vue';
+import SQLDiagnosisCard from './SQLDiagnosisCard.vue';
+import JobsTab from '../job/JobsTab.vue';
+import { useRouter } from 'vue-router';
 
 const props = defineProps({
   appId: {type: String, required: true},
@@ -58,9 +96,21 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['back']);
+const router = useRouter();
 
 const sql = ref(null);
 const loading = ref(false);
+const dagRef = ref(null);
+
+const parsedPlanInfo = computed(() => {
+  if (!sql.value || !sql.value.planInfo) return null;
+  try {
+    return JSON.parse(sql.value.planInfo);
+  } catch (e) {
+    console.warn("Failed to parse planInfo JSON", e);
+    return null;
+  }
+});
 
 const fetchDetails = async () => {
   loading.value = true;
@@ -72,6 +122,10 @@ const fetchDetails = async () => {
   } finally {
     loading.value = false;
   }
+};
+
+const navigateToJob = (jobId) => {
+  router.push(`/app/${props.appId}/job/${jobId}`);
 };
 
 onMounted(fetchDetails);
@@ -190,5 +244,23 @@ watch(() => props.executionId, fetchDetails);
   height: 200px;
   color: #666;
   font-style: italic;
+}
+
+.lock-btn {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  color: #555;
+  transition: all 0.2s;
+  min-width: 80px;
+  text-align: center;
+}
+
+.lock-btn:hover {
+  background: #f0f0f0;
+  color: #333;
 }
 </style>

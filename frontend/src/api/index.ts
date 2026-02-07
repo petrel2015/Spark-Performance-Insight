@@ -29,17 +29,18 @@ export const getStage = (appId: string, stageId: number, attemptId?: number) => 
     if (attemptId !== undefined && attemptId !== null) url += `?attemptId=${attemptId}`;
     return request.get(url);
 };
-export const getAppJobs = (appId: string, page = 1, size = 20, sort = '', jobId = null, jobGroup = '') => {
+export const getAppJobs = (appId: string, page = 1, size = 20, sort = '', jobId = null, jobGroup = '', sqlExecutionId = null) => {
     let url = `/apps/${appId}/jobs?page=${page}&size=${size}&sort=${sort}`;
     if (jobId !== null && jobId !== '') url += `&jobId=${jobId}`;
     if (jobGroup && jobGroup !== '') url += `&jobGroup=${encodeURIComponent(jobGroup)}`;
+    if (sqlExecutionId !== null && sqlExecutionId !== '') url += `&sqlExecutionId=${sqlExecutionId}`;
     return request.get(url);
 };
 export const getJob = (appId: string, jobId: number) => request.get(`/apps/${appId}/jobs/${jobId}`);
 export const getAppExecutors = (appId: string) => request.get(`/apps/${appId}/executors`);
-export const getAppSqlExecutions = (appId: string, page = 1, size = 20, sort = '', search = '') => {
+export const getAppSqlExecutions = (appId: string, page = 1, size = 20, sort = '', jobId = null) => {
     let url = `/apps/${appId}/sql?page=${page}&size=${size}&sort=${sort}`;
-    if (search && search !== '') url += `&search=${encodeURIComponent(search)}`;
+    if (jobId !== null && jobId !== '') url += `&jobId=${jobId}`;
     return request.get(url);
 };
 export const getSqlExecution = (appId: string, executionId: number) => 

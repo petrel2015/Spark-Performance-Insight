@@ -82,7 +82,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     num_failed_tasks INT DEFAULT 0,
     num_active_tasks INT DEFAULT 0,
     num_skipped_tasks INT DEFAULT 0,
-    sql_execution_id BIGINT
+    sql_execution_id BIGINT,
+    performance_score DOUBLE DEFAULT 0.0
 );
 
 -- Stage 详情
@@ -171,13 +172,6 @@ CREATE TABLE IF NOT EXISTS tasks (
     locality VARCHAR
 );
 
--- Ensure columns exist for existing databases (DuckDB)
-ALTER TABLE stages ADD COLUMN IF NOT EXISTS locality_summary TEXT;
-ALTER TABLE stages ADD COLUMN IF NOT EXISTS diagnosis_info TEXT;
-ALTER TABLE stages ADD COLUMN IF NOT EXISTS performance_score DOUBLE DEFAULT 0.0;
-ALTER TABLE jobs ADD COLUMN IF NOT EXISTS sql_execution_id BIGINT;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS locality VARCHAR;
-
 -- 诊断建议表
 CREATE TABLE IF NOT EXISTS diagnosis_reports (
     id INTEGER PRIMARY KEY,
@@ -222,8 +216,10 @@ CREATE TABLE IF NOT EXISTS sql_executions (
     description TEXT,
     details TEXT,
     physical_plan TEXT,
+    plan_info TEXT, -- SparkPlanInfo JSON Structure
     start_time TIMESTAMP,
     end_time TIMESTAMP,
     duration BIGINT DEFAULT 0,
-    status VARCHAR -- RUNNING, SUCCEEDED, FAILED
+    status VARCHAR, -- RUNNING, SUCCEEDED, FAILED
+    performance_score DOUBLE DEFAULT 0.0
 );

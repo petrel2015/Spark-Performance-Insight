@@ -32,6 +32,7 @@ public class JobModel {
     private Integer numActiveTasks;
     private Integer numSkippedTasks;
     private Long sqlExecutionId;
+    private Double performanceScore; // Weighted score of stages based on duration
 
     @TableField(exist = false)
     private List<StageModel> stageList;

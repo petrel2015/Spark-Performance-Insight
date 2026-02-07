@@ -41,7 +41,7 @@ const initGraph = () => {
   graph = new Graph({
     container: graphContainer.value,
     width: graphContainer.value.offsetWidth,
-    height: 300, // Matching StageDAG height
+    height: graphContainer.value.offsetHeight || 600,
     background: {color: '#f8f9fa'},
     panning: !isZoomLocked.value,
     mousewheel: !isZoomLocked.value,
@@ -284,7 +284,7 @@ const renderDAG = async () => {
 
     // Explicitly update size and zoom
     if (graphContainer.value) {
-      graph.resize(graphContainer.value.offsetWidth, 300);
+      graph.resize(graphContainer.value.offsetWidth, graphContainer.value.offsetHeight || 600);
     }
 
     setTimeout(() => {
@@ -338,7 +338,8 @@ onBeforeUnmount(() => {
 
 .graph-container {
   width: 100%;
-  height: 300px;
+  height: 600px;
+  min-height: 400px;
 }
 
 .no-data-msg {

@@ -38,7 +38,7 @@ const initGraph = () => {
   graph = new Graph({
     container: graphContainer.value,
     width: graphContainer.value.offsetWidth,
-    height: 400,
+    height: graphContainer.value.offsetHeight || 600,
     background: {color: '#f8f9fa'},
     panning: !isZoomLocked.value,
     mousewheel: !isZoomLocked.value,
@@ -126,17 +126,18 @@ const renderDAG = async () => {
       });
 
       if (parentId) {
-        // Edge direction: Parent -> Child (Data flow is usually Child -> Parent in execution, 
-        // but Spark UI shows tree top-down. Let's stick to tree structure: Parent -> Children visually)
-        // Wait, Spark Plan is a tree of operators. "Project" has child "Filter". Data flows Filter -> Project.
-        // So visually, we usually want the data source at the top or left.
-        // But the tree structure is: Root (Result) -> Children (Inputs).
-        // If we draw edges Parent -> Child, we are drawing "depends on".
-        // Let's draw Parent -> Child for now, standard tree.
+        // Data flow direction: Child -> Parent
+        // This puts leaves (sources) at the top and root (result) at the bottom with TB rankdir
         edges.push({
-          source: parentId,
-          target: currentId,
-          attrs: {line: {stroke: '#999', strokeWidth: 1}}
+          source: currentId,
+          target: parentId,
+          attrs: {
+            line: {
+              stroke: '#999', 
+              strokeWidth: 1,
+              targetMarker: 'classic' // Add arrow head to show flow
+            }
+          }
         });
       }
 
@@ -176,7 +177,7 @@ const renderDAG = async () => {
     graph.fromJSON({nodes: finalNodes, edges});
 
     if (graphContainer.value) {
-      graph.resize(graphContainer.value.offsetWidth, 400);
+      graph.resize(graphContainer.value.offsetWidth, graphContainer.value.offsetHeight || 600);
     }
 
     setTimeout(() => {
@@ -231,7 +232,8 @@ onBeforeUnmount(() => {
 
 .graph-container {
   width: 100%;
-  height: 400px;
+  height: 600px;
+  min-height: 400px;
 }
 
 .no-data-msg {

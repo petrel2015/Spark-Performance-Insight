@@ -1,39 +1,24 @@
 version: '3.8'
 
 services:
-  spark-insight:
-    build: .
-    image: spark-performance-insight:latest
-    container_name: spark-insight
+  spark:
+    image: apache/spark:4.0.2-java21
+    container_name: spark
+    hostname: spark
+    user: root
+    entrypoint: [""]
     ports:
-      - "8081:8081"
+      - "0.0.0.0:18080:18080"
+      - "0.0.0.0:18081:18081"
     volumes:
-      # Shared EventLog Directory
-      - ./eventlogs:/eventlogs
-      # Persistence for DuckDB
-      - ./data:/data
-      # Config override (Optional)
-      - ./src/main/resources/application.yml:/app/application.yml
-    environment:
-      - JAVA_OPTS=-Dspring.config.location=/app/application.yml
-      # Ensure path matches the volume
-      - INSIGHT_EVENT_LOG_PATH=/eventlogs
-      - SPRING_DATASOURCE_URL=jdbc:duckdb:/data/insight.db
-    user: "1001:1001"
-    depends_on:
-      - spark-history-server
+      - ./workspace:/opt/spark/work-dir/workspace
+    networks:
+      - spark_net
+    command: /bin/bash /opt/spark/work-dir/workspace/entrypoint.sh
 
-  spark-history-server:
-    image: bitnami/spark:3.5
-    container_name: spark-history-server
-    ports:
-      - "18080:18080"
-    volumes:
-      - ./eventlogs:/tmp/spark-events
-    environment:
-      - SPARK_HISTORY_OPTS=-Dspark.history.fs.logDirectory=/tmp/spark-events
-    command: /opt/bitnami/spark/bin/spark-class org.apache.spark.deploy.history.HistoryServer
-    user: "1001:1001"
+volumes:
+  master_data:
 
-# Ensure the directories exist with correct permissions on host if possible,
-# or let Docker create them (might be root owned).
+networks:
+  spark_net:
+    driver: bridge

@@ -1,5 +1,5 @@
 server:
-  port: 8081
+  port: 18081
 
 spring:
   application:
@@ -22,6 +22,6 @@ mybatis-plus:
     map-underscore-to-camel-case: true
 
 insight:
-  event-log-path: ./eventlogs
+  event-log-path: ./workspace/eventlog
   scheduler:
     scan-interval-seconds: 3600

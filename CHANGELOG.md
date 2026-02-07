@@ -1,3 +1,8 @@
+## 0.24.0 - 2026-02-07
+
+### Features
+- Implement SQL performance scoring and enhanced diagnosis views
+
 ## 0.23.0 - 2026-02-07
 
 ### Features

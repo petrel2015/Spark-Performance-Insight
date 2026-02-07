@@ -9,48 +9,48 @@
       <div class="header-right">
         <div class="search-box">
           <input type="number" v-model.number="searchStageId" placeholder="Stage ID"
-                 @keyup.enter="handleSearch" class="search-input" style="width: 100px;">
+                 min="0" @keyup.enter="handleSearch" class="search-input" style="width: 100px;">
           <input type="number" v-model.number="searchJobId" placeholder="Job ID"
-                 @keyup.enter="handleSearch" class="search-input" style="width: 100px;">
+                 min="0" @keyup.enter="handleSearch" class="search-input" style="width: 100px;">
           <button @click="handleSearch" class="search-btn">
             <span class="material-symbols-outlined" style="font-size: 18px; vertical-align: middle; margin-right: 4px;">search</span>
             Search
           </button>
         </div>
 
-        <div class="pagination-controls">
-          <div class="page-size-selector">
-            <span>Rows:</span>
-            <select v-model="pageSize" @change="handleSizeChange">
+        <div class="modern-pagination">
+          <div class="page-size-picker">
+            <span>Rows per page:</span>
+            <select v-model="pageSize" @change="handleSizeChange" class="modern-select">
               <option :value="20">20</option>
               <option :value="50">50</option>
               <option :value="100">100</option>
             </select>
           </div>
 
-          <div class="page-nav">
-            <button @click="jumpToPage(1)" :disabled="currentPage === 1" title="First Page">
-              <span class="material-symbols-outlined" style="font-size: 18px;">first_page</span>
+          <div class="pager-actions">
+            <button class="pager-btn" @click="jumpToPage(1)" :disabled="currentPage === 1" title="First Page">
+              <span class="material-symbols-outlined">first_page</span>
             </button>
-            <button @click="changePage(-1)" :disabled="currentPage === 1" title="Previous Page">
-              <span class="material-symbols-outlined" style="font-size: 18px;">chevron_left</span>
+            <button class="pager-btn" @click="changePage(-1)" :disabled="currentPage === 1" title="Previous Page">
+              <span class="material-symbols-outlined">chevron_left</span>
             </button>
 
-            <div class="page-jump">
+            <div class="pager-info">
               <input type="number"
                      v-model.number="jumpPageInput"
                      @keyup.enter="handleJump"
-                     class="jump-input"
+                     class="pager-input"
                      min="1"
                      :max="totalPages"/>
-              <span class="total-pages">/ {{ totalPages }}</span>
+              <span class="pager-total">/ {{ totalPages }}</span>
             </div>
 
-            <button @click="changePage(1)" :disabled="currentPage === totalPages" title="Next Page">
-              <span class="material-symbols-outlined" style="font-size: 18px;">chevron_right</span>
+            <button class="pager-btn" @click="changePage(1)" :disabled="currentPage === totalPages" title="Next Page">
+              <span class="material-symbols-outlined">chevron_right</span>
             </button>
-            <button @click="jumpToPage(totalPages)" :disabled="currentPage === totalPages" title="Last Page">
-              <span class="material-symbols-outlined" style="font-size: 18px;">last_page</span>
+            <button class="pager-btn" @click="jumpToPage(totalPages)" :disabled="currentPage === totalPages" title="Last Page">
+              <span class="material-symbols-outlined">last_page</span>
             </button>
           </div>
         </div>
@@ -73,109 +73,124 @@
       <small class="sort-hint">(Hold <b>Shift</b> + Click headers to sort by multiple columns)</small>
     </div>
 
-    <table class="styled-table">
-      <thead>
-      <tr>
-        <th v-for="col in columns"
-            :key="col.field"
-            @click="handleSort(col.field, $event)"
-            class="sortable"
-            :style="{ width: col.width }">
-          <div class="header-container">
-            {{ col.label }}
-            <div class="sort-indicator">
-              <span class="material-symbols-outlined sort-icon" :class="{ active: isFieldSorted(col.field) }">
-                {{ getSortIcon(col.field) }}
-              </span>
-              <span v-if="getSortOrder(col.field)" class="sort-order">{{ getSortOrder(col.field) }}</span>
-            </div>
-          </div>
-        </th>
-      </tr>
-      </thead>
-      <tbody>
-      <tr v-for="stage in stages" :key="stage.id">
-        <td v-for="col in columns" :key="col.field">
-          <!-- 1. Stage ID & Attempts -->
-          <template v-if="col.field === 'stageId'">
-            {{ stage.stageId }}
-            <span v-if="hasRetries(stage.stageId)" class="attempt-badge">(Attempt {{ stage.attemptId }})</span>
-            <span v-if="isExpired(stage)" class="expired-badge">Expired</span>
-          </template>
-
-          <!-- 1.5 Performance Score -->
-          <template v-else-if="col.field === 'performanceScore'">
-            <div class="score-cell-wrapper">
-              <span class="score-badge" :class="getScoreClass(stage.performanceScore)">
-                {{ Math.round(stage.performanceScore || 0) }}
-              </span>
-            </div>
-          </template>
-
-          <!-- 2. Job ID Link -->
-          <template v-else-if="col.field === 'jobId'">
-            <router-link :to="'/app/' + appId + '/job/' + stage.jobId" class="stage-link">
-              {{ stage.jobId }}
-            </router-link>
-          </template>
-
-          <!-- 3. Stage Name Link -->
-          <template v-else-if="col.field === 'stageName'">
-            <router-link :to="'/app/' + appId + '/stage/' + stage.stageId + (stage.attemptId > 0 ? '?attemptId=' + stage.attemptId : '')"
-               class="stage-link">
-              {{ stage.stageName }}
-            </router-link>
-          </template>
-
-          <!-- 4. Submission Time -->
-          <template v-else-if="col.field === 'submissionTime'">
-            {{ formatDateTime(stage.submissionTime) }}
-          </template>
-
-          <!-- 5. Duration -->
-          <template v-else-if="col.field === 'duration'">
-            {{
-              stage.duration ? formatTime(stage.duration) : formatDuration(stage.submissionTime, stage.completionTime)
-            }}
-          </template>
-
-          <!-- 6. Tasks Progress Bar -->
-          <template v-else-if="col.field === 'numTasks'">
-            <div class="task-progress-wrapper">
-              <div class="progress-bar-container">
-                <div class="progress-bar-success"
-                     :style="{ width: getProgressWidth(stage.numCompletedTasks, stage.numTasks) + '%' }">
-                </div>
-                <div class="progress-bar-failed"
-                     :style="{
-                          width: getProgressWidth(stage.numFailedTasks, stage.numTasks) + '%',
-                          left: getProgressWidth(stage.numCompletedTasks, stage.numTasks) + '%' 
-                       }">
-                </div>
-                <div class="task-count-overlay">
-                  {{ stage.numCompletedTasks }}/{{ stage.numTasks }}
-                  <span v-if="stage.numFailedTasks > 0" class="failed-count"> ({{ stage.numFailedTasks }} failed)</span>
-                </div>
+    <div class="table-wrapper">
+      <table class="styled-table">
+        <thead>
+        <tr>
+          <!-- Comparison Selection Column -->
+          <th v-if="compareStore.isCompareMode" style="width: 50px; text-align: center;">
+            <span class="material-symbols-outlined" style="font-size: 16px; color: #666;">compare_arrows</span>
+          </th>
+          <th v-for="col in columns"
+              :key="col.field"
+              @click="handleSort(col.field, $event)"
+              class="sortable"
+              :style="{ width: col.width }">
+            <div class="header-container">
+              {{ col.label }}
+              <div class="sort-indicator">
+                <span class="material-symbols-outlined sort-icon" :class="{ active: isFieldSorted(col.field) }">
+                  {{ getSortIcon(col.field) }}
+                </span>
+                <span v-if="getSortOrder(col.field)" class="sort-order">{{ getSortOrder(col.field) }}</span>
               </div>
             </div>
-          </template>
+          </th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr v-for="stage in stages" :key="stage.id">
+          <!-- Comparison Checkbox -->
+          <td v-if="compareStore.isCompareMode" style="text-align: center;">
+            <button class="select-btn" 
+                    :class="{ selected: compareStore.hasItem('stage', appId, stage.stageId) }"
+                    @click="toggleSelection(stage)">
+              <span class="material-symbols-outlined">
+                {{ compareStore.hasItem('stage', appId, stage.stageId) ? 'check_box' : 'check_box_outline_blank' }}
+              </span>
+            </button>
+          </td>
+          <td v-for="col in columns" :key="col.field">
+            <!-- 1. Stage ID & Attempts -->
+            <template v-if="col.field === 'stageId'">
+              {{ stage.stageId }}
+              <span v-if="hasRetries(stage.stageId)" class="attempt-badge">(Attempt {{ stage.attemptId }})</span>
+              <span v-if="isExpired(stage)" class="expired-badge">Expired</span>
+            </template>
 
-          <!-- 7. Dynamic Metric Columns (Bytes) -->
-          <template v-else-if="col.type === 'bytes'">
-            {{ formatBytes(stage[col.field]) }}
-          </template>
+            <!-- 1.5 Performance Score -->
+            <template v-else-if="col.field === 'performanceScore'">
+              <div class="score-cell-wrapper">
+                <span class="score-badge" :class="getScoreClass(stage.performanceScore)">
+                  {{ Math.round(stage.performanceScore || 0) }}
+                </span>
+              </div>
+            </template>
 
-          <!-- Fallback -->
-          <template v-else>
-            {{ stage[col.field] }}
-          </template>
-        </td>
-      </tr>
-      <tr v-if="stages.length === 0">
-        <td :colspan="columns.length" style="text-align: center; padding: 40px;">No stages found.</td>
-      </tr>
-      </tbody>
-    </table>
+            <!-- 2. Job ID Link -->
+            <template v-else-if="col.field === 'jobId'">
+              <router-link :to="'/app/' + appId + '/job/' + stage.jobId" class="stage-link">
+                {{ stage.jobId }}
+              </router-link>
+            </template>
+
+            <!-- 3. Stage Name Link -->
+            <template v-else-if="col.field === 'stageName'">
+              <router-link :to="'/app/' + appId + '/stage/' + stage.stageId + (stage.attemptId > 0 ? '?attemptId=' + stage.attemptId : '')"
+                 class="stage-link">
+                {{ stage.stageName }}
+              </router-link>
+            </template>
+
+            <!-- 4. Submission Time -->
+            <template v-else-if="col.field === 'submissionTime'">
+              {{ formatDateTime(stage.submissionTime) }}
+            </template>
+
+                      <!-- 5. Duration -->
+                      <template v-else-if="col.field === 'duration'">
+                        {{
+                          stage.duration ? formatTime(stage.duration) : formatDuration(stage.submissionTime, stage.completionTime)
+                        }}
+                      </template>
+            
+                      <!-- 6. Tasks Progress Bar (New field name: progress) -->
+                      <template v-else-if="col.field === 'progress'">
+                        <div class="task-progress-wrapper">
+                          <div class="progress-bar-container">
+                            <div class="progress-bar-success"
+                                 :style="{ width: getProgressWidth(stage.numCompletedTasks, stage.numTasks) + '%' }">
+                            </div>
+                            <div class="progress-bar-failed"
+                                 :style="{
+                                      width: getProgressWidth(stage.numFailedTasks, stage.numTasks) + '%',
+                                      left: getProgressWidth(stage.numCompletedTasks, stage.numTasks) + '%' 
+                                   }">
+                            </div>
+                            <div class="task-count-overlay">
+                              {{ stage.numCompletedTasks }}/{{ stage.numTasks }}
+                              <span v-if="stage.numFailedTasks > 0" class="failed-count"> ({{ stage.numFailedTasks }} failed)</span>
+                            </div>
+                          </div>
+                        </div>
+                      </template>
+            
+                      <!-- 7. Dynamic Metric Columns (Bytes) -->            <template v-else-if="col.type === 'bytes'">
+              {{ formatBytes(stage[col.field]) }}
+            </template>
+
+            <!-- Fallback -->
+            <template v-else>
+              {{ stage[col.field] }}
+            </template>
+          </td>
+        </tr>
+        <tr v-if="stages.length === 0">
+          <td :colspan="columns.length" style="text-align: center; padding: 40px;">No stages found.</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
 
@@ -183,6 +198,7 @@
 import {ref, onMounted, watch, computed} from 'vue';
 import {getAppStages} from '../../api';
 import {formatTime, formatBytes, formatDateTime} from '../../utils/format';
+import { compareStore } from '../../store/compareStore';
 
 const props = defineProps({
   appId: String,
@@ -203,6 +219,24 @@ const jumpPageInput = ref(1);
 const searchStageId = ref(null);
 const searchJobId = ref(null);
 const sorts = ref([{field: 'stageId', dir: 'desc'}]); // Default sort by Stage Id DESC
+
+const toggleSelection = (stage) => {
+  const key = `${props.appId}:stage:${stage.stageId}`;
+  if (compareStore.hasItem('stage', props.appId, stage.stageId)) {
+    compareStore.removeItem(key);
+  } else {
+    compareStore.addItem({
+      type: 'stage',
+      appId: props.appId,
+      itemId: stage.stageId,
+      name: stage.stageName,
+      details: {
+        duration: stage.duration,
+        tasks: stage.numTasks
+      }
+    });
+  }
+};
 
 // Compute max attempt ID per stage to detect retries and expiration
 const stageAttemptsMap = computed(() => {
@@ -231,10 +265,11 @@ const hasRetries = (stageId) => {
 const baseColumns = [
   {field: 'stageId', label: 'Stage Id', width: '140px', sortable: true},
   {field: 'performanceScore', label: 'Score', width: '80px', sortable: true},
-  {field: 'jobId', label: 'Job Id', width: '80px', sortable: true},
+  {field: 'jobId', label: 'Job Id', width: '100px', sortable: true},
   {field: 'stageName', label: 'Name', sortable: true},
+  {field: 'numTasks', label: 'Tasks', width: '80px', sortable: true},
   {field: 'submissionTime', label: 'Submitted', width: '160px', sortable: true},
-  {field: 'numTasks', label: 'Tasks: Succeeded/Total', width: '180px', sortable: true}
+  {field: 'progress', label: 'Progress: Succeeded/Total', width: '180px', sortable: false}
 ];
 
 const metricColumnsMap = {
@@ -264,8 +299,8 @@ const metricColumnsMap = {
   'disk_spill': {field: 'diskBytesSpilledSum', label: 'Spill (disk)', width: '120px', sortable: true, type: 'bytes'},
   'input': {field: 'inputBytes', label: 'Input', width: '100px', sortable: true, type: 'bytes'},
   'output': {field: 'outputBytes', label: 'Output', width: '100px', sortable: true, type: 'bytes'},
-  'shuffle_read': {field: 'shuffleReadBytes', label: 'Shuffle Read', width: '120px', sortable: true, type: 'bytes'},
-  'shuffle_write': {field: 'shuffleWriteBytes', label: 'Shuffle Write', width: '120px', sortable: true, type: 'bytes'},
+  'shuffle_read': {field: 'shuffleReadBytes', label: 'Shuffle Read', width: '140px', sortable: true, type: 'bytes'},
+  'shuffle_write': {field: 'shuffleWriteBytes', label: 'Shuffle Write', width: '140px', sortable: true, type: 'bytes'},
   'task_deserialization_time': {
     field: 'executorDeserializeTimeSum',
     label: 'Deserialization Time',
@@ -604,82 +639,117 @@ watch(() => props.appId, () => {
   font-size: 0.8rem;
 }
 
-.pagination-controls {
+.modern-pagination {
   display: flex;
-  gap: 24px;
   align-items: center;
+  gap: 20px;
 }
 
-.page-size-selector {
+.page-size-picker {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.9rem;
-  color: #666;
+  font-size: 0.85rem;
+  color: #606266;
 }
 
-.page-size-selector select {
-  padding: 4px 8px;
+.modern-select {
+  padding: 4px 24px 4px 8px;
   border-radius: 4px;
-  border: 1px solid #ddd;
+  border: 1px solid #dcdfe6;
+  outline: none;
+  cursor: pointer;
+  background: white;
+  transition: all 0.2s;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  font-size: 0.85rem;
+  color: #606266;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 14px;
+  min-width: 60px;
+  height: 32px;
 }
 
-.page-nav {
+.modern-select:hover {
+  border-color: #3498db;
+}
+
+.pager-actions {
   display: flex;
-  gap: 8px;
   align-items: center;
+  gap: 4px;
 }
 
-.page-nav button {
+.pager-btn {
   width: 32px;
   height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  border: 1px solid #ddd;
+  border: 1px solid #dcdfe6;
+  background: white;
   border-radius: 4px;
-  background: #fff;
-  color: #555;
+  cursor: pointer;
+  color: #606266;
   transition: all 0.2s;
 }
 
-.page-nav button:hover:not(:disabled) {
+.pager-btn:hover:not(:disabled) {
   border-color: #3498db;
   color: #3498db;
-  background: #f7fbff;
+  background: #f0f7ff;
 }
 
-.page-nav button:disabled {
-  background: #f5f5f5;
-  color: #ccc;
+.pager-btn:disabled {
+  color: #c0c4cc;
   cursor: not-allowed;
+  background: #f5f7fa;
 }
 
-.page-jump {
+.pager-btn .material-symbols-outlined {
+  font-size: 1.2rem;
+}
+
+.pager-info {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   margin: 0 8px;
 }
 
-.jump-input {
-  width: 45px;
-  padding: 4px 6px;
-  text-align: center;
-  border: 1px solid #ddd;
+.pager-input {
+  width: 40px;
+  height: 28px;
+  border: 1px solid #dcdfe6;
   border-radius: 4px;
+  text-align: center;
+  font-size: 0.85rem;
+  outline: none;
 }
 
-.total-pages {
-  color: #999;
-  font-size: 0.9rem;
+.pager-input:focus {
+  border-color: #3498db;
+}
+
+.pager-total {
+  font-size: 0.85rem;
+  color: #909399;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+  width: 100%;
 }
 
 .styled-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.85rem;
+  min-width: 1400px;
 }
 
 .styled-table th, .styled-table td {
@@ -851,5 +921,28 @@ watch(() => props.appId, () => {
 .score-badge.critical {
   background-color: #ffebee;
   color: #c62828;
+}
+
+.select-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #909399;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.select-btn:hover {
+  color: #3498db;
+  background: #f0f7ff;
+}
+
+.select-btn.selected {
+  color: #3498db;
+}
+
+.select-btn .material-symbols-outlined {
+  font-size: 20px;
 }
 </style>

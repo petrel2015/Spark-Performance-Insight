@@ -5,39 +5,39 @@
         <span>Total: {{ totalTasks }}</span>
       </div>
 
-      <div class="pagination-controls">
-        <div class="page-size-selector">
+      <div class="modern-pagination">
+        <div class="page-size-picker">
           <span>Rows per page:</span>
-          <select v-model="pageSize" @change="handleSizeChange">
+          <select v-model="pageSize" @change="handleSizeChange" class="modern-select">
             <option :value="20">20</option>
             <option :value="50">50</option>
             <option :value="100">100</option>
           </select>
         </div>
 
-        <div class="page-nav">
-          <button @click="jumpToPage(1)" :disabled="currentPage === 1" title="First Page">
-            <span class="material-symbols-outlined" style="font-size: 18px;">first_page</span>
+        <div class="pager-actions">
+          <button class="pager-btn" @click="jumpToPage(1)" :disabled="currentPage === 1" title="First Page">
+            <span class="material-symbols-outlined">first_page</span>
           </button>
-          <button @click="changePage(-1)" :disabled="currentPage === 1" title="Previous Page">
-            <span class="material-symbols-outlined" style="font-size: 18px;">chevron_left</span>
+          <button class="pager-btn" @click="changePage(-1)" :disabled="currentPage === 1" title="Previous Page">
+            <span class="material-symbols-outlined">chevron_left</span>
           </button>
 
-          <div class="page-jump">
+          <div class="pager-info">
             <input type="number"
                    v-model.number="jumpPageInput"
                    @keyup.enter="handleJump"
-                   class="jump-input"
+                   class="pager-input"
                    min="1"
                    :max="totalPages"/>
-            <span class="total-pages">/ {{ totalPages }}</span>
+            <span class="pager-total">/ {{ totalPages }}</span>
           </div>
 
-          <button @click="changePage(1)" :disabled="currentPage === totalPages" title="Next Page">
-            <span class="material-symbols-outlined" style="font-size: 18px;">chevron_right</span>
+          <button class="pager-btn" @click="changePage(1)" :disabled="currentPage === totalPages" title="Next Page">
+            <span class="material-symbols-outlined">chevron_right</span>
           </button>
-          <button @click="jumpToPage(totalPages)" :disabled="currentPage === totalPages" title="Last Page">
-            <span class="material-symbols-outlined" style="font-size: 18px;">last_page</span>
+          <button class="pager-btn" @click="jumpToPage(totalPages)" :disabled="currentPage === totalPages" title="Last Page">
+            <span class="material-symbols-outlined">last_page</span>
           </button>
         </div>
       </div>
@@ -339,6 +339,107 @@ watch(() => props.stageId, () => {
   font-size: 0.9rem;
 }
 
+.modern-pagination {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.page-size-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #606266;
+}
+
+.modern-select {
+  padding: 4px 24px 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #dcdfe6;
+  outline: none;
+  cursor: pointer;
+  background: white;
+  transition: all 0.2s;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  font-size: 0.85rem;
+  color: #606266;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 14px;
+  min-width: 60px;
+  height: 32px;
+}
+
+.modern-select:hover {
+  border-color: #3498db;
+}
+
+.pager-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pager-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dcdfe6;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #606266;
+  transition: all 0.2s;
+}
+
+.pager-btn:hover:not(:disabled) {
+  border-color: #3498db;
+  color: #3498db;
+  background: #f0f7ff;
+}
+
+.pager-btn:disabled {
+  color: #c0c4cc;
+  cursor: not-allowed;
+  background: #f5f7fa;
+}
+
+.pager-btn .material-symbols-outlined {
+  font-size: 1.2rem;
+}
+
+.pager-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 8px;
+}
+
+.pager-input {
+  width: 40px;
+  height: 28px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.pager-input:focus {
+  border-color: #3498db;
+}
+
+.pager-total {
+  font-size: 0.85rem;
+  color: #909399;
+}
+
 .active-sorts-bar {
   display: flex;
   flex-wrap: wrap;
@@ -411,78 +512,6 @@ watch(() => props.stageId, () => {
   color: #888;
   font-style: italic;
   font-size: 0.8rem;
-}
-
-.pagination-controls {
-  display: flex;
-  gap: 24px;
-  align-items: center;
-}
-
-.page-size-selector {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.9rem;
-  color: #666;
-}
-
-.page-size-selector select {
-  padding: 4px 8px;
-  border-radius: 4px;
-  border: 1px solid #ddd;
-}
-
-.page-nav {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.page-nav button {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: #fff;
-  color: #555;
-  transition: all 0.2s;
-}
-
-.page-nav button:hover:not(:disabled) {
-  border-color: #3498db;
-  color: #3498db;
-  background: #f7fbff;
-}
-
-.page-nav button:disabled {
-  background: #f5f5f5;
-  color: #ccc;
-  cursor: not-allowed;
-}
-
-.page-jump {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin: 0 8px;
-}
-
-.jump-input {
-  width: 45px;
-  padding: 4px 6px;
-  text-align: center;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-}
-
-.total-pages {
-  color: #999;
-  font-size: 0.9rem;
 }
 
 .table-wrapper {

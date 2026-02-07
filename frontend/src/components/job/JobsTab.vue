@@ -27,7 +27,7 @@
         <div class="header-right">
           <div class="search-box">
             <input type="number" v-model.number="searchJobId" placeholder="Job ID" @keyup.enter="handleSearch"
-                   class="search-input" style="width: 100px;">
+                   min="0" class="search-input" style="width: 100px;">
             <input type="text" v-model="searchJobGroup" placeholder="Job Group" @keyup.enter="handleSearch"
                    class="search-input" style="width: 180px;">
             <button @click="handleSearch" class="search-btn">
@@ -36,39 +36,39 @@
             </button>
           </div>
 
-          <div class="pagination-controls">
-            <div class="page-size-selector">
-              <span>Rows:</span>
-              <select v-model="pageSize" @change="handleSizeChange">
+          <div class="modern-pagination">
+            <div class="page-size-picker">
+              <span>Rows per page:</span>
+              <select v-model="pageSize" @change="handleSizeChange" class="modern-select">
                 <option :value="20">20</option>
                 <option :value="50">50</option>
                 <option :value="100">100</option>
               </select>
             </div>
 
-            <div class="page-nav">
-              <button @click="jumpToPage(1)" :disabled="currentPage === 1" title="First Page">
-                <span class="material-symbols-outlined" style="font-size: 18px;">first_page</span>
+            <div class="pager-actions">
+              <button class="pager-btn" @click="jumpToPage(1)" :disabled="currentPage === 1" title="First Page">
+                <span class="material-symbols-outlined">first_page</span>
               </button>
-              <button @click="changePage(-1)" :disabled="currentPage === 1" title="Previous Page">
-                <span class="material-symbols-outlined" style="font-size: 18px;">chevron_left</span>
+              <button class="pager-btn" @click="changePage(-1)" :disabled="currentPage === 1" title="Previous Page">
+                <span class="material-symbols-outlined">chevron_left</span>
               </button>
 
-              <div class="page-jump">
+              <div class="pager-info">
                 <input type="number"
                        v-model.number="jumpPageInput"
                        @keyup.enter="handleJump"
-                       class="jump-input"
+                       class="pager-input"
                        min="1"
                        :max="totalPages"/>
-                <span class="total-pages">/ {{ totalPages }}</span>
+                <span class="pager-total">/ {{ totalPages }}</span>
               </div>
 
-              <button @click="changePage(1)" :disabled="currentPage === totalPages" title="Next Page">
-                <span class="material-symbols-outlined" style="font-size: 18px;">chevron_right</span>
+              <button class="pager-btn" @click="changePage(1)" :disabled="currentPage === totalPages" title="Next Page">
+                <span class="material-symbols-outlined">chevron_right</span>
               </button>
-              <button @click="jumpToPage(totalPages)" :disabled="currentPage === totalPages" title="Last Page">
-                <span class="material-symbols-outlined" style="font-size: 18px;">last_page</span>
+              <button class="pager-btn" @click="jumpToPage(totalPages)" :disabled="currentPage === totalPages" title="Last Page">
+                <span class="material-symbols-outlined">last_page</span>
               </button>
             </div>
           </div>
@@ -95,6 +95,10 @@
         <table class="styled-table">
           <thead>
           <tr>
+            <!-- Comparison Selection Column -->
+            <th v-if="compareStore.isCompareMode" style="width: 50px; text-align: center;">
+              <span class="material-symbols-outlined" style="font-size: 16px; color: #666;">compare_arrows</span>
+            </th>
             <th v-for="col in columns"
                 :key="col.field"
                 @click="handleSort(col.field, $event)"
@@ -114,6 +118,16 @@
           </thead>
           <tbody>
           <tr v-for="job in jobs" :key="job.jobId">
+            <!-- Comparison Checkbox -->
+            <td v-if="compareStore.isCompareMode" style="text-align: center;">
+              <button class="select-btn" 
+                      :class="{ selected: compareStore.hasItem('job', appId, job.jobId) }"
+                      @click="toggleSelection(job)">
+                <span class="material-symbols-outlined">
+                  {{ compareStore.hasItem('job', appId, job.jobId) ? 'check_box' : 'check_box_outline_blank' }}
+                </span>
+              </button>
+            </td>
             <td v-for="col in columns" :key="col.field">
               <!-- 1. Job ID -->
               <template v-if="col.field === 'jobId'">
@@ -219,6 +233,7 @@
 import {ref, onMounted, watch, computed} from 'vue';
 import {getAppJobs} from '../../api';
 import {formatTime as commonFormatTime} from '../../utils/format';
+import { compareStore } from '../../store/compareStore';
 
 const props = defineProps({
   appId: String,
@@ -237,11 +252,29 @@ const searchJobId = ref(null);
 const searchJobGroup = ref('');
 const sorts = ref([{field: 'jobId', dir: 'desc'}]); // Default sort by Job ID DESC
 
+const toggleSelection = (job) => {
+  const key = `${props.appId}:job:${job.jobId}`;
+  if (compareStore.hasItem('job', props.appId, job.jobId)) {
+    compareStore.removeItem(key);
+  } else {
+    compareStore.addItem({
+      type: 'job',
+      appId: props.appId,
+      itemId: job.jobId,
+      name: job.description || `Job ${job.jobId}`,
+      details: {
+        duration: job.duration,
+        stages: job.numStages
+      }
+    });
+  }
+};
+
 // 可选列定义
 const AVAILABLE_JOB_COLUMNS = [
-  {key: 'description', label: 'Description', field: 'description', sortable: false},
-  {key: 'numStages', label: 'Stages Count', field: 'numStages', width: '100px', sortable: true},
-  {key: 'stageIds', label: 'Stage IDs', field: 'stageIds', width: '140px', sortable: false},
+  {key: 'description', label: 'Description', field: 'description', width: '300px', sortable: false},
+  {key: 'numStages', label: 'Stages Count', field: 'numStages', width: '120px', sortable: true},
+  {key: 'stageIds', label: 'Stage IDs', field: 'stageIds', width: '160px', sortable: false},
   {key: 'submissionTime', label: 'Submission Time', field: 'submissionTime', width: '180px', sortable: true},
   {key: 'duration', label: 'Duration', field: 'duration', width: '100px', sortable: true},
   {key: 'stagesProgress', label: 'Stages Progress', field: 'stagesProgress', width: '150px', sortable: false},
@@ -254,7 +287,7 @@ const selectedMetrics = ref(AVAILABLE_JOB_COLUMNS.map(m => m.key));
 const baseColumns = [
   {field: 'jobId', label: 'Job ID', width: '80px', sortable: true},
   {field: 'performanceScore', label: 'Score', width: '80px', sortable: true},
-  {field: 'jobGroup', label: 'Job Group', width: '140px', sortable: true}
+  {field: 'jobGroup', label: 'Job Group', width: '180px', sortable: true}
 ];
 
 const columns = computed(() => {
@@ -648,82 +681,117 @@ watch(() => props.sqlExecutionId, () => {
   font-size: 0.8rem;
 }
 
-.pagination-controls {
+.modern-pagination {
   display: flex;
-  gap: 24px;
   align-items: center;
+  gap: 20px;
 }
 
-.page-size-selector {
+.page-size-picker {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.9rem;
-  color: #666;
+  font-size: 0.85rem;
+  color: #606266;
 }
 
-.page-size-selector select {
-  padding: 4px 8px;
+.modern-select {
+  padding: 4px 24px 4px 8px;
   border-radius: 4px;
-  border: 1px solid #ddd;
+  border: 1px solid #dcdfe6;
+  outline: none;
+  cursor: pointer;
+  background: white;
+  transition: all 0.2s;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  font-size: 0.85rem;
+  color: #606266;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 14px;
+  min-width: 60px;
+  height: 32px;
 }
 
-.page-nav {
+.modern-select:hover {
+  border-color: #3498db;
+}
+
+.pager-actions {
   display: flex;
-  gap: 8px;
   align-items: center;
+  gap: 4px;
 }
 
-.page-nav button {
+.pager-btn {
   width: 32px;
   height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  border: 1px solid #ddd;
+  border: 1px solid #dcdfe6;
+  background: white;
   border-radius: 4px;
-  background: #fff;
-  color: #555;
+  cursor: pointer;
+  color: #606266;
   transition: all 0.2s;
 }
 
-.page-nav button:hover:not(:disabled) {
+.pager-btn:hover:not(:disabled) {
   border-color: #3498db;
   color: #3498db;
-  background: #f7fbff;
+  background: #f0f7ff;
 }
 
-.page-nav button:disabled {
-  background: #f5f5f5;
-  color: #ccc;
+.pager-btn:disabled {
+  color: #c0c4cc;
   cursor: not-allowed;
+  background: #f5f7fa;
 }
 
-.page-jump {
+.pager-btn .material-symbols-outlined {
+  font-size: 1.2rem;
+}
+
+.pager-info {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   margin: 0 8px;
 }
 
-.jump-input {
-  width: 45px;
-  padding: 4px 6px;
-  text-align: center;
-  border: 1px solid #ddd;
+.pager-input {
+  width: 40px;
+  height: 28px;
+  border: 1px solid #dcdfe6;
   border-radius: 4px;
+  text-align: center;
+  font-size: 0.85rem;
+  outline: none;
 }
 
-.total-pages {
-  color: #999;
-  font-size: 0.9rem;
+.pager-input:focus {
+  border-color: #3498db;
+}
+
+.pager-total {
+  font-size: 0.85rem;
+  color: #909399;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+  width: 100%;
 }
 
 .styled-table {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
+  min-width: 1300px;
 }
 
 .styled-table th, .styled-table td {
@@ -948,5 +1016,28 @@ watch(() => props.sqlExecutionId, () => {
 .score-badge.critical {
   background-color: #ffebee;
   color: #c62828;
+}
+
+.select-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #909399;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.select-btn:hover {
+  color: #3498db;
+  background: #f0f7ff;
+}
+
+.select-btn.selected {
+  color: #3498db;
+}
+
+.select-btn .material-symbols-outlined {
+  font-size: 20px;
 }
 </style>

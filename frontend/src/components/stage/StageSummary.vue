@@ -47,10 +47,12 @@
         <tbody>
         <tr v-for="row in sortedRows" :key="row.label">
           <td class="metric-label">{{ row.label }}</td>
-          <td v-for="key in ['minValue', 'p25', 'p50', 'p75', 'maxValue']" :key="key">
+          <td v-for="key in ['minValue', 'p25', 'p50', 'p75', 'maxValue']" :key="key" 
+              :class="getCellClass(row, key)"
+              :style="getCellStyle(row, key)">
             {{ formatCell(row, key) }}
           </td>
-          <td class="total-cell">{{ formatTotal(row) }}</td>
+          <td class="total-cell" :class="getTotalClass(row)">{{ formatTotal(row) }}</td>
         </tr>
         </tbody>
       </table>
@@ -236,7 +238,85 @@ const formatTotal = (row) => {
       return '-';
   }
 };
+
+// --- Cell Highlighting Logic ---
+
+const getCellStyle = (row, key) => {
+  // Only highlight 'maxValue' to show skew against median 'p50'
+  if (key !== 'maxValue') return {};
+  if (row.type === 'composite') return {}; // Skip complex types for now
+
+  // Data retrieval
+  const median = row.data['p50'] || 0;
+  const max = row.data['maxValue'] || 0;
+
+  // Thresholds
+  if (max <= 0) return {};
+  
+  // If median is 0 but max is significant (> 100ms for time, > 1MB for bytes)
+  if (median === 0) {
+    // Arbitrary threshold to avoid noise on tiny tasks
+    const isSignificant = (row.type === 'time' && max > 100) || (row.type === 'bytes' && max > 1024 * 1024);
+    if (isSignificant) {
+      return { backgroundColor: '#ffebee', color: '#c62828' }; // Deep Red for infinite skew
+    }
+    return {};
+  }
+
+  const ratio = max / median;
+
+  if (ratio >= 5.0) {
+    return { backgroundColor: '#ffebee', color: '#c62828', fontWeight: 'bold' }; // Critical Skew
+  } else if (ratio >= 2.0) {
+    // Gradient logic: 2.0 -> Yellow, 5.0 -> Red
+    // Simplified: Just use a warning color
+    return { backgroundColor: '#fff8e1', color: '#ef6c00' }; // Warning Orange/Yellow
+  }
+
+  return {};
+};
+
+const getCellClass = (row, key) => {
+  // Optional: add static classes if needed
+  return '';
+};
+
+const getTotalClass = (row) => {
+  if (!props.stage || !props.stage.tasksDurationSum) return '';
+  
+  // Highlight high overhead in Total column
+  const totalDuration = props.stage.tasksDurationSum;
+  let val = 0;
+
+  if (row.key === 'gc_time') val = props.stage.gcTimeSum || 0;
+  else if (row.key === 'scheduler_delay') val = props.stage.schedulerDelaySum || 0;
+  else if (row.key === 'shuffle_fetch_wait_time') val = (props.stage.shuffleReadMetrics || {}).fetchWaitTime || 0;
+  else return '';
+
+  if (totalDuration === 0) return '';
+  
+  const ratio = val / totalDuration;
+  
+  if (ratio > 0.3) return 'cell-critical'; // > 30% overhead
+  if (ratio > 0.1) return 'cell-warning';  // > 10% overhead
+  
+  return '';
+};
 </script>
+
+<style scoped>
+/* Add highlight styles */
+.cell-critical {
+  background-color: #ffebee !important;
+  color: #c62828 !important;
+  font-weight: bold;
+}
+
+.cell-warning {
+  background-color: #fff8e1 !important;
+  color: #ef6c00 !important;
+}
+
 
 <style scoped>
 .stage-summary-container {

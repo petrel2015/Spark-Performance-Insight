@@ -1,3 +1,10 @@
+## 0.28.1 - 2026-02-08
+
+### Fixes
+- **Docker Compose**: Fixed environment variable mapping for API keys (using mapping format)
+- **UI Tweaks**: Refined loading text in AI Diagnosis card
+- **Configuration**: Updated default placeholders for sensitive keys
+
 ## 0.28.0 - 2026-02-08
 
 ### Features

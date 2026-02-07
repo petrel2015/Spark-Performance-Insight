@@ -10,6 +10,8 @@ services:
     ports:
       - "0.0.0.0:18080:18080"
       - "0.0.0.0:18081:18081"
+    environment:
+      ZHIPU_API_KEY: ${ZHIPU_API_KEY:-fake_api_key}
     volumes:
       - ./workspace:/opt/spark/work-dir/workspace
     networks:

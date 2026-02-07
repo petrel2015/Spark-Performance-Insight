@@ -63,7 +63,7 @@
               <!-- Loading/Generating State -->
               <div v-if="loading.llm || isGenerating" class="ai-loading">
                 <div class="spinner"></div>
-                <span>AI 正在思考中，这可能需要 30 秒左右...</span>
+                <span>AI 正在思考中</span>
                 <small class="polling-hint" v-if="isGenerating && elapsedSeconds > 0">
                   已耗时: {{ elapsedSeconds }} 秒
                 </small>

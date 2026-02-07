@@ -1,28 +1,22 @@
-# Based on Bitnami Spark 3.5 image as requested
-FROM bitnami/spark:3.5
+# 使用官方带 Java 21 的 Spark 镜像作为底座
+FROM apache/spark:4.0.0-preview2-java21
 
 USER root
 
-# Create directory for the application
-WORKDIR /app
+# 设置工作目录为 Spark 默认的工作目录空间
+WORKDIR /opt/spark/work-dir/workspace
 
-# Copy the built JAR file
-# Note: Ensure you run 'mvn clean package' before building this image
-COPY ./target/spark-performance-insight-*.jar /app/app.jar
+# 1. 拷贝本地编译好的 JAR 包
+COPY target/*.jar ./app.jar
 
-# Create directories for data and logs with correct permissions
-RUN mkdir -p /data /eventlogs && \
-    chown -R 1001:1001 /app /data /eventlogs
+# 2. 拷贝并配置启动脚本
+COPY workspace/entrypoint.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
 
-# Switch back to non-root user
-USER 1001
+# 3. 准备日志存放目录
+RUN mkdir -p ./eventlog
 
-# Expose the application port
-EXPOSE 8081
+# 暴露端口：8081 (本项目), 18080 (Spark History Server)
+EXPOSE 8081 18080
 
-# Default configuration location (can be overridden by mounting)
-# We assume application.yml is either inside the JAR or mounted to /app/config/application.yml
-# Spring Boot looks for config in ./config/ or ./ 
-
-# Run the application
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+ENTRYPOINT ["/bin/bash", "./entrypoint.sh"]

@@ -1,3 +1,11 @@
+## 0.23.0 - 2026-02-07
+
+### Features
+- Streamline containerized deployment with Spark 4.0 and Java 21
+
+### Fixes
+- Resolve database initialization and SQL binder errors
+
 ## 0.21.0 - 2026-02-05
 
 ### Features

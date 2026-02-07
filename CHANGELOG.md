@@ -1,3 +1,8 @@
+## 0.25.0 - 2026-02-07
+
+### Features
+- Enhance UI for job/stage diagnosis and DAG visualization
+
 ## 0.24.0 - 2026-02-07
 
 ### Features

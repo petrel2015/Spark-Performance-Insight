@@ -1,3 +1,12 @@
+## 0.27.0 - 2026-02-07
+
+### Features
+- Integrate **Zhipu AI (GLM-4.7)** for deep performance diagnosis
+- Implement persistence for LLM reports with forced regeneration support
+- Real-time generation timer and history tracking in UI
+- Refactor Diagnosis tab with folder-style layout (Rule-Based & LLM)
+- Optimize prompts for professional Chinese reports with preserved English technical terms
+
 ## 0.26.0 - 2026-02-07
 
 ### Features

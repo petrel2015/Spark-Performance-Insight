@@ -1,3 +1,13 @@
+## 0.28.0 - 2026-02-08
+
+### Features
+- **Compare Workspace**: New staging area for performance benchmarking
+- **Persistence**: Comparison candidates are now saved in browser localStorage
+- **Modern Pagination**: Unified and polished pagination UI across all tables
+- **Storage Fixes**: Improved RDD metadata parsing and added empty state UI
+- **UI Enhancements**: Dynamic skew highlighting in Stage Summary metrics
+- **Version Tracking**: Display system version in the navigation bar
+
 ## 0.27.0 - 2026-02-07
 
 ### Features

@@ -1,1 +1,1 @@
-export const SYSTEM_VERSION = '0.27.0';
+export const SYSTEM_VERSION = '0.28.0';

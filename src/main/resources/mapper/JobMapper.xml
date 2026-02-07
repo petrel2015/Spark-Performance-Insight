@@ -25,6 +25,13 @@
                 WHERE t.app_id = jobs.app_id 
                   AND t.status = 'FAILED'
                   AND list_contains(string_split(jobs.stage_ids, ','), CAST(t.stage_id AS VARCHAR))
+            ),
+            performance_score = (
+                SELECT 
+                    CAST(COALESCE(SUM(s.performance_score * s.duration) / NULLIF(SUM(s.duration), 0), 0) AS DOUBLE)
+                FROM stages s
+                WHERE s.app_id = jobs.app_id 
+                  AND list_contains(string_split(jobs.stage_ids, ','), CAST(s.stage_id AS VARCHAR))
             )
         WHERE app_id = #{appId}
     </update>

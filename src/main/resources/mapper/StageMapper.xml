@@ -34,17 +34,23 @@
             is_skewed = (CASE WHEN m.max_dur > m.p50 * 2 THEN TRUE ELSE FALSE END),
             locality_summary = m_loc.loc_summary,
             performance_score = (
-                COALESCE((m.total_gc * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.2 +
-                COALESCE((m.total_sw_time * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.2 +
-                COALESCE(((m.total_ser + m.total_deser) * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.1 +
-                COALESCE((m.total_delay * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.1 +
-                CASE WHEN m.p50 > 0 THEN LEAST(100, (m.max_dur * 1.0 / m.p50 - 1) * 50) ELSE 0 END * 0.2 +
-                CASE WHEN m.total_disk_spill > 0 THEN 100 ELSE 0 END * 0.2
+                COALESCE((m.total_gc * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.15 +
+                COALESCE((m.total_sw_time / 1000000.0 * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.15 +
+                COALESCE((m.total_fetch_wait / 1000000.0 * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.15 +
+                CASE WHEN m.p50 > 0 THEN LEAST(100, (m.max_dur * 1.0 / m.p50 - 1) * 50) ELSE 0 END * 0.15 +
+                CASE WHEN m.total_disk_spill > 0 THEN 100 ELSE 0 END * 0.15 +
+                GREATEST(0, 100 - COALESCE((m.total_cpu_time * 100.0 / NULLIF(m.total_run_time, 0)), 100)) * 0.10 +
+                COALESCE((m.total_delay * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.05 +
+                COALESCE(((m.total_ser + m.total_deser) * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.05 +
+                COALESCE((m.total_get_res * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.05
             ),
             diagnosis_info = json_array(
                 json_object('dimension', 'GC Impact', 'score', CAST(COALESCE((m.total_gc * 100.0 / NULLIF(m.total_duration, 0)), 0) AS INTEGER)),
-                json_object('dimension', 'Shuffle Write Impact', 'score', CAST(COALESCE((m.total_sw_time * 100.0 / NULLIF(m.total_duration, 0)), 0) AS INTEGER)),
+                json_object('dimension', 'Shuffle Write Impact', 'score', CAST(COALESCE((m.total_sw_time / 1000000.0 * 100.0 / NULLIF(m.total_duration, 0)), 0) AS INTEGER)),
+                json_object('dimension', 'Shuffle Read Blocked', 'score', CAST(COALESCE((m.total_fetch_wait / 1000000.0 * 100.0 / NULLIF(m.total_duration, 0)), 0) AS INTEGER)),
+                json_object('dimension', 'I/O Wait', 'score', CAST(GREATEST(0, 100 - COALESCE((m.total_cpu_time * 100.0 / NULLIF(m.total_run_time, 0)), 100)) AS INTEGER)),
                 json_object('dimension', 'Serialization Impact', 'score', CAST(COALESCE(((m.total_ser + m.total_deser) * 100.0 / NULLIF(m.total_duration, 0)), 0) AS INTEGER)),
+                json_object('dimension', 'Result Fetching', 'score', CAST(COALESCE((m.total_get_res * 100.0 / NULLIF(m.total_duration, 0)), 0) AS INTEGER)),
                 json_object('dimension', 'Scheduler Delay Impact', 'score', CAST(COALESCE((m.total_delay * 100.0 / NULLIF(m.total_duration, 0)), 0) AS INTEGER)),
                 json_object('dimension', 'Data Skew', 'score', CAST(CASE WHEN m.p50 > 0 THEN LEAST(100, (m.max_dur * 1.0 / m.p50 - 1) * 50) ELSE 0 END AS INTEGER)),
                 json_object('dimension', 'Disk Spill', 'score', CASE WHEN m.total_disk_spill > 0 THEN 100 ELSE 0 END)
@@ -84,6 +90,9 @@
                 sum(memory_bytes_spilled) as total_mem_spill,
                 sum(disk_bytes_spilled) as total_disk_spill,
                 sum(shuffle_write_time) as total_sw_time,
+                sum(shuffle_fetch_wait_time) as total_fetch_wait,
+                sum(executor_cpu_time) as total_cpu_time,
+                sum(executor_run_time) as total_run_time,
                 sum(input_bytes) as total_input,
                 sum(input_records) as total_input_records,
                 sum(output_bytes) as total_output,

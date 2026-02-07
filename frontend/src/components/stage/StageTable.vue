@@ -10,6 +10,8 @@
         <div class="search-box">
           <input type="number" v-model.number="searchStageId" placeholder="Stage ID"
                  @keyup.enter="handleSearch" class="search-input" style="width: 100px;">
+          <input type="number" v-model.number="searchJobId" placeholder="Job ID"
+                 @keyup.enter="handleSearch" class="search-input" style="width: 100px;">
           <button @click="handleSearch" class="search-btn">
             <span class="material-symbols-outlined" style="font-size: 18px; vertical-align: middle; margin-right: 4px;">search</span>
             Search
@@ -101,6 +103,15 @@
             <span v-if="isExpired(stage)" class="expired-badge">Expired</span>
           </template>
 
+          <!-- 1.5 Performance Score -->
+          <template v-else-if="col.field === 'performanceScore'">
+            <div class="score-cell-wrapper">
+              <span class="score-badge" :class="getScoreClass(stage.performanceScore)">
+                {{ Math.round(stage.performanceScore || 0) }}
+              </span>
+            </div>
+          </template>
+
           <!-- 2. Job ID Link -->
           <template v-else-if="col.field === 'jobId'">
             <router-link :to="'/app/' + appId + '/job/' + stage.jobId" class="stage-link">
@@ -190,6 +201,7 @@ const currentPage = ref(1);
 const pageSize = ref(20);
 const jumpPageInput = ref(1);
 const searchStageId = ref(null);
+const searchJobId = ref(null);
 const sorts = ref([{field: 'stageId', dir: 'desc'}]); // Default sort by Stage Id DESC
 
 // Compute max attempt ID per stage to detect retries and expiration
@@ -218,6 +230,7 @@ const hasRetries = (stageId) => {
 
 const baseColumns = [
   {field: 'stageId', label: 'Stage Id', width: '140px', sortable: true},
+  {field: 'performanceScore', label: 'Score', width: '80px', sortable: true},
   {field: 'jobId', label: 'Job Id', width: '80px', sortable: true},
   {field: 'stageName', label: 'Name', sortable: true},
   {field: 'submissionTime', label: 'Submitted', width: '160px', sortable: true},
@@ -317,7 +330,8 @@ const handleSearch = () => {
 const fetchStages = async () => {
   try {
     const sortStr = sorts.value.map(s => `${s.field},${s.dir}`).join(';');
-    const res = await getAppStages(props.appId, currentPage.value, pageSize.value, sortStr, props.jobId, searchStageId.value);
+    const effectiveJobId = searchJobId.value !== null && searchJobId.value !== '' ? searchJobId.value : props.jobId;
+    const res = await getAppStages(props.appId, currentPage.value, pageSize.value, sortStr, effectiveJobId, searchStageId.value);
 
     if (res.data && res.data.items) {
       stages.value = res.data.items;
@@ -412,6 +426,12 @@ const getSortOrder = (field) => {
 
 const isFieldSorted = (field) => {
   return sorts.value.some(x => x.field === field);
+};
+
+const getScoreClass = (score) => {
+  if (score > 50) return 'critical';
+  if (score > 20) return 'warning';
+  return 'good';
 };
 
 onMounted(fetchStages);
@@ -800,5 +820,36 @@ watch(() => props.appId, () => {
   font-size: 0.8rem;
   color: #666;
   margin-left: 4px;
+}
+
+/* Score Badge Styles */
+.score-cell-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.score-badge {
+  display: inline-block;
+  min-width: 32px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 0.8rem;
+}
+
+.score-badge.good {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.score-badge.warning {
+  background-color: #fff3e0;
+  color: #ef6c00;
+}
+
+.score-badge.critical {
+  background-color: #ffebee;
+  color: #c62828;
 }
 </style>

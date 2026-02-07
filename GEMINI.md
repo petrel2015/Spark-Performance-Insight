@@ -47,8 +47,13 @@ An advanced Spark performance analysis system that replaces the slow "event repl
 - **Pre-calculation**: High-level metrics (P95, Median) are calculated post-parsing to ensure fast UI rendering.
 
 ## 🔗 Common Workflows
-- **Running Dev**: `mvn clean install` (builds both FE and BE) -> `java -jar ...`
-- **Frontend Only Dev**: `cd frontend && npm run dev` (Vite will proxy to `localhost:8081`).
+- **Standard Build & Run**: 
+  ```bash
+  export JAVA_HOME="/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home"
+  mvn clean package -Prun
+  ```
+  *(This builds FE+BE, copies JAR to workspace, and restarts Docker via the `run` profile)*
+- **Frontend Only Dev**: `cd frontend && npm run dev` (Vite will proxy to `localhost:18081`).
 
 ## 🎯 Roadmap Highlights
 - [ ] **Structured Storage Engine**: Moving towards a more robust streaming ingestion.

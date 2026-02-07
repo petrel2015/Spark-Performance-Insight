@@ -232,6 +232,7 @@ public class JacksonEventParser implements EventParser {
 
                             stageService.calculateStageMetrics(appIdFinal);
                             jobService.calculateJobMetrics(appIdFinal);
+                            sqlExecutionService.calculateSqlMetrics(appIdFinal);
                             executorService.calculateExecutorMetrics(appIdFinal);
                         } catch (Exception ex) {
                             log.error("Failed to complete post-calculation for App: " + appIdFinal, ex);
@@ -713,6 +714,11 @@ public class JacksonEventParser implements EventParser {
         sql.setDescription(node.get("description").asText());
         sql.setDetails(node.get("details").asText());
         sql.setPhysicalPlan(node.get("physicalPlanDescription").asText());
+        
+        if (node.has("sparkPlanInfo")) {
+            sql.setPlanInfo(node.get("sparkPlanInfo").toString());
+        }
+        
         sql.setStartTime(parseTimestamp(node.get("time").asLong()));
         sql.setStatus("RUNNING");
         sqlExecutionService.saveOrUpdate(sql);

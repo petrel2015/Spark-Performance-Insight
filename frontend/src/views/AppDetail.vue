@@ -294,37 +294,56 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   min-height: 50px;
+  gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .header-bar {
+    flex-direction: column-reverse;
+    align-items: flex-start;
+    padding: 0.5rem 1rem;
+    gap: 10px;
+  }
 }
 
 .app-info h2 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1rem;
   color: #333;
   display: flex;
   align-items: center;
   gap: 8px;
+  white-space: nowrap;
 }
 
 .app-info small {
   color: #999;
   font-weight: normal;
-  font-size: 0.8rem;
-}
-
-.spark-version-badge {
-  background-color: #e8f4f8;
-  color: #2980b9;
   font-size: 0.75rem;
-  padding: 2px 8px;
-  border-radius: 4px;
-  border: 1px solid #d1e9f0;
-  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
 }
 
 .tabs {
   display: flex;
   align-items: stretch;
   height: 50px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.tabs {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
 }
 
 .tab-link {
@@ -339,6 +358,7 @@ onMounted(async () => {
   height: 100%;
   transition: all 0.2s;
   font-size: 0.9rem;
+  white-space: nowrap;
 }
 
 .tab-link:hover {

@@ -1,7 +1,7 @@
 <template>
   <div class="jobs-view-container">
     <!-- Metric Visibility Selector (Separate Card) -->
-    <div class="metric-selector-card">
+    <div class="metric-selector-card" v-if="!hideToolbar">
       <div class="selector-header">
         <strong>Select Columns to Display:</strong>
         <div class="selector-actions">
@@ -18,8 +18,8 @@
     </div>
 
     <!-- Main Jobs Table Card -->
-    <div class="jobs-table-card">
-      <div class="table-header-toolbar">
+    <div class="jobs-table-card" :class="{ 'plain-mode': hideToolbar }">
+      <div class="table-header-toolbar" v-if="!hideToolbar">
         <div class="header-left">
           <h4>Jobs List <small>(Total: {{ totalJobs }})</small></h4>
         </div>
@@ -120,6 +120,15 @@
                 {{ job.jobId }}
               </template>
 
+              <!-- 1.5 Performance Score -->
+              <template v-else-if="col.field === 'performanceScore'">
+                <div class="score-cell-wrapper">
+                  <span class="score-badge" :class="getScoreClass(job.performanceScore)">
+                    {{ Math.round(job.performanceScore || 0) }}
+                  </span>
+                </div>
+              </template>
+
               <!-- 2. Job Group -->
               <template v-else-if="col.field === 'jobGroup'">
                 <span v-if="job.jobGroup" class="job-group-badge">{{ job.jobGroup }}</span>
@@ -212,7 +221,9 @@ import {getAppJobs} from '../../api';
 import {formatTime as commonFormatTime} from '../../utils/format';
 
 const props = defineProps({
-  appId: String
+  appId: String,
+  sqlExecutionId: [Number, String],
+  hideToolbar: { type: Boolean, default: false }
 });
 const emit = defineEmits(['view-job-stages']);
 
@@ -242,6 +253,7 @@ const selectedMetrics = ref(AVAILABLE_JOB_COLUMNS.map(m => m.key));
 
 const baseColumns = [
   {field: 'jobId', label: 'Job ID', width: '80px', sortable: true},
+  {field: 'performanceScore', label: 'Score', width: '80px', sortable: true},
   {field: 'jobGroup', label: 'Job Group', width: '140px', sortable: true}
 ];
 
@@ -271,7 +283,7 @@ const handleSearch = () => {
 const fetchJobs = async () => {
   try {
     const sortStr = sorts.value.map(s => `${s.field},${s.dir}`).join(';');
-    const res = await getAppJobs(props.appId, currentPage.value, pageSize.value, sortStr, searchJobId.value, searchJobGroup.value);
+    const res = await getAppJobs(props.appId, currentPage.value, pageSize.value, sortStr, searchJobId.value, searchJobGroup.value, props.sqlExecutionId);
     if (res.data && res.data.items) {
       jobs.value = res.data.items;
       totalJobs.value = res.data.total;
@@ -370,6 +382,12 @@ const isFieldSorted = (field) => {
   return sorts.value.some(x => x.field === field);
 };
 
+const getScoreClass = (score) => {
+  if (score > 50) return 'critical';
+  if (score > 20) return 'warning';
+  return 'good';
+};
+
 const formatTime = (t) => t ? new Date(t).toLocaleString() : '-';
 
 const calculateDuration = (s, e) => {
@@ -398,6 +416,10 @@ watch(() => props.appId, () => {
   currentPage.value = 1;
   fetchJobs();
 });
+watch(() => props.sqlExecutionId, () => {
+  currentPage.value = 1;
+  fetchJobs();
+});
 </script>
 
 <style scoped>
@@ -412,6 +434,13 @@ watch(() => props.appId, () => {
   border-radius: 8px;
   padding: 1.5rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.jobs-table-card.plain-mode {
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+  border-radius: 0;
 }
 
 .table-header-toolbar {
@@ -888,5 +917,36 @@ watch(() => props.appId, () => {
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 0.85em;
+}
+
+/* Score Badge Styles */
+.score-cell-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.score-badge {
+  display: inline-block;
+  min-width: 32px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 0.8rem;
+}
+
+.score-badge.good {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.score-badge.warning {
+  background-color: #fff3e0;
+  color: #ef6c00;
+}
+
+.score-badge.critical {
+  background-color: #ffebee;
+  color: #c62828;
 }
 </style>

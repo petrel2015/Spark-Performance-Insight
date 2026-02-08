@@ -14,4 +14,13 @@ public class EnvironmentConfigService extends ServiceImpl<EnvironmentConfigMappe
         if (list == null || list.isEmpty()) return;
         baseMapper.upsertBatch(list);
     }
+
+    public String getConfigValue(String appId, String key) {
+        return lambdaQuery()
+                .eq(EnvironmentConfigModel::getAppId, appId)
+                .eq(EnvironmentConfigModel::getParamKey, key)
+                .oneOpt()
+                .map(EnvironmentConfigModel::getParamValue)
+                .orElse(null);
+    }
 }

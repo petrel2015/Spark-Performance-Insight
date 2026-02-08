@@ -115,12 +115,15 @@ public class JacksonEventParser implements EventParser {
                         }
                         String eventType = node.get("Event").asText();
 
-                        // 尝试从环境更新中提取 App ID
-                        if (currentAppId == null && eventType.equals("SparkListenerEnvironmentUpdate")) {
+                        // 尝试从环境更新中提取/校正 App ID
+                        if (eventType.equals("SparkListenerEnvironmentUpdate")) {
                             JsonNode sparkProps = node.get("Spark Properties");
                             if (sparkProps != null && sparkProps.has("spark.app.id")) {
-                                currentAppId = sparkProps.get("spark.app.id").asText();
-                                log.info("Detected App ID from EnvironmentUpdate: {}", currentAppId);
+                                String realAppId = sparkProps.get("spark.app.id").asText();
+                                if (currentAppId == null || !currentAppId.equals(realAppId)) {
+                                    log.info("Detected/Corrected App ID from EnvironmentUpdate: {} (previously: {})", realAppId, currentAppId);
+                                    currentAppId = realAppId;
+                                }
 
                                 ApplicationModel app = applicationService.getById(currentAppId);
                                 if (app == null) {
@@ -135,10 +138,6 @@ public class JacksonEventParser implements EventParser {
                                     applicationService.saveOrUpdate(app);
                                 } else if (versionFromLogStart != null && (app.getSparkVersion() == null || app.getSparkVersion().equals("unknown"))) {
                                     app.setSparkVersion(versionFromLogStart);
-                                    if (!"READY".equals(app.getParsingStatus())) {
-                                        app.setParsingStatus("PARSING");
-                                        updateParsingProgress(app, currentFileIndex, totalFiles, lineCount);
-                                    }
                                     applicationService.updateById(app);
                                 }
                             }
@@ -159,11 +158,16 @@ public class JacksonEventParser implements EventParser {
                                 break;
                             case "SparkListenerApplicationStart":
                                 currentAppId = node.get("App ID").asText();
-                                handleAppStart(node, currentAppId, currentFileIndex, totalFiles);
+                                handleAppStart(node, currentAppId, currentFileIndex, totalFiles, versionFromLogStart);
                                 break;
                             case "SparkListenerEnvironmentUpdate":
                                 if (currentAppId != null) {
                                     handleEnvUpdate(node, currentAppId, envBatch);
+                                    if (envBatch.size() > 500) {
+                                        List<EnvironmentConfigModel> batchToSave = new ArrayList<>(envBatch);
+                                        envBatch.clear();
+                                        dbExecutor.submit(() -> saveDeduplicatedEnv(batchToSave));
+                                    }
                                 }
                                 break;
                             case "SparkListenerJobStart":
@@ -219,7 +223,10 @@ public class JacksonEventParser implements EventParser {
                     List<TaskModel> batchToSave = new ArrayList<>(taskBatch);
                     dbExecutor.submit(() -> saveDeduplicatedTasks(batchToSave));
                 }
-                if (!envBatch.isEmpty()) saveDeduplicatedEnv(envBatch);
+                if (!envBatch.isEmpty()) {
+                    List<EnvironmentConfigModel> batchToSave = new ArrayList<>(envBatch);
+                    dbExecutor.submit(() -> saveDeduplicatedEnv(batchToSave));
+                }
 
                 // Update final progress for this specific file
                 updateParsingProgress(currentAppId, currentFileIndex, totalFiles, lineCount);
@@ -392,7 +399,7 @@ public class JacksonEventParser implements EventParser {
         envService.upsertBatch(new ArrayList<>(unique.values()));
     }
 
-    private void handleAppStart(JsonNode node, String appId, int fileIdx, int totalFiles) {
+    private void handleAppStart(JsonNode node, String appId, int fileIdx, int totalFiles, String versionFromLogStart) {
         ApplicationModel app = applicationService.getById(appId);
         if (app == null) {
             app = new ApplicationModel();
@@ -407,7 +414,8 @@ public class JacksonEventParser implements EventParser {
         app.setStartTime(parseTimestamp(node.get("Timestamp").asLong()));
 
         if (app.getSparkVersion() == null || app.getSparkVersion().equals("unknown")) {
-            app.setSparkVersion(node.has("Spark Version") ? node.get("Spark Version").asText() : "unknown");
+            String version = node.has("Spark Version") ? node.get("Spark Version").asText() : versionFromLogStart;
+            app.setSparkVersion(version != null ? version : "unknown");
         }
 
         applicationService.saveOrUpdate(app);
@@ -526,27 +534,47 @@ public class JacksonEventParser implements EventParser {
     }
 
     private void handleEnvUpdate(JsonNode node, String appId, List<EnvironmentConfigModel> batch) {
+        int initialSize = batch.size();
         extractProps(node, "Spark Properties", "spark_conf", appId, batch);
         extractProps(node, "JVM Information", "jvm_info", appId, batch);
         extractProps(node, "Hadoop Properties", "hadoop_conf", appId, batch);
         extractProps(node, "System Properties", "system_props", appId, batch);
         extractProps(node, "Metrics Properties", "metrics_props", appId, batch);
         extractProps(node, "Classpath Entries", "classpath_entries", appId, batch);
+        log.info("Extracted {} environment properties for App: {}", batch.size() - initialSize, appId);
     }
 
     private void extractProps(JsonNode node, String fieldName, String category, String appId, List<EnvironmentConfigModel> batch) {
         JsonNode props = node.get(fieldName);
-        if (props != null && props.isObject()) {
+        if (props == null) return;
+
+        if (props.isObject()) {
             props.fields().forEachRemaining(entry -> {
-                EnvironmentConfigModel config = new EnvironmentConfigModel();
-                config.setId(appId + ":" + category + ":" + entry.getKey());
-                config.setAppId(appId);
-                config.setParamKey(entry.getKey());
-                config.setParamValue(entry.getValue().asText());
-                config.setCategory(category);
-                batch.add(config);
+                addEnvConfig(appId, category, entry.getKey(), entry.getValue().asText(), batch);
             });
+        } else if (props.isArray()) {
+            for (JsonNode item : props) {
+                if (item.isArray() && item.size() >= 2) {
+                    addEnvConfig(appId, category, item.get(0).asText(), item.get(1).asText(), batch);
+                } else if (item.isObject()) {
+                    String name = item.has("Name") ? item.get("Name").asText() : (item.has("key") ? item.get("key").asText() : null);
+                    String value = item.has("Value") ? item.get("Value").asText() : (item.has("value") ? item.get("value").asText() : "");
+                    if (name != null) {
+                        addEnvConfig(appId, category, name, value, batch);
+                    }
+                }
+            }
         }
+    }
+
+    private void addEnvConfig(String appId, String category, String key, String value, List<EnvironmentConfigModel> batch) {
+        EnvironmentConfigModel config = new EnvironmentConfigModel();
+        config.setId(appId + ":" + category + ":" + key);
+        config.setAppId(appId);
+        config.setParamKey(key);
+        config.setParamValue(value);
+        config.setCategory(category);
+        batch.add(config);
     }
 
     private void handleStageSubmitted(JsonNode node, String appId, Map<Integer, Integer> stageToJobMap) {

@@ -465,8 +465,9 @@ const isFieldSorted = (field) => {
 
 const getScoreClass = (score) => {
   if (score < 40) return 'critical';
-  if (score < 80) return 'warning';
-  return 'good';
+  if (score < 70) return 'warning';
+  if (score < 90) return 'good';
+  return 'healthy';
 };
 
 onMounted(fetchStages);
@@ -906,6 +907,11 @@ watch(() => props.appId, () => {
   text-align: center;
   font-weight: bold;
   font-size: 0.8rem;
+}
+
+.score-badge.healthy {
+  background-color: #27ae60;
+  color: white;
 }
 
 .score-badge.good {

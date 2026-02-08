@@ -3,10 +3,16 @@ export const formatTime = (ms: number | null | undefined) => {
     if (ms < 1) return '0 ms';
     if (ms < 1000) return `${Math.round(ms)} ms`;
     const s = ms / 1000;
-    if (s < 60) return `${s.toFixed(1)} s`;
-    const m = Math.floor(s / 60);
-    const rs = Math.round(s % 60);
-    return `${m} m ${rs} s`;
+    if (s < 60) return `${s.toFixed(2)} s`;
+    if (s < 3600) {
+        const m = Math.floor(s / 60);
+        const rs = (s % 60).toFixed(2);
+        return `${m} min ${rs} s`;
+    }
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const rs = (s % 60).toFixed(1);
+    return `${h} h ${m} min ${rs} s`;
 };
 
 export const formatBytes = (bytes: number | null | undefined) => {

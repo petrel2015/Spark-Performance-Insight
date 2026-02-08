@@ -41,18 +41,17 @@ public class DiagnosisService {
                 .average().orElse(100.0);
 
         sb.append("## <span class=\"material-symbols-outlined\" style=\"vertical-align: middle;\">dashboard</span> 应用健康概览\n");
-        sb.append(String.format("- **整体健康得分**: `%d / 100` (%s)\n", 
-                Math.round(avgScore), getHealthLabel(avgScore)));
+        sb.append(String.format("- **整体健康得分**: %s\n", getHealthLabel(avgScore)));
         sb.append(String.format("- **应用名称**: `%s`\n", app.getAppName()));
-        sb.append(String.format("- **运行耗时**: `%s` 秒\n", 
-                app.getDuration() != null ? app.getDuration() / 1000 : "N/A"));
+        sb.append(String.format("- **运行耗时**: `%s`\n", 
+                app.getDuration() != null ? formatDuration(app.getDuration()) : "N/A"));
         sb.append("\n---\n\n");
 
         // 2. Detailed Stage Analysis
         sb.append("## <span class=\"material-symbols-outlined\" style=\"vertical-align: middle;\">troubleshoot</span> 性能异常阶段分析\n");
         List<StageModel> criticalStages = stageService.lambdaQuery()
                 .eq(StageModel::getAppId, appId)
-                .lt(StageModel::getPerformanceScore, 80) // 健康分低于 80 视为异常
+                .lt(StageModel::getPerformanceScore, 90) // 健康分低于 90 视为有优化空间
                 .orderByAsc(StageModel::getPerformanceScore)
                 .last("LIMIT 5")
                 .list();
@@ -63,8 +62,11 @@ public class DiagnosisService {
             for (StageModel stage : criticalStages) {
                 sb.append(String.format("### Stage %d: %s\n", 
                         stage.getStageId(), stage.getStageName()));
-                sb.append(String.format("- **健康得分**: `%d` | **任务总数**: `%d`\n", 
-                        Math.round(stage.getPerformanceScore()), stage.getNumTasks()));
+                sb.append(String.format("- **健康得分**: <span style=\"color: %s; font-weight: bold;\">%d</span> | **运行耗时**: `%s` | **任务总数**: `%d`\n", 
+                        getHealthColor(stage.getPerformanceScore()),
+                        Math.round(stage.getPerformanceScore()),
+                        formatDuration(stage.getDuration() != null ? stage.getDuration() : 0),
+                        stage.getNumTasks()));
                 
                 appendStageSpecificAdvice(sb, stage);
                 sb.append("\n");
@@ -85,8 +87,10 @@ public class DiagnosisService {
             for (JobModel job : topImpactJobs) {
                 sb.append(String.format("### Job %d: %s\n", job.getJobId(), 
                         job.getDescription() != null ? job.getDescription() : "Job Execution"));
-                sb.append(String.format("- **健康评分**: `%d` | **运行耗时**: `%d ms`\n", 
-                        Math.round(job.getPerformanceScore()), job.getDuration()));
+                sb.append(String.format("- **健康评分**: <span style=\"color: %s; font-weight: bold;\">%d</span> | **运行耗时**: `%s`\n", 
+                        getHealthColor(job.getPerformanceScore()),
+                        Math.round(job.getPerformanceScore()), 
+                        formatDuration(job.getDuration() != null ? job.getDuration() : 0)));
                 
                 // 只有当有关联阶段被列出时，才引导查看下方
                 if (!criticalStages.isEmpty()) {
@@ -122,9 +126,16 @@ public class DiagnosisService {
     }
 
     private String getHealthLabel(double score) {
-        if (score < 40) return "<span style=\"color: #e74c3c;\">极差 (Critical)</span>";
-        if (score < 80) return "<span style=\"color: #f39c12;\">一般 (Warning)</span>";
-        return "<span style=\"color: #27ae60;\">良好 (Healthy)</span>";
+        if (score < 40) return String.format("<span style=\"color: #e74c3c; font-weight: bold;\">极差 (Critical: %d)</span>", Math.round(score));
+        if (score < 70) return String.format("<span style=\"color: #f39c12; font-weight: bold;\">一般 (Warning: %d)</span>", Math.round(score));
+        if (score < 90) return String.format("<span style=\"color: #27ae60; font-weight: bold;\">良好 (Good: %d)</span>", Math.round(score));
+        return String.format("<span style=\"color: #27ae60; font-weight: bold;\">健康 (Healthy: %d)</span>", Math.round(score));
+    }
+
+    private String getHealthColor(double score) {
+        if (score < 40) return "#e74c3c";
+        if (score < 70) return "#f39c12";
+        return "#27ae60";
     }
 
     private String formatDuration(long ms) {

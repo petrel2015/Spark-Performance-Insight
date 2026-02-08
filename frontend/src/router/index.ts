@@ -2,12 +2,14 @@ import {createRouter, createWebHistory} from 'vue-router'
 import AppList from '../views/AppList.vue'
 import AppDetail from '../views/AppDetail.vue'
 import CompareWorkspace from '../views/CompareWorkspace.vue'
+import CompareResult from '../views/CompareResult.vue'
 
 const router = createRouter({
     history: createWebHistory(),
     routes: [
         {path: '/', component: AppList},
         {path: '/compare', component: CompareWorkspace},
+        {path: '/compare/result', component: CompareResult},
         {path: '/app/:id', component: AppDetail},
         {path: '/app/:id/sql', component: AppDetail},
         {path: '/app/:id/sql/:executionId', component: AppDetail},

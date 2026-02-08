@@ -78,5 +78,7 @@ export const getApp = (appId: string) => request.get(`/apps/${appId}`);
 export const getDiagnosisReport = (appId: string) => request.get(`/apps/${appId}/report`);
 export const getLLMReport = (appId: string, force = false) => 
     request.get(`/apps/${appId}/llm-report?force=${force}`);
+export const getComparisonResult = (type: string, app1: string, id1: string, app2: string, id2: string) =>
+    request.get(`/compare/result?type=${type}&app1=${app1}&id1=${id1}&app2=${app2}&id2=${id2}`);
 export const compareApps = (appId1: string, appId2: string) =>
     request.get(`/compare?appId1=${appId1}&appId2=${appId2}`);

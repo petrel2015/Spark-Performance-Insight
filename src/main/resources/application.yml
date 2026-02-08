@@ -2,14 +2,16 @@ server:
   port: 18081
 
 spring:
+  datasource:
+    url: jdbc:duckdb:spark_performance_insight.db
+    driver-class-name: org.duckdb.DuckDBDriver
+    username: sa
+    password: ""
   application:
     name: spark-performance-insight
   threads:
     virtual:
       enabled: true
-  datasource:
-    url: jdbc:duckdb:spark_performance_insight.db
-    driver-class-name: org.duckdb.DuckDBDriver
   sql:
     init:
       mode: always

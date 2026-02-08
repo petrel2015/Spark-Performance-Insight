@@ -1,3 +1,16 @@
+
+## 0.29.0 - 2026-02-08
+
+### Features
+- **Multi-Dimensional Comparison**: Implemented cross-application, job, and stage performance comparison
+- **Environment Analysis**: Added categorical configuration diff (Spark, JVM, Hadoop) with identical item filtering
+- **Unified Comparison UI**: Redesigned comparison detail cards with left-aligned layout and rich metadata (Duration, Stages, Tasks)
+- **Application Comparison**: Enabled direct selection and comparison of two different Spark applications from the workspace
+
+### Improvements
+- **Data Parsing**: Enhanced App ID detection and implemented batch processing for environment configurations
+- **Robustness**: Added `spring-boot-starter-jdbc` for more reliable datasource auto-configuration
+- **UI Consistency**: Standardized health score badges and refined card styles across the comparison report
 ## 0.28.1 - 2026-02-08
 
 ### Fixes

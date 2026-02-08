@@ -24,6 +24,58 @@
       </div>
 
       <div class="workspace-content">
+        <!-- 0. Applications Comparison Selection -->
+        <CollapsibleCard title="Application Candidates for Comparison" :initial-collapsed="false">
+          <template #actions>
+            <button class="compare-now-btn" 
+                    :disabled="!canCompareApps" 
+                    @click="startComparison('app')">
+              <span class="material-symbols-outlined">analytics</span>
+              Start Application Comparison
+            </button>
+          </template>
+          
+          <div v-if="selectedApps.length > 0" class="items-grid">
+            <div v-for="item in selectedApps" :key="item.id" 
+                 class="selected-item-card app-card clickable"
+                 :class="{ 'is-checked': compareStore.isItemSelected(item.id) }"
+                 @click="compareStore.toggleComparisonItem(item.id)">
+               
+               <div class="item-name" :title="item.name">{{ item.name }}</div>
+               <div class="app-identifier">
+                 <span class="material-symbols-outlined">Apps</span>
+                 <code class="app-id-text">{{ item.appId }}</code>
+               </div>
+               <div class="item-stats">
+                 <span class="stat-badge id-badge">ID: {{ item.itemId }}</span>
+                 <template v-if="item.details">
+                   <span v-if="item.details.duration" class="stat-badge">
+                     <span class="material-symbols-outlined">timer</span>
+                     {{ formatTime(item.details.duration) }}
+                   </span>
+                 </template>
+               </div>
+               <div class="card-actions" @click.stop>
+                 <button class="action-btn select-action-btn" 
+                         :class="{ selected: compareStore.isItemSelected(item.id) }"
+                         @click="compareStore.toggleComparisonItem(item.id)">
+                   <span class="material-symbols-outlined">
+                     {{ compareStore.isItemSelected(item.id) ? 'check_circle' : 'radio_button_unchecked' }}
+                   </span>
+                   {{ compareStore.isItemSelected(item.id) ? 'Selected' : 'Select' }}
+                 </button>
+                 <router-link :to="`/app/${item.appId}`" class="action-btn view-link">View Detail</router-link>
+                 <button class="remove-btn-small" @click="compareStore.removeItem(item.id)" title="Remove from workspace">
+                   <span class="material-symbols-outlined">delete</span>
+                 </button>
+               </div>
+            </div>
+          </div>
+          <div v-else class="inner-empty-state">
+            <p>No Application candidates selected.</p>
+          </div>
+        </CollapsibleCard>
+
         <!-- 1. Jobs Comparison Selection -->
         <CollapsibleCard title="Job Candidates for Comparison" :initial-collapsed="false">
           <template #actions>
@@ -153,6 +205,7 @@ let timer = null;
 
 const selectedJobs = computed(() => compareStore.selectedItems.filter(i => i.type === 'job'));
 const selectedStages = computed(() => compareStore.selectedItems.filter(i => i.type === 'stage'));
+const selectedApps = computed(() => compareStore.selectedItems.filter(i => i.type === 'app'));
 
 const checkedJobsCount = computed(() => {
   return selectedJobs.value.filter(j => compareStore.isItemSelected(j.id)).length;
@@ -162,18 +215,28 @@ const checkedStagesCount = computed(() => {
   return selectedStages.value.filter(s => compareStore.isItemSelected(s.id)).length;
 });
 
+const checkedAppsCount = computed(() => {
+  return selectedApps.value.filter(a => compareStore.isItemSelected(a.id)).length;
+});
+
 const canCompareJobs = computed(() => checkedJobsCount.value === 2);
 const canCompareStages = computed(() => checkedStagesCount.value === 2);
+const canCompareApps = computed(() => checkedAppsCount.value === 2);
 
 const startComparison = (type) => {
   const selected = compareStore.selectedItems.filter(i => i.type === type && compareStore.isItemSelected(i.id));
   if (selected.length !== 2) return;
   
-  const id1 = selected[0].id;
-  const id2 = selected[1].id;
+  const id1 = selected[0].itemId;
+  const id2 = selected[1].itemId;
+  const app1 = selected[0].appId;
+  const app2 = selected[1].appId;
   
-  console.log(`Starting comparison for ${type}:`, id1, id2);
-  alert(`Starting comparison between ${selected[0].name} and ${selected[1].name}. Feature coming soon!`);
+  if (type === 'app') {
+    router.push(`/compare/result?type=app&app1=${app1}&id1=${app1}&app2=${app2}&id2=${app2}`);
+  } else {
+    router.push(`/compare/result?type=${type}&app1=${app1}&id1=${id1}&app2=${app2}&id2=${id2}`);
+  }
 };
 
 onMounted(() => {

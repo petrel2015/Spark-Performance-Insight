@@ -124,6 +124,19 @@
             <td>{{ formatDateTime(app.startTime) }}</td>
             <td>{{ (app.duration / 1000).toFixed(1) }} s</td>
             <td><span :class="'status-' + app.status">{{ app.status }}</span></td>
+            <td>
+              <div class="actions-cell">
+                <button v-if="compareStore.isCompareMode" 
+                        class="compare-action-btn"
+                        :class="{ 'in-workspace': compareStore.isInWorkspace(app.appId, 'app') }"
+                        @click="toggleCompare(app)">
+                  <span class="material-symbols-outlined">
+                    {{ compareStore.isInWorkspace(app.appId, 'app') ? 'check_circle' : 'add_circle' }}
+                  </span>
+                  {{ compareStore.isInWorkspace(app.appId, 'app') ? 'Added' : 'Compare' }}
+                </button>
+              </div>
+            </td>
           </tr>
           <tr v-if="apps.length === 0">
             <td colspan="10" style="text-align: center; padding: 40px;">No applications found.</td>
@@ -140,6 +153,7 @@ import {ref, onMounted, computed} from 'vue';
 import {getApps} from '../api';
 import {formatDateTime} from '../utils/format';
 import {useRoute, useRouter} from 'vue-router';
+import { compareStore } from '../store/compareStore';
 
 const route = useRoute();
 const router = useRouter();
@@ -161,8 +175,23 @@ const columns = [
   {field: 'userName', label: 'User', width: '120px'},
   {field: 'startTime', label: 'Submitted', width: '180px'},
   {field: 'duration', label: 'Duration', width: '120px'},
-  {field: 'status', label: 'Status', width: '100px'}
+  {field: 'status', label: 'Status', width: '100px'},
+  {field: 'actions', label: 'Actions', width: '120px'}
 ];
+
+const toggleCompare = (app) => {
+  compareStore.addItem({
+    id: `app:${app.appId}`,
+    type: 'app',
+    itemId: app.appId,
+    appId: app.appId,
+    name: app.appName,
+    details: {
+      duration: app.duration,
+      status: app.status
+    }
+  });
+};
 
 const fetchApps = async () => {
   try {
@@ -722,5 +751,39 @@ onMounted(() => {
   background-color: #f9f2f4;
   padding: 2px 4px;
   border-radius: 3px;
+}
+
+.actions-cell {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.compare-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: white;
+  border: 1px solid #3498db;
+  color: #3498db;
+}
+
+.compare-action-btn:hover {
+  background: #f0f7ff;
+}
+
+.compare-action-btn.in-workspace {
+  background: #3498db;
+  color: white;
+}
+
+.compare-action-btn .material-symbols-outlined {
+  font-size: 16px;
 }
 </style>

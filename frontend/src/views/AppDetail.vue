@@ -221,6 +221,10 @@ const startPolling = (remoteStartTime) => {
     try {
       const res = await getApp(route.params.id);
       const appData = res.data;
+      
+      // Update app metadata (including Spark version)
+      app.value = appData;
+
       if (appData.llmReport && appData.llmReport !== '[GENERATING]' && appData.llmReport !== 'GENERATING') {
         llmReport.value = appData.llmReport;
         
@@ -434,6 +438,18 @@ onUnmounted(() => stopPolling());
     padding: 0.5rem 1rem;
     gap: 10px;
   }
+}
+
+.spark-version-badge {
+  background-color: #e8f4f8;
+  color: #2980b9;
+  font-size: 0.7rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid #d1e9f0;
+  font-weight: 600;
+  white-space: nowrap;
+  vertical-align: middle;
 }
 
 .app-info h2 {

@@ -65,6 +65,12 @@ export const compareStore = reactive({
     const key = `${appId}:${type}:${itemId}`;
     return this.selectedItems.some(i => i.id === key);
   },
+
+  isInWorkspace(appId: string, type: 'job' | 'stage' | 'app', itemId?: number | string) {
+    // For app type, itemId is usually same as appId
+    const idToCheck = itemId !== undefined ? itemId : appId;
+    return this.hasItem(type, appId, idToCheck);
+  },
   
   clear() {
     this.selectedItems = [];

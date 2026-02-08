@@ -7,4 +7,12 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class TaskService extends ServiceImpl<TaskMapper, TaskModel> {
+
+    public long getExecutorCountForStage(String appId, int stageId) {
+        return baseMapper.getExecutorCountForStage(appId, stageId);
+    }
+
+    public long getExecutorCountForJob(String appId, int jobId) {
+        return baseMapper.getExecutorCountForJob(appId, jobId);
+    }
 }

@@ -50,7 +50,7 @@ An advanced Spark performance analysis system that replaces the slow "event repl
 - **Standard Build & Run**: 
   ```bash
   export JAVA_HOME="/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home"
-  mvn clean package -Prun
+  mvn clean package -Prun -DskipTests
   ```
   *(This builds FE+BE, copies JAR to workspace, and restarts Docker via the `run` profile)*
 - **Frontend Only Dev**: `cd frontend && npm run dev` (Vite will proxy to `localhost:18081`).

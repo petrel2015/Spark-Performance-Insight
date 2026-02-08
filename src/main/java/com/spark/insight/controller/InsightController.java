@@ -2,6 +2,7 @@ package com.spark.insight.controller;
 
 import com.spark.insight.model.*;
 import com.spark.insight.model.dto.AppComparisonResult;
+import com.spark.insight.model.dto.ComparisonResult;
 import com.spark.insight.model.dto.PageResponse;
 import com.spark.insight.service.*;
 import com.spark.insight.exception.AppParsingException;
@@ -286,6 +287,29 @@ public class InsightController {
     }
 
     /**
+     * 获取对比结果
+     */
+    @GetMapping("/compare/result")
+    public ComparisonResult getComparisonResult(
+            @RequestParam String type,
+            @RequestParam String app1,
+            @RequestParam String id1,
+            @RequestParam String app2,
+            @RequestParam String id2) {
+        return comparisonService.compare(type, app1, id1, app2, id2);
+    }
+
+    /**
+     * 专门用于 Application 级别的对比
+     */
+    @GetMapping("/compare")
+    public ComparisonResult compareApps(
+            @RequestParam String appId1,
+            @RequestParam String appId2) {
+        return comparisonService.compare("app", appId1, appId1, appId2, appId2);
+    }
+
+    /**
      * 获取指定 App 的 Stage 详情（包含预计算指标）
      */
     @GetMapping("/apps/{appId}/stages")
@@ -342,16 +366,6 @@ public class InsightController {
         }
 
         return query.one();
-    }
-
-    /**
-     * 对比两个 Application
-     */
-    @GetMapping("/compare")
-    public AppComparisonResult compare(@RequestParam String appId1, @RequestParam String appId2) {
-        checkAppReady(appId1);
-        checkAppReady(appId2);
-        return comparisonService.compareApps(appId1, appId2);
     }
 
     /**

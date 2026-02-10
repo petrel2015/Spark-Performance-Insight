@@ -5,16 +5,16 @@ import lombok.Getter;
 
 @Getter
 public enum EventLogStatus {
-    PROCESSING(0, "Parsing"),
-    IMPORTING(1, "Importing"),
-    SUCCESS(2, "Success"),
-    FAILED(3, "Failed");
+    PROCESSING((byte) 0L, "Parsing"),
+    IMPORTING((byte) 1, "Importing"),
+    SUCCESS((byte) 2, "Success"),
+    FAILED((byte) 3, "Failed");
 
     @EnumValue
-    private final int code;
+    private final Byte code;
     private final String description;
 
-    EventLogStatus(int code, String description) {
+    EventLogStatus(Byte code, String description) {
         this.code = code;
         this.description = description;
     }

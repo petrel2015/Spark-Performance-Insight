@@ -8,8 +8,13 @@
         
         <div class="header-right">
           <div class="search-box">
-            <input type="number" v-model.number="searchJobId" placeholder="Search Job ID" @keyup.enter="handleSearch"
-                   min="0" class="search-input" style="width: 150px;">
+            <input type="text"
+                   v-model="searchJobId"
+                   placeholder="Search Job ID"
+                   @keyup.enter="handleSearch"
+                   @input="searchJobId = searchJobId.replace(/[^\d]/g, '')"
+                   class="search-input"
+                   style="width: 150px;">
             <button @click="handleSearch" class="search-btn">
               <span class="material-symbols-outlined" style="font-size: 18px; vertical-align: middle; margin-right: 4px;">search</span>
               Search

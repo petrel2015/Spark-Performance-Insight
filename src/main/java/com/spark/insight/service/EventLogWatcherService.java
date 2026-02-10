@@ -2,6 +2,7 @@ package com.spark.insight.service;
 
 import com.spark.insight.config.InsightProperties;
 import com.spark.insight.mapper.ParsedEventLogMapper;
+import com.spark.insight.model.EventLogStatus;
 import com.spark.insight.model.ParsedEventLogModel;
 import com.spark.insight.parser.EventParser;
 import lombok.RequiredArgsConstructor;
@@ -10,7 +11,9 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -114,26 +117,27 @@ public class EventLogWatcherService {
 
     private void processFile(File file, int currentIdx, int totalFiles) {
         String absolutePath = file.getAbsolutePath();
+        String fileName = file.getName();
         
         // Avoid concurrent processing of the same file (in case of scheduler overlaps)
         if (processingFiles.contains(absolutePath)) {
             return;
         }
 
-        long lastModified = file.lastModified();
+        LocalDateTime lastModified = LocalDateTime.ofInstant(Instant.ofEpochMilli(file.lastModified()), ZoneId.systemDefault());
         long fileSize = file.length();
 
-        ParsedEventLogModel record = parsedLogMapper.selectById(absolutePath);
+        ParsedEventLogModel record = parsedLogMapper.selectById(fileName);
         boolean needsParse = false;
 
         if (record == null) {
-            log.info("New log file detected: {}", file.getName());
+            log.info("New log file detected: {}", fileName);
             needsParse = true;
         } else {
             // Check if file has been modified since last parse
-            if (record.getLastModified() != lastModified || record.getFileSize() != fileSize || "PROCESSING".equals(record.getStatus())) {
+            if (!Objects.equals(record.getLastModified(), lastModified) || record.getFileSize() != fileSize || EventLogStatus.PROCESSING == record.getStatus()) {
                 log.info("Log file change or retry needed: {} (Status: {}, Size: {} -> {}, Mod: {} -> {})",
-                        file.getName(), record.getStatus(), record.getFileSize(), fileSize, record.getLastModified(), lastModified);
+                        fileName, record.getStatus(), record.getFileSize(), fileSize, record.getLastModified(), lastModified);
                 needsParse = true;
             }
         }
@@ -143,10 +147,10 @@ public class EventLogWatcherService {
             try {
                 // Mark as PROCESSING in DB immediately
                 ParsedEventLogModel startRecord = new ParsedEventLogModel();
-                startRecord.setFilePath(absolutePath);
+                startRecord.setFileName(fileName);
                 startRecord.setLastModified(lastModified);
                 startRecord.setFileSize(fileSize);
-                startRecord.setStatus("PROCESSING");
+                startRecord.setStatus(EventLogStatus.PROCESSING);
                 startRecord.setParsedAt(LocalDateTime.now());
                 if (record == null) {
                     parsedLogMapper.insert(startRecord);
@@ -158,21 +162,21 @@ public class EventLogWatcherService {
 
                 // Update record in DB
                 ParsedEventLogModel newRecord = new ParsedEventLogModel();
-                newRecord.setFilePath(absolutePath);
+                newRecord.setFileName(fileName);
                 newRecord.setLastModified(lastModified);
                 newRecord.setFileSize(fileSize);
                 newRecord.setParsedAt(LocalDateTime.now());
-                newRecord.setStatus("SUCCESS");
+                newRecord.setStatus(EventLogStatus.SUCCESS);
                 parsedLogMapper.updateById(newRecord);
             } catch (Exception e) {
-                log.error("Failed to parse " + file.getName(), e);
+                log.error("Failed to parse " + fileName, e);
                 // Record failure state
                 ParsedEventLogModel failedRecord = new ParsedEventLogModel();
-                failedRecord.setFilePath(absolutePath);
+                failedRecord.setFileName(fileName);
                 failedRecord.setLastModified(lastModified);
                 failedRecord.setFileSize(fileSize);
                 failedRecord.setParsedAt(LocalDateTime.now());
-                failedRecord.setStatus("FAILED");
+                failedRecord.setStatus(EventLogStatus.FAILED);
                 parsedLogMapper.updateById(failedRecord);
             } finally {
                 processingFiles.remove(absolutePath);

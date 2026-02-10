@@ -10,10 +10,10 @@ import java.time.LocalDateTime;
 @TableName("parsed_event_logs")
 public class ParsedEventLogModel {
     @TableId
-    private String filePath;
-    private Long lastModified;
+    private String fileName;
+    private LocalDateTime lastModified;
     private Long fileSize;
     private String fileHash;
     private LocalDateTime parsedAt;
-    private String status; // SUCCESS, FAILED
+    private EventLogStatus status;
 }

@@ -324,7 +324,7 @@ public class JacksonEventParser implements EventParser {
 
     private void updateParsingProgress(ApplicationModel app, int fileIdx, int totalFiles, long bytesRead, long totalBytes) {
         double percentage = totalBytes > 0 ? (bytesRead * 100.0 / totalBytes) : 0;
-        String msg = String.format("Processing file %d/%d (%.1f%%)", fileIdx, totalFiles, percentage);
+        String msg = String.format("Processing file %d/%d (%d/%d bytes, %.1f%%)", fileIdx, totalFiles, bytesRead, totalBytes, percentage);
         app.setParsingProgress(msg);
     }
 

@@ -5,9 +5,10 @@ import lombok.Getter;
 
 @Getter
 public enum EventLogStatus {
-    PROCESSING(0, "Importing"),
-    SUCCESS(1, "Success"),
-    FAILED(2, "Failed");
+    PROCESSING(0, "Parsing"),
+    IMPORTING(1, "Importing"),
+    SUCCESS(2, "Success"),
+    FAILED(3, "Failed");
 
     @EnumValue
     private final int code;

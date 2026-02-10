@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.luben.zstd.ZstdInputStream;
+import com.spark.insight.mapper.ParsedEventLogMapper;
 import com.spark.insight.model.*;
 import com.spark.insight.service.*;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +31,7 @@ public class JacksonEventParser implements EventParser {
     private final ExecutorService executorService;
     private final SqlExecutionService sqlExecutionService;
     private final StorageService storageService;
+    private final ParsedEventLogMapper parsedLogMapper;
     private final javax.sql.DataSource dataSource;
     // Use a single-threaded executor for ALL database writes to avoid DuckDB lock contention
     private final java.util.concurrent.ExecutorService dbExecutor = java.util.concurrent.Executors.newSingleThreadExecutor();
@@ -42,6 +44,7 @@ public class JacksonEventParser implements EventParser {
                               ExecutorService executorService,
                               SqlExecutionService sqlExecutionService,
                               StorageService storageService,
+                              ParsedEventLogMapper parsedLogMapper,
                               javax.sql.DataSource dataSource) {
         JsonFactory factory = JsonFactory.builder()
                 .streamReadConstraints(StreamReadConstraints.builder().maxStringLength(Integer.MAX_VALUE).build())
@@ -55,6 +58,7 @@ public class JacksonEventParser implements EventParser {
         this.executorService = executorService;
         this.sqlExecutionService = sqlExecutionService;
         this.storageService = storageService;
+        this.parsedLogMapper = parsedLogMapper;
         this.dataSource = dataSource;
     }
 
@@ -126,6 +130,7 @@ public class JacksonEventParser implements EventParser {
                                 if (currentAppId == null || !currentAppId.equals(realAppId)) {
                                     log.info("Detected/Corrected App ID from EnvironmentUpdate: {} (previously: {})", realAppId, currentAppId);
                                     currentAppId = realAppId;
+                                    updateImportingStatus(logFile.getName());
                                 }
 
                                 ApplicationModel app = applicationService.getById(currentAppId);
@@ -161,6 +166,7 @@ public class JacksonEventParser implements EventParser {
                                 break;
                             case "SparkListenerApplicationStart":
                                 currentAppId = node.get("App ID").asText();
+                                updateImportingStatus(logFile.getName());
                                 handleAppStart(node, currentAppId, currentFileIndex, totalFiles, versionFromLogStart, fileSize);
                                 break;
                             case "SparkListenerEnvironmentUpdate":
@@ -311,6 +317,14 @@ public class JacksonEventParser implements EventParser {
             app.setParsingProgress(null);
             applicationService.updateById(app);
             log.warn("Force marked App {} as READY due to errors in post-calculation", appId);
+        }
+    }
+
+    private void updateImportingStatus(String fileName) {
+        ParsedEventLogModel logRecord = parsedLogMapper.selectById(fileName);
+        if (logRecord != null && logRecord.getStatus() == EventLogStatus.PROCESSING) {
+            logRecord.setStatus(EventLogStatus.IMPORTING);
+            parsedLogMapper.updateById(logRecord);
         }
     }
 

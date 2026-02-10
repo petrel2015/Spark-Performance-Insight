@@ -1,4 +1,15 @@
 
+## 0.30.0 - 2026-02-10
+
+### Features
+- **Parser Progress**: Implemented byte-based percentage tracking and post-calculation status updates for better log ingestion visibility
+
+### Refactor
+- **UI Search Validation**: Converted numeric ID search inputs to text type with strict non-negative integer regex validation across Jobs, Stages, and SQL views
+
+### Maintenance
+- **Docker**: Modernized Maven build profiles to use `docker compose` instead of the deprecated `docker-compose`
+
 ## 0.29.0 - 2026-02-08
 
 ### Features

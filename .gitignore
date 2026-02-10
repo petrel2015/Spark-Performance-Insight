@@ -42,3 +42,6 @@ eventlogs/
 *.db.wal
 frontend/node_modules/
 frontend/dist/spark-insight/
+node_modules/
+dist/
+pid.txt

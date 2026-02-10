@@ -3,7 +3,7 @@
     <div v-for="section in sections" :key="section.category">
       <CollapsibleCard :title="section.title" :initial-collapsed="section.defaultCollapsed">
         <div v-if="section.searchable" class="search-bar">
-          <input v-model="searchQueries[section.category]" :placeholder="'Search ' + section.title + '...'"/>
+          <input v-model.trim="searchQueries[section.category]" :placeholder="'Search ' + section.title + '...'"/>
         </div>
 
         <div class="table-wrapper">

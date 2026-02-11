@@ -211,7 +211,7 @@ CREATE TABLE IF NOT EXISTS parsed_event_logs (
     file_size BIGINT,
     file_hash VARCHAR,
     parsed_at TIMESTAMP,
-    status TINYINT
+    status INTEGER
 );
 
 -- SQL 执行详情

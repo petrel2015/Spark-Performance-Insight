@@ -117,7 +117,7 @@ public class JacksonEventParser implements EventParser {
 
                     try {
                         JsonNode node = objectMapper.readTree(line);
-                        if (!node.has("Event")){
+                        if (!node.has("Event")) {
                             continue;
                         }
                         String eventType = node.get("Event").asText();
@@ -224,7 +224,7 @@ public class JacksonEventParser implements EventParser {
                                 break;
                         }
                     } catch (Exception lineEx) {
-                        log.warn("Failed to parse line in {}: {}", logFile.getName(), lineEx.getMessage());
+                        log.error("[PARSER_ERROR] Error in file: {}, at line: {}", logFile.getName(), lineCount, lineEx);
                     }
                 }
                 // 扫尾
@@ -244,12 +244,12 @@ public class JacksonEventParser implements EventParser {
                 if (currentAppId != null) {
                     final String appIdFinal = currentAppId;
                     final boolean isLastFile = currentFileIndex >= totalFiles;
-                    
+
                     dbExecutor.submit(() -> {
                         try {
                             log.info("Starting post-calculation for App: {} (File {}/{})", appIdFinal, currentFileIndex, totalFiles);
                             updatePostCalculationProgress(appIdFinal, "Calculating Stage/Job metrics...");
-                            
+
                             // Optimization: Mark as READY *before* calculating complex metrics if it's the last file,
                             // so user can at least see the basic Job/Stage lists.
                             if (isLastFile) {
@@ -262,7 +262,7 @@ public class JacksonEventParser implements EventParser {
                             sqlExecutionService.calculateSqlMetrics(appIdFinal);
                             updatePostCalculationProgress(appIdFinal, "Finalizing metrics...");
                             executorService.calculateExecutorMetrics(appIdFinal);
-                            
+
                             if (isLastFile) {
                                 clearParsingProgress(appIdFinal);
                             }
@@ -361,7 +361,7 @@ public class JacksonEventParser implements EventParser {
     private void saveDeduplicatedTasks(List<TaskModel> batch) {
         Map<String, TaskModel> unique = new HashMap<>();
         for (TaskModel t : batch) unique.put(t.getId(), t);
-        
+
         try {
             fastBatchInsertTasks(new ArrayList<>(unique.values()));
         } catch (Exception e) {
@@ -385,7 +385,7 @@ public class JacksonEventParser implements EventParser {
 
         try (java.sql.Connection conn = dataSource.getConnection();
              java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
-            
+
             conn.setAutoCommit(false); // Optimize for batch
 
             for (TaskModel t : tasks) {
@@ -425,7 +425,7 @@ public class JacksonEventParser implements EventParser {
                 ps.setBoolean(idx++, t.getSpeculative());
                 ps.setString(idx++, t.getStatus());
                 ps.setString(idx++, t.getLocality());
-                
+
                 ps.addBatch();
             }
 
@@ -647,7 +647,7 @@ public class JacksonEventParser implements EventParser {
         if (info.has("RDD Info")) {
             JsonNode rddInfos = info.get("RDD Info");
             stage.setRddInfo(rddInfos.toString());
-            
+
             // --- 提取 RDD 存储元数据 ---
             for (JsonNode r : rddInfos) {
                 if (r.has("Storage Level")) {
@@ -834,11 +834,11 @@ public class JacksonEventParser implements EventParser {
         sql.setDescription(node.get("description").asText());
         sql.setDetails(node.get("details").asText());
         sql.setPhysicalPlan(node.get("physicalPlanDescription").asText());
-        
+
         if (node.has("sparkPlanInfo")) {
             sql.setPlanInfo(node.get("sparkPlanInfo").toString());
         }
-        
+
         sql.setStartTime(parseTimestamp(node.get("time").asLong()));
         sql.setStatus("RUNNING");
         sqlExecutionService.saveOrUpdate(sql);
@@ -865,7 +865,7 @@ public class JacksonEventParser implements EventParser {
             // 解析 rdd_1_5 -> rddId=1
             String[] parts = blockId.split("_");
             int rddId = Integer.parseInt(parts[1]);
-            
+
             StorageBlockModel block = new StorageBlockModel();
             block.setId(appId + ":" + rddId + ":" + blockId);
             block.setAppId(appId);
@@ -881,7 +881,7 @@ public class JacksonEventParser implements EventParser {
                 try (java.sql.Connection conn = dataSource.getConnection();
                      java.sql.PreparedStatement ps = conn.prepareStatement(
                              "INSERT OR REPLACE INTO storage_blocks (id, app_id, rdd_id, block_name, storage_level, memory_size, disk_size, executor_id, host) " +
-                             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+                                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
                     ps.setString(1, block.getId());
                     ps.setString(2, block.getAppId());
                     ps.setInt(3, block.getRddId());
@@ -892,11 +892,11 @@ public class JacksonEventParser implements EventParser {
                     ps.setString(8, block.getExecutorId());
                     ps.setString(9, block.getHost());
                     ps.executeUpdate();
-                    
+
                     // 核心修复：先确保 storage_rdds 表中有这一行
                     try (java.sql.PreparedStatement psInsert = conn.prepareStatement(
                             "INSERT OR IGNORE INTO storage_rdds (id, app_id, rdd_id, name, storage_level, num_partitions, num_cached_partitions) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?)")) {
+                                    "VALUES (?, ?, ?, ?, ?, ?, ?)")) {
                         psInsert.setString(1, appId + ":" + rddId);
                         psInsert.setString(2, appId);
                         psInsert.setInt(3, rddId);
@@ -925,10 +925,14 @@ public class JacksonEventParser implements EventParser {
                 "WHERE app_id = ? AND rdd_id = ?";
         try (java.sql.Connection conn = dataSource.getConnection();
              java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, appId); ps.setInt(2, rddId);
-            ps.setString(3, appId); ps.setInt(4, rddId);
-            ps.setString(5, appId); ps.setInt(6, rddId);
-            ps.setString(7, appId); ps.setInt(8, rddId);
+            ps.setString(1, appId);
+            ps.setInt(2, rddId);
+            ps.setString(3, appId);
+            ps.setInt(4, rddId);
+            ps.setString(5, appId);
+            ps.setInt(6, rddId);
+            ps.setString(7, appId);
+            ps.setInt(8, rddId);
             ps.executeUpdate();
         } catch (Exception e) {
             log.error("Failed to update RDD summary", e);
@@ -940,11 +944,13 @@ public class JacksonEventParser implements EventParser {
         dbExecutor.submit(() -> {
             try (java.sql.Connection conn = dataSource.getConnection()) {
                 try (java.sql.PreparedStatement ps = conn.prepareStatement("DELETE FROM storage_blocks WHERE app_id = ? AND rdd_id = ?")) {
-                    ps.setString(1, appId); ps.setInt(2, rddId);
+                    ps.setString(1, appId);
+                    ps.setInt(2, rddId);
                     ps.executeUpdate();
                 }
                 try (java.sql.PreparedStatement ps = conn.prepareStatement("DELETE FROM storage_rdds WHERE app_id = ? AND rdd_id = ?")) {
-                    ps.setString(1, appId); ps.setInt(2, rddId);
+                    ps.setString(1, appId);
+                    ps.setInt(2, rddId);
                     ps.executeUpdate();
                 }
             } catch (Exception e) {

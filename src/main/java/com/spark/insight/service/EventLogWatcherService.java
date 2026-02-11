@@ -124,7 +124,7 @@ public class EventLogWatcherService {
             return;
         }
 
-        LocalDateTime lastModified = LocalDateTime.ofInstant(Instant.ofEpochMilli(file.lastModified()), ZoneId.systemDefault());
+        LocalDateTime updateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(file.lastModified()), ZoneId.systemDefault());
         long fileSize = file.length();
 
         ParsedEventLogModel record = parsedLogMapper.selectById(fileName);
@@ -135,9 +135,9 @@ public class EventLogWatcherService {
             needsParse = true;
         } else {
             // Check if file has been modified since last parse
-            if (!Objects.equals(record.getLastModified(), lastModified) || record.getFileSize() != fileSize || EventLogStatus.PROCESSING == record.getStatus()) {
+            if (!Objects.equals(record.getUpdateTime(), updateTime) || record.getFileSize() != fileSize || EventLogStatus.PROCESSING == record.getStatus()) {
                 log.info("Log file change or retry needed: {} (Status: {}, Size: {} -> {}, Mod: {} -> {})",
-                        fileName, record.getStatus(), record.getFileSize(), fileSize, record.getLastModified(), lastModified);
+                        fileName, record.getStatus(), record.getFileSize(), fileSize, record.getUpdateTime(), updateTime);
                 needsParse = true;
             }
         }
@@ -148,10 +148,10 @@ public class EventLogWatcherService {
                 // Mark as PROCESSING in DB immediately
                 ParsedEventLogModel startRecord = new ParsedEventLogModel();
                 startRecord.setFileName(fileName);
-                startRecord.setLastModified(lastModified);
+                startRecord.setUpdateTime(updateTime);
                 startRecord.setFileSize(fileSize);
                 startRecord.setStatus(EventLogStatus.PROCESSING);
-                startRecord.setParsedAt(LocalDateTime.now());
+                startRecord.setCreateTime(LocalDateTime.now());
                 if (record == null) {
                     parsedLogMapper.insert(startRecord);
                 } else {
@@ -163,9 +163,9 @@ public class EventLogWatcherService {
                 // Update record in DB
                 ParsedEventLogModel newRecord = new ParsedEventLogModel();
                 newRecord.setFileName(fileName);
-                newRecord.setLastModified(lastModified);
+                newRecord.setUpdateTime(updateTime);
                 newRecord.setFileSize(fileSize);
-                newRecord.setParsedAt(LocalDateTime.now());
+                newRecord.setCreateTime(LocalDateTime.now());
                 newRecord.setStatus(EventLogStatus.SUCCESS);
                 parsedLogMapper.updateById(newRecord);
             } catch (Exception e) {
@@ -173,9 +173,9 @@ public class EventLogWatcherService {
                 // Record failure state
                 ParsedEventLogModel failedRecord = new ParsedEventLogModel();
                 failedRecord.setFileName(fileName);
-                failedRecord.setLastModified(lastModified);
+                failedRecord.setUpdateTime(updateTime);
                 failedRecord.setFileSize(fileSize);
-                failedRecord.setParsedAt(LocalDateTime.now());
+                failedRecord.setCreateTime(LocalDateTime.now());
                 failedRecord.setStatus(EventLogStatus.FAILED);
                 parsedLogMapper.updateById(failedRecord);
             } finally {

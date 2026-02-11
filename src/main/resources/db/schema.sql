@@ -207,10 +207,10 @@ CREATE TABLE IF NOT EXISTS stage_statistics (
 -- EventLog 文件解析状态记录
 CREATE TABLE IF NOT EXISTS parsed_event_logs (
     file_name VARCHAR PRIMARY KEY,
-    last_modified TIMESTAMP,
+    update_time TIMESTAMP,
     file_size BIGINT,
     file_hash VARCHAR,
-    parsed_at TIMESTAMP,
+    create_time TIMESTAMP,
     status INTEGER
 );
 

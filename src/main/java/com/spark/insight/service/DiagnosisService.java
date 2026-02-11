@@ -4,7 +4,6 @@ import com.spark.insight.config.DiagnosisProperties;
 import com.spark.insight.model.ApplicationModel;
 import com.spark.insight.model.JobModel;
 import com.spark.insight.model.StageModel;
-import com.spark.insight.model.TaskModel;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -16,16 +15,16 @@ public class DiagnosisService {
 
     private final ApplicationService applicationService;
     private final StageService stageService;
-    private final TaskService taskService;
     private final JobService jobService;
-    private final DiagnosisProperties properties;
 
     /**
      * 为指定的 Application 生成 Markdown 格式的规则引擎诊断报告
      */
     public String generateMarkdownReport(String appId) {
         ApplicationModel app = applicationService.getById(appId);
-        if (app == null) return "Application not found.";
+        if (app == null) {
+            return "Application not found.";
+        }
 
         StringBuilder sb = new StringBuilder();
         sb.append("# <span class=\"material-symbols-outlined\" style=\"vertical-align: middle;\">analytics</span> 规则引擎诊断报告 (Rule-Based Diagnostic Report)\n\n");
@@ -36,8 +35,12 @@ public class DiagnosisService {
                 .list();
         
         double avgScore = jobs.stream()
-                .filter(j -> j.getDuration() != null && j.getDuration() > 0)
-                .mapToDouble(j -> j.getPerformanceScore() != null ? j.getPerformanceScore() : 100.0)
+                .filter(job -> {
+                    return job.getDuration() != null && job.getDuration() > 0;
+                })
+                .mapToDouble(job -> {
+                    return job.getPerformanceScore() != null ? job.getPerformanceScore() : 100.0;
+                })
                 .average().orElse(100.0);
 
         sb.append("## <span class=\"material-symbols-outlined\" style=\"vertical-align: middle;\">dashboard</span> 应用健康概览\n");
@@ -76,7 +79,9 @@ public class DiagnosisService {
         // 3. High Impact Jobs
         sb.append("## <span class=\"material-symbols-outlined\" style=\"vertical-align: middle;\">assignment_late</span> 高风险作业排名\n");
         List<JobModel> topImpactJobs = jobs.stream()
-                .filter(j -> j.getPerformanceScore() != null && j.getPerformanceScore() < 90)
+                .filter(job -> {
+                    return job.getPerformanceScore() != null && job.getPerformanceScore() < 90;
+                })
                 .sorted(java.util.Comparator.comparingDouble(JobModel::getPerformanceScore))
                 .limit(3)
                 .toList();
@@ -126,28 +131,44 @@ public class DiagnosisService {
     }
 
     private String getHealthLabel(double score) {
-        if (score < 40) return String.format("<span style=\"color: #e74c3c; font-weight: bold;\">极差 (Critical: %d)</span>", Math.round(score));
-        if (score < 70) return String.format("<span style=\"color: #f39c12; font-weight: bold;\">一般 (Warning: %d)</span>", Math.round(score));
-        if (score < 90) return String.format("<span style=\"color: #27ae60; font-weight: bold;\">良好 (Good: %d)</span>", Math.round(score));
+        if (score < 40) {
+            return String.format("<span style=\"color: #e74c3c; font-weight: bold;\">极差 (Critical: %d)</span>", Math.round(score));
+        }
+        if (score < 70) {
+            return String.format("<span style=\"color: #f39c12; font-weight: bold;\">一般 (Warning: %d)</span>", Math.round(score));
+        }
+        if (score < 90) {
+            return String.format("<span style=\"color: #27ae60; font-weight: bold;\">良好 (Good: %d)</span>", Math.round(score));
+        }
         return String.format("<span style=\"color: #27ae60; font-weight: bold;\">健康 (Healthy: %d)</span>", Math.round(score));
     }
 
     private String getHealthColor(double score) {
-        if (score < 40) return "#e74c3c";
-        if (score < 70) return "#f39c12";
+        if (score < 40) {
+            return "#e74c3c";
+        }
+        if (score < 70) {
+            return "#f39c12";
+        }
         return "#27ae60";
     }
 
     private String formatDuration(long ms) {
-        if (ms < 1000) return ms + "ms";
-        long s = (ms / 1000) % 60;
-        long m = (ms / (1000 * 60)) % 60;
-        long h = (ms / (1000 * 60 * 60));
+        if (ms < 1000) {
+            return ms + "ms";
+        }
+        long seconds = (ms / 1000) % 60;
+        long minutes = (ms / (1000 * 60)) % 60;
+        long hours = (ms / (1000 * 60 * 60));
 
         StringBuilder sb = new StringBuilder();
-        if (h > 0) sb.append(h).append("h ");
-        if (m > 0 || h > 0) sb.append(m).append("m ");
-        sb.append(s).append("s");
+        if (hours > 0) {
+            sb.append(hours).append("h ");
+        }
+        if (minutes > 0 || hours > 0) {
+            sb.append(minutes).append("m ");
+        }
+        sb.append(seconds).append("s");
         return sb.toString();
     }
 }

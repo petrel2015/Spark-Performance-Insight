@@ -7,6 +7,7 @@ import com.spark.insight.model.ParsedEventLogModel;
 import com.spark.insight.parser.EventParser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.lang.Nullable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -41,25 +42,29 @@ public class EventLogWatcherService {
 
     @Scheduled(fixedDelayString = "${insight.scheduler.scan-interval-seconds:10}000")
     public void scan() {
-        if (!properties.getScheduler().isEnabled()) return;
+        if (!properties.getScheduler().isEnabled()) {
+            return;
+        }
 
         String logPath = properties.getEventLogPath();
-        File dir = new File(logPath);
-        if (!dir.exists() || !dir.isDirectory()) return;
+        File directory = new File(logPath);
+        if (!directory.exists() || !directory.isDirectory()) {
+            return;
+        }
 
         List<File> allFiles = new ArrayList<>();
-        collectFiles(dir, allFiles);
+        collectFiles(directory, allFiles);
 
         // Group by App ID inferred from filename
         Map<String, List<File>> appGroups = new HashMap<>();
         List<File> standaloneFiles = new ArrayList<>();
 
-        for (File f : allFiles) {
-            String appId = inferAppId(f.getName());
+        for (File file : allFiles) {
+            String appId = inferAppId(file.getName());
             if (appId != null) {
-                appGroups.computeIfAbsent(appId, k -> new ArrayList<>()).add(f);
+                appGroups.computeIfAbsent(appId, k -> new ArrayList<>()).add(file);
             } else {
-                standaloneFiles.add(f);
+                standaloneFiles.add(file);
             }
         }
 
@@ -76,20 +81,27 @@ public class EventLogWatcherService {
         });
 
         // Process Standalone
-        standaloneFiles.forEach(f -> parseExecutor.submit(() -> processFile(f, 1, 1)));
+        standaloneFiles.forEach(file -> {
+            parseExecutor.submit(() -> {
+                processFile(file, 1, 1);
+            });
+        });
     }
 
     private void collectFiles(File file, List<File> result) {
         if (file.isDirectory()) {
             File[] files = file.listFiles();
             if (files != null) {
-                for (File f : files) collectFiles(f, result);
+                for (File childFile : files) {
+                    collectFiles(childFile, result);
+                }
             }
         } else if (file.isFile() && !file.getName().startsWith(".") && isValidLogFile(file)) {
             result.add(file);
         }
     }
 
+    @Nullable
     private String inferAppId(String filename) {
         // 首先尝试按照 event_index_appId 格式解析 (从左往右第二个下划线右边全都是 app id)
         if (filename.startsWith("event")) {
@@ -100,13 +112,19 @@ public class EventLogWatcherService {
         }
 
         // 兜底方案：使用正则匹配 spark-xxx
-        Matcher m = APP_ID_PATTERN.matcher(filename);
-        return m.find() ? m.group(1) : null;
+        Matcher matcher = APP_ID_PATTERN.matcher(filename);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return null;
     }
 
     private int getFileIndex(File file) {
-        Matcher m = INDEX_PATTERN.matcher(file.getName());
-        return m.find() ? Integer.parseInt(m.group(1)) : 0;
+        Matcher matcher = INDEX_PATTERN.matcher(file.getName());
+        if (matcher.find()) {
+            return Integer.parseInt(matcher.group(1));
+        }
+        return 0;
     }
 
     private boolean isValidLogFile(File file) {
@@ -168,8 +186,8 @@ public class EventLogWatcherService {
                 newRecord.setCreateTime(LocalDateTime.now());
                 newRecord.setStatus(EventLogStatus.SUCCESS);
                 parsedLogMapper.updateById(newRecord);
-            } catch (Exception e) {
-                log.error("Failed to parse " + fileName, e);
+            } catch (Exception exception) {
+                log.error("Failed to parse " + fileName, exception);
                 // Record failure state
                 ParsedEventLogModel failedRecord = new ParsedEventLogModel();
                 failedRecord.setFileName(fileName);

@@ -9,6 +9,7 @@ import com.spark.insight.mapper.ParsedEventLogMapper;
 import com.spark.insight.model.*;
 import com.spark.insight.service.*;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 
 import java.io.*;
@@ -89,13 +90,13 @@ public class JacksonEventParser implements EventParser {
         }
 
         try {
-            InputStream is = new FileInputStream(logFile);
-            CountingInputStream countingIs = new CountingInputStream(is);
-            InputStream finalIs = countingIs;
+            InputStream inputStream = new FileInputStream(logFile);
+            CountingInputStream countingIs = new CountingInputStream(inputStream);
+            InputStream finalInputStream = countingIs;
             if (logFile.getName().endsWith(".zstd") || logFile.getName().endsWith(".zst")) {
-                finalIs = new ZstdInputStream(countingIs);
+                finalInputStream = new ZstdInputStream(countingIs);
             }
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(finalIs))) {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(finalInputStream))) {
                 String line;
                 String currentAppId = inferredAppId;
                 String versionFromLogStart = null;
@@ -180,22 +181,34 @@ public class JacksonEventParser implements EventParser {
                                 }
                                 break;
                             case "SparkListenerJobStart":
-                                if (currentAppId != null) handleJobStart(node, currentAppId, stageToJobMap);
+                                if (currentAppId != null) {
+                                    handleJobStart(node, currentAppId, stageToJobMap);
+                                }
                                 break;
                             case "SparkListenerJobEnd":
-                                if (currentAppId != null) handleJobEnd(node, currentAppId);
+                                if (currentAppId != null) {
+                                    handleJobEnd(node, currentAppId);
+                                }
                                 break;
                             case "SparkListenerExecutorAdded":
-                                if (currentAppId != null) handleExecutorAdded(node, currentAppId, executorBatch);
+                                if (currentAppId != null) {
+                                    handleExecutorAdded(node, currentAppId, executorBatch);
+                                }
                                 break;
                             case "SparkListenerExecutorRemoved":
-                                if (currentAppId != null) handleExecutorRemoved(node, currentAppId);
+                                if (currentAppId != null) {
+                                    handleExecutorRemoved(node, currentAppId);
+                                }
                                 break;
                             case "SparkListenerStageSubmitted":
-                                if (currentAppId != null) handleStageSubmitted(node, currentAppId, stageToJobMap);
+                                if (currentAppId != null) {
+                                    handleStageSubmitted(node, currentAppId, stageToJobMap);
+                                }
                                 break;
                             case "SparkListenerStageCompleted":
-                                if (currentAppId != null) handleStageCompleted(node, currentAppId);
+                                if (currentAppId != null) {
+                                    handleStageCompleted(node, currentAppId);
+                                }
                                 break;
                             case "SparkListenerTaskEnd":
                                 if (currentAppId != null) {
@@ -208,19 +221,29 @@ public class JacksonEventParser implements EventParser {
                                 }
                                 break;
                             case "SparkListenerApplicationEnd":
-                                if (currentAppId != null) handleAppEnd(node, currentAppId);
+                                if (currentAppId != null) {
+                                    handleAppEnd(node, currentAppId);
+                                }
                                 break;
                             case "org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart":
-                                if (currentAppId != null) handleSqlStart(node, currentAppId);
+                                if (currentAppId != null) {
+                                    handleSqlStart(node, currentAppId);
+                                }
                                 break;
                             case "org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd":
-                                if (currentAppId != null) handleSqlEnd(node, currentAppId);
+                                if (currentAppId != null) {
+                                    handleSqlEnd(node, currentAppId);
+                                }
                                 break;
                             case "SparkListenerBlockUpdated":
-                                if (currentAppId != null) handleBlockUpdated(node, currentAppId);
+                                if (currentAppId != null) {
+                                    handleBlockUpdated(node, currentAppId);
+                                }
                                 break;
                             case "SparkListenerUnpersistRDD":
-                                if (currentAppId != null) handleUnpersistRDD(node, currentAppId);
+                                if (currentAppId != null) {
+                                    handleUnpersistRDD(node, currentAppId);
+                                }
                                 break;
                         }
                     } catch (Exception lineEx) {
@@ -266,8 +289,8 @@ public class JacksonEventParser implements EventParser {
                             if (isLastFile) {
                                 clearParsingProgress(appIdFinal);
                             }
-                        } catch (Exception ex) {
-                            log.error("Failed to complete post-calculation for App: " + appIdFinal, ex);
+                        } catch (Exception exception) {
+                            log.error("Failed to complete post-calculation for App: " + appIdFinal, exception);
                             if (isLastFile) {
                                 forceMarkReady(appIdFinal);
                             }
@@ -277,8 +300,8 @@ public class JacksonEventParser implements EventParser {
             }
             long durationMs = System.currentTimeMillis() - startTime;
             log.info("Finished processing log: {} in {}", logFile.getName(), formatDuration(durationMs));
-        } catch (Exception e) {
-            log.error("Error parsing " + logFile.getPath(), e);
+        } catch (Exception exception) {
+            log.error("Error parsing " + logFile.getPath(), exception);
         }
     }
 
@@ -360,18 +383,22 @@ public class JacksonEventParser implements EventParser {
 
     private void saveDeduplicatedTasks(List<TaskModel> batch) {
         Map<String, TaskModel> unique = new HashMap<>();
-        for (TaskModel t : batch) unique.put(t.getId(), t);
+        for (TaskModel task : batch) {
+            unique.put(task.getId(), task);
+        }
 
         try {
             fastBatchInsertTasks(new ArrayList<>(unique.values()));
-        } catch (Exception e) {
-            log.error("Fast batch insert failed, falling back to Service saveBatch. Error: {}", e.getMessage());
+        } catch (Exception exception) {
+            log.error("Fast batch insert failed, falling back to Service saveBatch. Error: {}", exception.getMessage());
             taskService.saveOrUpdateBatch(unique.values());
         }
     }
 
     private void fastBatchInsertTasks(List<TaskModel> tasks) throws java.sql.SQLException {
-        if (tasks.isEmpty()) return;
+        if (tasks.isEmpty()) {
+            return;
+        }
 
         String sql = "INSERT OR REPLACE INTO tasks (" +
                 "id, app_id, stage_id, attempt_id, task_id, task_index, executor_id, host, " +
@@ -383,60 +410,62 @@ public class JacksonEventParser implements EventParser {
                 "shuffle_remote_read, speculative, status, locality" +
                 ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-        try (java.sql.Connection conn = dataSource.getConnection();
-             java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (java.sql.Connection connection = dataSource.getConnection();
+             java.sql.PreparedStatement ps = connection.prepareStatement(sql)) {
 
-            conn.setAutoCommit(false); // Optimize for batch
+            connection.setAutoCommit(false); // Optimize for batch
 
-            for (TaskModel t : tasks) {
+            for (TaskModel task : tasks) {
                 int idx = 1;
-                ps.setString(idx++, t.getId());
-                ps.setString(idx++, t.getAppId());
-                ps.setInt(idx++, t.getStageId());
-                ps.setInt(idx++, t.getAttemptId());
-                ps.setLong(idx++, t.getTaskId());
-                ps.setInt(idx++, t.getTaskIndex());
-                ps.setString(idx++, t.getExecutorId());
-                ps.setString(idx++, t.getHost());
-                ps.setLong(idx++, t.getLaunchTime());
-                ps.setLong(idx++, t.getFinishTime());
-                ps.setLong(idx++, t.getDuration());
-                ps.setLong(idx++, t.getGcTime());
-                ps.setLong(idx++, t.getSchedulerDelay());
-                ps.setLong(idx++, t.getGettingResultTime());
-                ps.setLong(idx++, t.getExecutorDeserializeTime());
-                ps.setLong(idx++, t.getExecutorRunTime());
-                ps.setLong(idx++, t.getResultSerializationTime());
-                ps.setLong(idx++, t.getExecutorCpuTime());
-                ps.setLong(idx++, t.getPeakExecutionMemory());
-                ps.setLong(idx++, t.getInputBytes());
-                ps.setLong(idx++, t.getInputRecords());
-                ps.setLong(idx++, t.getOutputBytes());
-                ps.setLong(idx++, t.getOutputRecords());
-                ps.setLong(idx++, t.getMemoryBytesSpilled());
-                ps.setLong(idx++, t.getDiskBytesSpilled());
-                ps.setLong(idx++, t.getShuffleReadBytes());
-                ps.setLong(idx++, t.getShuffleReadRecords());
-                ps.setLong(idx++, t.getShuffleFetchWaitTime());
-                ps.setLong(idx++, t.getShuffleWriteBytes());
-                ps.setLong(idx++, t.getShuffleWriteTime());
-                ps.setLong(idx++, t.getShuffleWriteRecords());
-                ps.setLong(idx++, t.getShuffleRemoteRead());
-                ps.setBoolean(idx++, t.getSpeculative());
-                ps.setString(idx++, t.getStatus());
-                ps.setString(idx++, t.getLocality());
+                ps.setString(idx++, task.getId());
+                ps.setString(idx++, task.getAppId());
+                ps.setInt(idx++, task.getStageId());
+                ps.setInt(idx++, task.getAttemptId());
+                ps.setLong(idx++, task.getTaskId());
+                ps.setInt(idx++, task.getTaskIndex());
+                ps.setString(idx++, task.getExecutorId());
+                ps.setString(idx++, task.getHost());
+                ps.setLong(idx++, task.getLaunchTime());
+                ps.setLong(idx++, task.getFinishTime());
+                ps.setLong(idx++, task.getDuration());
+                ps.setLong(idx++, task.getGcTime());
+                ps.setLong(idx++, task.getSchedulerDelay());
+                ps.setLong(idx++, task.getGettingResultTime());
+                ps.setLong(idx++, task.getExecutorDeserializeTime());
+                ps.setLong(idx++, task.getExecutorRunTime());
+                ps.setLong(idx++, task.getResultSerializationTime());
+                ps.setLong(idx++, task.getExecutorCpuTime());
+                ps.setLong(idx++, task.getPeakExecutionMemory());
+                ps.setLong(idx++, task.getInputBytes());
+                ps.setLong(idx++, task.getInputRecords());
+                ps.setLong(idx++, task.getOutputBytes());
+                ps.setLong(idx++, task.getOutputRecords());
+                ps.setLong(idx++, task.getMemoryBytesSpilled());
+                ps.setLong(idx++, task.getDiskBytesSpilled());
+                ps.setLong(idx++, task.getShuffleReadBytes());
+                ps.setLong(idx++, task.getShuffleReadRecords());
+                ps.setLong(idx++, task.getShuffleFetchWaitTime());
+                ps.setLong(idx++, task.getShuffleWriteBytes());
+                ps.setLong(idx++, task.getShuffleWriteTime());
+                ps.setLong(idx++, task.getShuffleWriteRecords());
+                ps.setLong(idx++, task.getShuffleRemoteRead());
+                ps.setBoolean(idx++, task.getSpeculative());
+                ps.setString(idx++, task.getStatus());
+                ps.setString(idx++, task.getLocality());
 
                 ps.addBatch();
             }
 
             ps.executeBatch();
-            conn.commit();
+            connection.commit();
         }
     }
 
     private void saveDeduplicatedEnv(List<EnvironmentConfigModel> batch) {
         Map<String, EnvironmentConfigModel> unique = new HashMap<>();
-        for (EnvironmentConfigModel e : batch) unique.put(e.getId(), e);
+        for (EnvironmentConfigModel config : batch) {
+            unique.put(config.getId(), config);
+        }
         envService.upsertBatch(new ArrayList<>(unique.values()));
     }
 
@@ -514,12 +543,12 @@ public class JacksonEventParser implements EventParser {
             job.setNumStages(stageInfos.size());
             List<String> sids = new ArrayList<>();
             int totalTasks = 0;
-            for (JsonNode s : stageInfos) {
-                int sid = s.get("Stage ID").asInt();
+            for (JsonNode stageNode : stageInfos) {
+                int sid = stageNode.get("Stage ID").asInt();
                 sids.add(String.valueOf(sid));
                 stageToJobMap.put(sid, jobId);
-                if (s.has("Number of Tasks")) {
-                    totalTasks += s.get("Number of Tasks").asInt();
+                if (stageNode.has("Number of Tasks")) {
+                    totalTasks += stageNode.get("Number of Tasks").asInt();
                 }
             }
             job.setStageIds(String.join(",", sids));
@@ -587,7 +616,9 @@ public class JacksonEventParser implements EventParser {
 
     private void extractProps(JsonNode node, String fieldName, String category, String appId, List<EnvironmentConfigModel> batch) {
         JsonNode props = node.get(fieldName);
-        if (props == null) return;
+        if (props == null) {
+            return;
+        }
 
         if (props.isObject()) {
             props.fields().forEachRemaining(entry -> {
@@ -636,11 +667,11 @@ public class JacksonEventParser implements EventParser {
         if (info.has("Parent IDs")) {
             JsonNode parents = info.get("Parent IDs");
             if (parents.isArray() && parents.size() > 0) {
-                List<String> pIds = new ArrayList<>();
-                for (JsonNode p : parents) {
-                    pIds.add(p.asText());
+                List<String> parentIds = new ArrayList<>();
+                for (JsonNode parentNode : parents) {
+                    parentIds.add(parentNode.asText());
                 }
-                stage.setParentStageIds(String.join(",", pIds));
+                stage.setParentStageIds(String.join(",", parentIds));
             }
         }
 
@@ -649,26 +680,26 @@ public class JacksonEventParser implements EventParser {
             stage.setRddInfo(rddInfos.toString());
 
             // --- 提取 RDD 存储元数据 ---
-            for (JsonNode r : rddInfos) {
-                if (r.has("Storage Level")) {
-                    String storageLevelStr = r.get("Storage Level").toString();
+            for (JsonNode rddNode : rddInfos) {
+                if (rddNode.has("Storage Level")) {
+                    String storageLevelStr = rddNode.get("Storage Level").toString();
                     // 只有设置了持久化的 RDD 才记录
                     if (storageLevelStr.contains("useMemory") || storageLevelStr.contains("useDisk")) {
                         StorageRddModel rdd = new StorageRddModel();
-                        int rddId = r.get("RDD ID").asInt();
+                        int rddId = rddNode.get("RDD ID").asInt();
                         rdd.setId(appId + ":" + rddId);
                         rdd.setAppId(appId);
                         rdd.setRddId(rddId);
-                        rdd.setName(r.get("Name").asText());
-                        rdd.setStorageLevel(r.get("Storage Level").get("description").asText());
-                        rdd.setNumPartitions(r.get("Number of Partitions").asInt());
-                        rdd.setNumCached_partitions(r.get("Number of Cached Partitions").asInt());
-                        rdd.setMemorySize(r.get("Memory Size").asLong());
-                        rdd.setDiskSize(r.get("Disk Size").asLong());
+                        rdd.setName(rddNode.get("Name").asText());
+                        rdd.setStorageLevel(rddNode.get("Storage Level").get("description").asText());
+                        rdd.setNumPartitions(rddNode.get("Number of Partitions").asInt());
+                        rdd.setNumCached_partitions(rddNode.get("Number of Cached Partitions").asInt());
+                        rdd.setMemorySize(rddNode.get("Memory Size").asLong());
+                        rdd.setDiskSize(rddNode.get("Disk Size").asLong());
 
                         dbExecutor.submit(() -> {
-                            try (java.sql.Connection conn = dataSource.getConnection();
-                                 java.sql.PreparedStatement ps = conn.prepareStatement(
+                            try (java.sql.Connection connection = dataSource.getConnection();
+                                 java.sql.PreparedStatement ps = connection.prepareStatement(
                                          "INSERT OR REPLACE INTO storage_rdds (id, app_id, rdd_id, name, storage_level, num_partitions, num_cached_partitions, memory_size, disk_size) " +
                                                  "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
                                 ps.setString(1, rdd.getId());
@@ -681,8 +712,8 @@ public class JacksonEventParser implements EventParser {
                                 ps.setLong(8, rdd.getMemorySize());
                                 ps.setLong(9, rdd.getDiskSize());
                                 ps.executeUpdate();
-                            } catch (Exception e) {
-                                log.error("Failed to save RDD info", e);
+                            } catch (Exception exception) {
+                                log.error("Failed to save RDD info", exception);
                             }
                         });
                     }
@@ -719,7 +750,9 @@ public class JacksonEventParser implements EventParser {
     private void handleTaskEnd(JsonNode node, String appId, List<TaskModel> batch) {
         JsonNode info = node.get("Task Info");
         JsonNode metrics = node.get("Task Metrics");
-        if (info == null || info.isNull()) return;
+        if (info == null || info.isNull()) {
+            return;
+        }
 
         int stageId = node.has("Stage ID") ? node.get("Stage ID").asInt() : -1;
         int attemptId = node.has("Stage Attempt ID") ? node.get("Stage Attempt ID").asInt() : 0;
@@ -878,8 +911,8 @@ public class JacksonEventParser implements EventParser {
             block.setHost(blockInfo.get("Block Manager ID").get("Host").asText());
 
             dbExecutor.submit(() -> {
-                try (java.sql.Connection conn = dataSource.getConnection();
-                     java.sql.PreparedStatement ps = conn.prepareStatement(
+                try (java.sql.Connection connection = dataSource.getConnection();
+                     java.sql.PreparedStatement ps = connection.prepareStatement(
                              "INSERT OR REPLACE INTO storage_blocks (id, app_id, rdd_id, block_name, storage_level, memory_size, disk_size, executor_id, host) " +
                                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
                     ps.setString(1, block.getId());
@@ -894,7 +927,7 @@ public class JacksonEventParser implements EventParser {
                     ps.executeUpdate();
 
                     // 核心修复：先确保 storage_rdds 表中有这一行
-                    try (java.sql.PreparedStatement psInsert = conn.prepareStatement(
+                    try (java.sql.PreparedStatement psInsert = connection.prepareStatement(
                             "INSERT OR IGNORE INTO storage_rdds (id, app_id, rdd_id, name, storage_level, num_partitions, num_cached_partitions) " +
                                     "VALUES (?, ?, ?, ?, ?, ?, ?)")) {
                         psInsert.setString(1, appId + ":" + rddId);
@@ -909,8 +942,8 @@ public class JacksonEventParser implements EventParser {
 
                     // 顺便更新汇总表中的缓存分区计数和大小
                     updateRddSummary(appId, rddId);
-                } catch (Exception e) {
-                    log.error("Failed to update block info", e);
+                } catch (Exception exception) {
+                    log.error("Failed to update block info", exception);
                 }
             });
         }
@@ -923,8 +956,8 @@ public class JacksonEventParser implements EventParser {
                 "memory_size = (SELECT COALESCE(sum(memory_size), 0) FROM storage_blocks WHERE app_id = ? AND rdd_id = ?), " +
                 "disk_size = (SELECT COALESCE(sum(disk_size), 0) FROM storage_blocks WHERE app_id = ? AND rdd_id = ?) " +
                 "WHERE app_id = ? AND rdd_id = ?";
-        try (java.sql.Connection conn = dataSource.getConnection();
-             java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (java.sql.Connection connection = dataSource.getConnection();
+             java.sql.PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, appId);
             ps.setInt(2, rddId);
             ps.setString(3, appId);
@@ -934,47 +967,56 @@ public class JacksonEventParser implements EventParser {
             ps.setString(7, appId);
             ps.setInt(8, rddId);
             ps.executeUpdate();
-        } catch (Exception e) {
-            log.error("Failed to update RDD summary", e);
+        } catch (Exception exception) {
+            log.error("Failed to update RDD summary", exception);
         }
     }
 
     private void handleUnpersistRDD(JsonNode node, String appId) {
         int rddId = node.get("RDD ID").asInt();
         dbExecutor.submit(() -> {
-            try (java.sql.Connection conn = dataSource.getConnection()) {
-                try (java.sql.PreparedStatement ps = conn.prepareStatement("DELETE FROM storage_blocks WHERE app_id = ? AND rdd_id = ?")) {
+            try (java.sql.Connection connection = dataSource.getConnection()) {
+                try (java.sql.PreparedStatement ps = connection.prepareStatement("DELETE FROM storage_blocks WHERE app_id = ? AND rdd_id = ?")) {
                     ps.setString(1, appId);
                     ps.setInt(2, rddId);
                     ps.executeUpdate();
                 }
-                try (java.sql.PreparedStatement ps = conn.prepareStatement("DELETE FROM storage_rdds WHERE app_id = ? AND rdd_id = ?")) {
+                try (java.sql.PreparedStatement ps = connection.prepareStatement("DELETE FROM storage_rdds WHERE app_id = ? AND rdd_id = ?")) {
                     ps.setString(1, appId);
                     ps.setInt(2, rddId);
                     ps.executeUpdate();
                 }
-            } catch (Exception e) {
-                log.error("Failed to unpersist RDD", e);
+            } catch (Exception exception) {
+                log.error("Failed to unpersist RDD", exception);
             }
         });
     }
 
+    @Nullable
     private LocalDateTime parseTimestamp(long timestamp) {
-        if (timestamp <= 0) return null;
+        if (timestamp <= 0) {
+            return null;
+        }
         return LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), TimeZone.getDefault().toZoneId());
     }
 
     private String formatDuration(long ms) {
-        if (ms < 1000) return ms + "ms";
-        long s = (ms / 1000) % 60;
-        long m = (ms / (1000 * 60)) % 60;
-        long h = (ms / (1000 * 60 * 60));
+        if (ms < 1000) {
+            return ms + "ms";
+        }
+        long seconds = (ms / 1000) % 60;
+        long minutes = (ms / (1000 * 60)) % 60;
+        long hours = (ms / (1000 * 60 * 60));
 
         StringBuilder sb = new StringBuilder();
-        if (h > 0) sb.append(h).append("h ");
-        if (m > 0 || h > 0) sb.append(m).append("m ");
-        sb.append(s).append("s");
-        if (h == 0 && ms % 1000 > 0) {
+        if (hours > 0) {
+            sb.append(hours).append("h ");
+        }
+        if (minutes > 0 || hours > 0) {
+            sb.append(minutes).append("m ");
+        }
+        sb.append(seconds).append("s");
+        if (hours == 0 && ms % 1000 > 0) {
             sb.append(" ").append(ms % 1000).append("ms");
         }
         return sb.toString();
@@ -988,22 +1030,26 @@ public class JacksonEventParser implements EventParser {
     private static class CountingInputStream extends FilterInputStream {
         private long bytesRead = 0;
 
-        protected CountingInputStream(InputStream in) {
-            super(in);
+        protected CountingInputStream(InputStream inputStream) {
+            super(inputStream);
         }
 
         @Override
         public int read() throws IOException {
-            int b = super.read();
-            if (b != -1) bytesRead++;
-            return b;
+            int byteRead = super.read();
+            if (byteRead != -1) {
+                bytesRead++;
+            }
+            return byteRead;
         }
 
         @Override
-        public int read(byte[] b, int off, int len) throws IOException {
-            int n = super.read(b, off, len);
-            if (n != -1) bytesRead += n;
-            return n;
+        public int read(byte[] buffer, int offset, int length) throws IOException {
+            int bytesReadNow = super.read(buffer, offset, length);
+            if (bytesReadNow != -1) {
+                bytesRead += bytesReadNow;
+            }
+            return bytesReadNow;
         }
 
         public long getBytesRead() {

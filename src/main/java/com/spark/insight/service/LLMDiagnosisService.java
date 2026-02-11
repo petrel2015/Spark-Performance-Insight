@@ -9,6 +9,7 @@ import org.springframework.ai.zhipuai.ZhiPuAiChatModel;
 import org.springframework.ai.zhipuai.ZhiPuAiChatOptions;
 import org.springframework.ai.zhipuai.api.ZhiPuAiApi;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -34,7 +35,7 @@ public class LLMDiagnosisService {
 
     private static final String SYSTEM_PROMPT = """
             # Role
-            你是一位资深的 Spark 性能调优专家，拥有处理分布式计算瓶颈和 JVM 优化的丰富经验。
+            你是一位资深的 Spark 性能调优专家，拥有处理分布式计算瓶颈 and JVM 优化的丰富经验。
             
             # Task
             请根据提供的 Spark Application 指标上下文 (JSON)，生成一份严谨、高度专业且具备实操性的技术诊断报告。
@@ -73,6 +74,7 @@ public class LLMDiagnosisService {
             - **代码/SQL 优化方案 (Code/SQL Optimization)**: (例如：使用 "Broadcast Join", 为 Join Key 增加 "Salting" 等)。
             """;
 
+    @Nullable
     public String generateReport(String appId, boolean force) {
         try {
             // 1. 检查缓存或生成状态
@@ -143,26 +145,28 @@ public class LLMDiagnosisService {
             
             return report;
             
-        } catch (Exception e) {
-            log.error("LLM Diagnosis failed", e);
+        } catch (Exception exception) {
+            log.error("LLM Diagnosis failed", exception);
             // 重置状态
             applicationService.lambdaUpdate()
                     .eq(ApplicationModel::getAppId, appId)
                     .set(ApplicationModel::getLlmReport, null)
                     .update();
-            return "Failed to generate deep diagnosis report: " + e.getMessage();
+            return "Failed to generate deep diagnosis report: " + exception.getMessage();
         }
     }
 
     private Map<String, Object> buildAnalysisContextMap(String appId) {
         try {
             ApplicationModel app = applicationService.getById(appId);
-            if (app == null) return new HashMap<>();
+            if (app == null) {
+                return new HashMap<>();
+            }
 
-            Map<String, Object> ctx = new HashMap<>();
+            Map<String, Object> context = new HashMap<>();
             
             // 1. App Metadata (原始信息)
-            ctx.put("application", Map.of(
+            context.put("application", Map.of(
                 "name", app.getAppName(),
                 "duration_ms", app.getDuration() != null ? app.getDuration() : 0,
                 "spark_version", app.getSparkVersion()
@@ -175,28 +179,28 @@ public class LLMDiagnosisService {
                     .last("LIMIT 10")
                     .list();
             
-            ctx.put("top_10_slowest_stages", stages.stream().map(s -> {
-                Map<String, Object> m = new HashMap<>();
-                m.put("stage_id", s.getStageId());
-                m.put("name", s.getStageName());
-                m.put("duration_ms", s.getDuration());
-                m.put("num_tasks", s.getNumTasks());
+            context.put("top_10_slowest_stages", stages.stream().map(stage -> {
+                Map<String, Object> metrics = new HashMap<>();
+                metrics.put("stage_id", stage.getStageId());
+                metrics.put("name", stage.getStageName());
+                metrics.put("duration_ms", stage.getDuration());
+                metrics.put("num_tasks", stage.getNumTasks());
                 // GC Time
-                m.put("gc_time_ms", s.getGcTimeSum());
+                metrics.put("gc_time_ms", stage.getGcTimeSum());
                 // I/O & Shuffle (原始字节数/时间)
-                m.put("input_bytes", s.getInputBytes());
-                m.put("output_bytes", s.getOutputBytes());
-                m.put("shuffle_read_bytes", s.getShuffleReadBytes());
-                m.put("shuffle_write_bytes", s.getShuffleWriteBytes());
-                m.put("shuffle_write_time_ns", s.getShuffleWriteTimeSum());
+                metrics.put("input_bytes", stage.getInputBytes());
+                metrics.put("output_bytes", stage.getOutputBytes());
+                metrics.put("shuffle_read_bytes", stage.getShuffleReadBytes());
+                metrics.put("shuffle_write_bytes", stage.getShuffleWriteBytes());
+                metrics.put("shuffle_write_time_ns", stage.getShuffleWriteTimeSum());
                 // Disk Spill
-                m.put("disk_spill_bytes", s.getDiskBytesSpilledSum());
-                m.put("memory_spill_bytes", s.getMemoryBytesSpilledSum());
+                metrics.put("disk_spill_bytes", stage.getDiskBytesSpilledSum());
+                metrics.put("memory_spill_bytes", stage.getMemoryBytesSpilledSum());
                 // Task Skew Indicators
-                m.put("max_task_duration_ms", s.getMaxTaskDuration());
-                m.put("median_task_duration_ms", s.getDurationP50());
-                m.put("p95_task_duration_ms", s.getDurationP95());
-                return m;
+                metrics.put("max_task_duration_ms", stage.getMaxTaskDuration());
+                metrics.put("median_task_duration_ms", stage.getDurationP50());
+                metrics.put("p95_task_duration_ms", stage.getDurationP95());
+                return metrics;
             }).collect(Collectors.toList()));
 
             // 3. Environment Configs (全量关键参数)
@@ -204,30 +208,39 @@ public class LLMDiagnosisService {
                     .eq(EnvironmentConfigModel::getAppId, appId)
                     .list();
             
-            Map<String, String> configs = allConfigs.stream()
-                    .filter(c -> isRelevantConfig(c.getParamKey()))
-                    .collect(Collectors.toMap(EnvironmentConfigModel::getParamKey, EnvironmentConfigModel::getParamValue, (v1, v2) -> v1));
-            ctx.put("spark_configuration", configs);
+            Map<String, String> relevantConfigs = allConfigs.stream()
+                    .filter(config -> {
+                        return isRelevantConfig(config.getParamKey());
+                    })
+                    .collect(Collectors.toMap(EnvironmentConfigModel::getParamKey, EnvironmentConfigModel::getParamValue, (value1, value2) -> {
+                        return value1;
+                    }));
+            context.put("spark_configuration", relevantConfigs);
 
-            return ctx;
-        } catch (Exception e) {
-            log.error("Error building context", e);
+            return context;
+        } catch (Exception exception) {
+            log.error("Error building context", exception);
             return new HashMap<>();
         }
     }
 
+    @Nullable
     private String buildAnalysisContext(String appId) {
         try {
             return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(buildAnalysisContextMap(appId));
-        } catch (Exception e) {
+        } catch (Exception exception) {
             return "{}";
         }
     }
 
     private boolean isRelevantConfig(String key) {
-        if (key == null) return false;
+        if (key == null) {
+            return false;
+        }
         // 排除一些无用的内部参数，保留大部分调优相关参数
-        if (key.startsWith("spark.app.") || key.contains("classpath") || key.contains("library.path")) return false;
+        if (key.startsWith("spark.app.") || key.contains("classpath") || key.contains("library.path")) {
+            return false;
+        }
         
         return key.startsWith("spark.executor") || 
                key.startsWith("spark.driver") ||

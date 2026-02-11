@@ -7,6 +7,7 @@ import com.spark.insight.model.dto.PageResponse;
 import com.spark.insight.service.*;
 import com.spark.insight.exception.AppParsingException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.lang.Nullable;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -89,6 +90,7 @@ public class InsightController {
         return new PageResponse<>(items, total, page, size, totalPages);
     }
 
+    @Nullable
     @GetMapping("/apps/{appId}/jobs/{jobId}")
     public JobModel getJob(@PathVariable String appId, @PathVariable Integer jobId) {
         checkAppReady(appId);
@@ -100,7 +102,9 @@ public class InsightController {
         if (job != null && job.getStageIds() != null) {
             List<Integer> stageIds = java.util.Arrays.stream(job.getStageIds().split(","))
                     .map(String::trim)
-                    .filter(s -> !s.isEmpty())
+                    .filter(stageIdStr -> {
+                        return !stageIdStr.isEmpty();
+                    })
                     .map(Integer::parseInt)
                     .toList();
             
@@ -193,6 +197,7 @@ public class InsightController {
         return new PageResponse<>(items, total, page, size, totalPages);
     }
 
+    @Nullable
     @GetMapping("/apps/{appId}/sql/{executionId}")
     public SqlExecutionModel getSqlExecution(@PathVariable String appId, @PathVariable Long executionId) {
         checkAppReady(appId);
@@ -224,14 +229,18 @@ public class InsightController {
         var countQuery = taskService.lambdaQuery()
                 .eq(TaskModel::getAppId, appId)
                 .eq(TaskModel::getStageId, stageId);
-        if (attemptId != null) countQuery.eq(TaskModel::getAttemptId, attemptId);
+        if (attemptId != null) {
+            countQuery.eq(TaskModel::getAttemptId, attemptId);
+        }
         long total = countQuery.count();
 
         // 2. 获取列表 (使用新的 QueryWrapper)
         var listQuery = taskService.lambdaQuery()
                 .eq(TaskModel::getAppId, appId)
                 .eq(TaskModel::getStageId, stageId);
-        if (attemptId != null) listQuery.eq(TaskModel::getAttemptId, attemptId);
+        if (attemptId != null) {
+            listQuery.eq(TaskModel::getAttemptId, attemptId);
+        }
 
         listQuery.last(buildSqlSuffix(sort, page, size, "task_index ASC"));
 
@@ -252,9 +261,11 @@ public class InsightController {
         var query = applicationService.lambdaQuery();
         if (search != null && !search.isBlank()) {
             String searchPattern = "%" + search + "%";
-            query.and(q -> q.apply("app_name ILIKE {0}", searchPattern)
-                    .or().apply("app_id ILIKE {0}", searchPattern)
-                    .or().apply("user_name ILIKE {0}", searchPattern));
+            query.and(applicationQuery -> {
+                applicationQuery.apply("app_name ILIKE {0}", searchPattern)
+                        .or().apply("app_id ILIKE {0}", searchPattern)
+                        .or().apply("user_name ILIKE {0}", searchPattern);
+            });
         }
 
         long total = query.count();
@@ -349,6 +360,7 @@ public class InsightController {
     /**
      * 获取单个 Stage 的元数据
      */
+    @Nullable
     @GetMapping("/apps/{appId}/stages/{stageId}")
     public StageModel getStage(@PathVariable String appId,
                                @PathVariable Integer stageId,
@@ -390,7 +402,9 @@ public class InsightController {
         var query = taskService.lambdaQuery()
                 .eq(TaskModel::getAppId, appId)
                 .eq(TaskModel::getStageId, stageId);
-        if (attemptId != null) query.eq(TaskModel::getAttemptId, attemptId);
+        if (attemptId != null) {
+            query.eq(TaskModel::getAttemptId, attemptId);
+        }
 
         return query.orderByAsc(TaskModel::getLaunchTime).list();
     }
@@ -426,6 +440,7 @@ public class InsightController {
     /**
      * 获取单个 Application 的元数据
      */
+    @Nullable
     @GetMapping("/apps/{appId}")
     public ApplicationModel getApp(@PathVariable String appId) {
         // Do NOT checkAppReady here, we need this to check status
@@ -443,7 +458,9 @@ public class InsightController {
                     String dir = "asc".equalsIgnoreCase(parts[1]) ? "ASC" : "DESC";
                     // 驼峰转蛇形: taskId -> task_id, taskIndex -> task_index
                     String column = field.replaceAll("([a-z])([A-Z])", "$1_$2").toLowerCase();
-                    if (orderBy.length() > 0) orderBy.append(", ");
+                    if (orderBy.length() > 0) {
+                        orderBy.append(", ");
+                    }
                     orderBy.append("\"").append(column).append("\"").append(" ").append(dir);
                 }
             }

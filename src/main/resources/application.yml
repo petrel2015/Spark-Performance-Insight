@@ -24,6 +24,13 @@ spring:
           model: glm-4.7
           temperature: 0.1
           max-tokens: 4096
+    openai:
+      api-key: ${OPENAI_API_KEY:fake_api_key}
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+      chat:
+        options:
+          model: gpt-4-turbo
+          temperature: 0.1
 
 mybatis-plus:
   mapper-locations: classpath:mapper/*.xml
@@ -32,6 +39,8 @@ mybatis-plus:
     map-underscore-to-camel-case: true
 
 insight:
+  ai:
+    provider: ${AI_PROVIDER:zhipu}
   event-log-path: ./workspace/eventlog
   scheduler:
     scan-interval-seconds: 3600

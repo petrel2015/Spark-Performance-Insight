@@ -1,14 +1,10 @@
 package com.spark.insight.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spark.insight.llm.LLMClient;
 import com.spark.insight.model.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.zhipuai.ZhiPuAiChatModel;
-import org.springframework.ai.zhipuai.ZhiPuAiChatOptions;
-import org.springframework.ai.zhipuai.api.ZhiPuAiApi;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 
@@ -26,12 +22,7 @@ public class LLMDiagnosisService {
     private final StageService stageService;
     private final EnvironmentConfigService envService;
     private final ObjectMapper objectMapper;
-
-    @Value("${spring.ai.zhipuai.api-key}")
-    private String apiKey;
-
-    @Value("${spring.ai.zhipuai.chat.options.model:glm-4.7}")
-    private String modelName;
+    private final LLMClient llmClient;
 
     private static final String SYSTEM_PROMPT = """
             # Role
@@ -110,22 +101,8 @@ public class LLMDiagnosisService {
             log.info(">>> [System Prompt]:\n{}", SYSTEM_PROMPT);
             log.info(">>> [Metrics Context JSON (Pretty Print for Log)]:\n{}", prettyJson);
             
-            // 3. 调用 AI (1.0.0-M1 原生 SDK)
-            ZhiPuAiApi zhipuAiApi = new ZhiPuAiApi(apiKey);
-            ZhiPuAiChatModel chatModel = new ZhiPuAiChatModel(zhipuAiApi);
-            
-            ChatClient chatClient = ChatClient.builder(chatModel)
-                    .defaultOptions(ZhiPuAiChatOptions.builder()
-                            .withModel(modelName)
-                            .withTemperature(0.1f)
-                            .build())
-                    .build();
-            
-            String report = chatClient.prompt()
-                    .system(SYSTEM_PROMPT)
-                    .user("Spark Application Metrics Context:\n" + compactJson)
-                    .call()
-                    .content();
+            // 3. 调用 AI 接口
+            String report = llmClient.generate(SYSTEM_PROMPT, "Spark Application Metrics Context:\n" + compactJson);
 
             log.info(">>> [LLM Response]:\n{}", report);
 

@@ -18,6 +18,11 @@ public class InsightProperties {
      */
     private Scheduler scheduler = new Scheduler();
 
+    /**
+     * Comparison configuration.
+     */
+    private Comparison comparison = new Comparison();
+
     @Data
     public static class Scheduler {
         /**
@@ -29,5 +34,13 @@ public class InsightProperties {
          * Interval in seconds between scans.
          */
         private long scanIntervalSeconds = 10;
+    }
+
+    @Data
+    public static class Comparison {
+        /**
+         * List of environment config categories to ignore during comparison.
+         */
+        private java.util.List<String> ignoreCategories = new java.util.ArrayList<>();
     }
 }

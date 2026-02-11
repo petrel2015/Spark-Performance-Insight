@@ -1,16 +1,21 @@
 package com.spark.insight.service;
 
+import com.spark.insight.model.EnvironmentConfigModel;
 import com.spark.insight.model.JobModel;
 import com.spark.insight.model.StageModel;
 import com.spark.insight.model.dto.ComparisonResult;
-import com.spark.insight.model.dto.ComparisonResult.*;
+import com.spark.insight.model.dto.ComparisonResult.ConfigDiff;
+import com.spark.insight.model.dto.ComparisonResult.ItemMeta;
+import com.spark.insight.model.dto.ComparisonResult.MetricDiff;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ComparisonService {
@@ -20,6 +25,7 @@ public class ComparisonService {
     private final JobService jobService;
     private final EnvironmentConfigService envService;
     private final TaskService taskService;
+    private final com.spark.insight.config.InsightProperties insightProperties;
 
     @Nullable
     public ComparisonResult compare(String type, String appId1, String id1, String appId2, String id2) {
@@ -67,11 +73,11 @@ public class ComparisonService {
         }
 
         List<MetricDiff> metrics = new ArrayList<>();
-        
+
         // 1. Core Performance
         addMetric(metrics, "Duration", "duration", "ms", (double) stage1.getDuration(), (double) stage2.getDuration(), true);
         addMetric(metrics, "GC Time", "gc_time", "ms", (double) stage1.getGcTimeSum(), (double) stage2.getGcTimeSum(), true);
-        
+
         // 2. Resource Overhead (Spill)
         addMetric(metrics, "Disk Spill", "disk_spill", "bytes", (double) stage1.getDiskBytesSpilledSum(), (double) stage2.getDiskBytesSpilledSum(), true);
         addMetric(metrics, "Memory Spill", "mem_spill", "bytes", (double) stage1.getMemoryBytesSpilledSum(), (double) stage2.getMemoryBytesSpilledSum(), true);
@@ -81,7 +87,7 @@ public class ComparisonService {
         // Treat shuffle increase as generally negative for performance stability
         addMetric(metrics, "Shuffle Read", "shuffle_read", "bytes", (double) stage1.getShuffleReadBytes(), (double) stage2.getShuffleReadBytes(), true);
         addMetric(metrics, "Shuffle Write", "shuffle_write", "bytes", (double) stage1.getShuffleWriteBytes(), (double) stage2.getShuffleWriteBytes(), true);
-        
+
         // 4. Concurrency (Executors)
         long executors1 = taskService.getExecutorCountForStage(appId1, stageId1);
         long executors2 = taskService.getExecutorCountForStage(appId2, stageId2);
@@ -91,7 +97,7 @@ public class ComparisonService {
         double durationDiffPercent = getPctChange((double) stage1.getDuration(), (double) stage2.getDuration());
         String conclusionType = "SIMILAR";
         String conclusion = "Performance is stable.";
-        
+
         if (durationDiffPercent > 20) {
             conclusionType = "REGRESSED";
             conclusion = String.format("Performance degraded by %.1f%%. ", durationDiffPercent);
@@ -126,17 +132,17 @@ public class ComparisonService {
 
         List<MetricDiff> metrics = new ArrayList<>();
         addMetric(metrics, "Duration", "duration", "ms", (double) job1.getDuration(), (double) job2.getDuration(), true);
-        
+
         long executors1 = taskService.getExecutorCountForJob(appId1, jobId1);
         long executors2 = taskService.getExecutorCountForJob(appId2, jobId2);
         addMetric(metrics, "Executors Involved", "exec_count", "count", (double) executors1, (double) executors2, false);
-        
+
         addMetric(metrics, "Stages Count", "stages", "count", (double) job1.getNumStages(), (double) job2.getNumStages(), false);
         addMetric(metrics, "Tasks Count", "tasks", "count", (double) job1.getNumTasks(), (double) job2.getNumTasks(), false);
 
         double durationDiffPercent = getPctChange((double) job1.getDuration(), (double) job2.getDuration());
         String conclusionType = durationDiffPercent > 10 ? "REGRESSED" : (durationDiffPercent < -10 ? "IMPROVED" : "SIMILAR");
-        
+
         return ComparisonResult.builder()
                 .type("JOB")
                 .source(buildMeta(appId1, "JOB", String.valueOf(jobId1), job1.getDescription(), job1.getDuration(), job1.getNumStages(), job1.getNumTasks()))
@@ -162,49 +168,67 @@ public class ComparisonService {
     private List<ConfigDiff> fetchResourceConfigs(String appId1, String appId2) {
         List<ConfigDiff> diffs = new ArrayList<>();
         // Fetch all configs
-        List<com.spark.insight.model.EnvironmentConfigModel> list1 = envService.lambdaQuery().eq(com.spark.insight.model.EnvironmentConfigModel::getAppId, appId1).list();
-        List<com.spark.insight.model.EnvironmentConfigModel> list2 = envService.lambdaQuery().eq(com.spark.insight.model.EnvironmentConfigModel::getAppId, appId2).list();
-        
+        List<EnvironmentConfigModel> list1 = envService.lambdaQuery().eq(EnvironmentConfigModel::getAppId, appId1).list();
+        List<EnvironmentConfigModel> list2 = envService.lambdaQuery().eq(EnvironmentConfigModel::getAppId, appId2).list();
+
         // Use category + key as the map key to avoid collisions
-        java.util.Map<String, com.spark.insight.model.EnvironmentConfigModel> map1 = list1.stream().collect(java.util.stream.Collectors.toMap(
-            config -> config.getCategory() + "||" + config.getParamKey(), 
-            config -> config, 
-            (configA, configB) -> configA));
-        java.util.Map<String, com.spark.insight.model.EnvironmentConfigModel> map2 = list2.stream().collect(java.util.stream.Collectors.toMap(
-            config -> config.getCategory() + "||" + config.getParamKey(), 
-            config -> config, 
-            (configA, configB) -> configA));
-        
-        java.util.Set<String> allCompositeKeys = new java.util.HashSet<>();
+        Map<String, EnvironmentConfigModel> map1 = list1.stream().collect(java.util.stream.Collectors.toMap(
+                config -> config.getCategory() + "||" + config.getParamKey(),
+                config -> config,
+                (configA, configB) -> configA));
+        Map<String, EnvironmentConfigModel> map2 = list2.stream().collect(java.util.stream.Collectors.toMap(
+                config -> config.getCategory() + "||" + config.getParamKey(),
+                config -> config,
+                (configA, configB) -> configA));
+
+        Set<String> allCompositeKeys = new java.util.HashSet<>();
         allCompositeKeys.addAll(map1.keySet());
         allCompositeKeys.addAll(map2.keySet());
-        
+
         for (String compositeKey : allCompositeKeys) {
-            com.spark.insight.model.EnvironmentConfigModel envConfig1 = map1.get(compositeKey);
-            com.spark.insight.model.EnvironmentConfigModel envConfig2 = map2.get(compositeKey);
-            
-            String value1 = envConfig1 != null ? envConfig1.getParamValue() : null;
-            String value2 = envConfig2 != null ? envConfig2.getParamValue() : null;
-            
-            // Only add if they are different (one null, one not, or values unequal)
-            boolean different = (value1 == null && value2 != null) || (value1 != null && value2 == null) || (value1 != null && !value1.equals(value2));
-            if (different) {
-                String category = envConfig1 != null ? envConfig1.getCategory() : envConfig2.getCategory();
-                String key = envConfig1 != null ? envConfig1.getParamKey() : envConfig2.getParamKey();
+            EnvironmentConfigModel envConfig1 = map1.get(compositeKey);
+            EnvironmentConfigModel envConfig2 = map2.get(compositeKey);
+
+            if (isConfigDifferent(envConfig1, envConfig2)) {
+                Optional<EnvironmentConfigModel> optConfig = Optional.ofNullable(envConfig1).or(() -> Optional.ofNullable(envConfig2));
                 
+                String category = optConfig.map(EnvironmentConfigModel::getCategory).orElse("Unknown");
+                if (insightProperties.getComparison().getIgnoreCategories().stream()
+                        .anyMatch(ignore -> ignore.equalsIgnoreCase(category))) {
+                    continue;
+                }
+
                 diffs.add(ConfigDiff.builder()
                         .category(category)
-                        .key(key)
-                        .sourceValue(value1 != null ? value1 : "N/A")
-                        .targetValue(value2 != null ? value2 : "N/A")
+                        .key(optConfig.map(EnvironmentConfigModel::getParamKey).orElse("Unknown"))
+                        .sourceValue(Optional.ofNullable(envConfig1).map(EnvironmentConfigModel::getParamValue).orElse("N/A"))
+                        .targetValue(Optional.ofNullable(envConfig2).map(EnvironmentConfigModel::getParamValue).orElse("N/A"))
                         .build());
             }
         }
-        
+
         // Sort by category then key
         diffs.sort(java.util.Comparator.comparing(ConfigDiff::getCategory).thenComparing(ConfigDiff::getKey));
-        
+
         return diffs;
+    }
+
+    private boolean isConfigDifferent(@Nullable EnvironmentConfigModel config1,
+                                     @Nullable EnvironmentConfigModel config2) {
+        String value1 = config1 != null ? config1.getParamValue() : null;
+        String value2 = config2 != null ? config2.getParamValue() : null;
+
+        if (value1 == null && value2 == null) {
+            return false;
+        }
+        if (value1 == null || value2 == null) {
+            return true;
+        }
+
+        String normalized1 = config1.getAppId() != null ? value1.replaceAll(config1.getAppId(), "") : value1;
+        String normalized2 = config2.getAppId() != null ? value2.replaceAll(config2.getAppId(), "") : value2;
+
+        return !StringUtils.equals(normalized1, normalized2);
     }
 
     private void addMetric(List<MetricDiff> metricsList, String label, String name, String unit, Double value1, Double value2, boolean lowerIsBetter) {
@@ -214,10 +238,10 @@ public class ComparisonService {
         if (value2 == null) {
             value2 = 0.0;
         }
-        
+
         double delta = value2 - value1;
         double percentChange = getPctChange(value1, value2);
-        
+
         String severity = "NEUTRAL";
         if (lowerIsBetter) {
             if (percentChange > 50) {

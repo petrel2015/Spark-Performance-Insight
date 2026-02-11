@@ -44,6 +44,9 @@ insight:
   event-log-path: ./workspace/eventlog
   scheduler:
     scan-interval-seconds: 3600
+  comparison:
+    ignore-categories:
+      - classpath_entries
 
 logging:
   config: classpath:log4j2.xml

@@ -1,3 +1,16 @@
+## 0.31.0 - 2026-02-11
+
+### 新功能
+- **Log4j2 迁移**: 迁移至 Log4j2 并改进解析错误日志记录
+- **导入状态**: 实现 App ID 检测时的 IMPORTING 状态并更新 EventLogStatus 枚举
+- **Schema 重构**: 重构 ParsedEventLog 表和模型，使用 fileName 作为主键并采用 EventLogStatus 枚举
+- **解析进度**: 在解析进度消息中包含字节计数和百分比
+
+### 修复
+- **稳定性**: 解决 Log4j2 堆栈跟踪和 DuckDB 类型映射问题
+
+### 重构
+- **一致性**: 重命名 parsed_event_logs 中的列以保持一致性
 
 ## 0.30.0 - 2026-02-10
 

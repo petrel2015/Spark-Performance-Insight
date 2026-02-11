@@ -1,3 +1,16 @@
+## 0.31.0 - 2026-02-11
+
+### Features
+- **Log4j2 Migration**: Migrate to Log4j2 and improve parsing error logging
+- **Import Status**: Implement IMPORTING status when app_id is detected and update EventLogStatus enum
+- **Schema Refactor**: Refactor ParsedEventLog table and model to use fileName as PK and EventLogStatus enum
+- **Parsing Progress**: Include byte counts and percentage in parsing progress message
+
+### Fixes
+- **Stability**: Resolve Log4j2 stack trace and DuckDB type mapping issues
+
+### Refactor
+- **Consistency**: Rename columns in parsed_event_logs for consistency
 
 ## 0.30.0 - 2026-02-10
 
@@ -96,7 +109,7 @@
 ### Features
 - Ensure sequential parsing of rolling event logs for the same Spark application
 - Implement concurrency control in EventLogWatcherService to prevent duplicate parsing tasks
-- Add "PROCESSING" status tracking for event logs in the database
+- 在数据库中添加事件日志的 "PROCESSING" 状态追踪
 
 ### Improvements
 - Refined waterfall timeline with improved lane packing logic

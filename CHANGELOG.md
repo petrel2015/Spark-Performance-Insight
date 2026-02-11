@@ -1,3 +1,9 @@
+## 0.32.1 - 2026-02-12
+
+### Refactor
+- simplify lambda expressions and optimize app ID inference in EventLogWatcherService
+- optimize configuration comparison with configurable filters and Optional-based refactoring
+
 ## 0.32.0 - 2026-02-12
 
 ### Features

@@ -1,3 +1,8 @@
+## 0.32.0 - 2026-02-12
+
+### Features
+- **OpenAI Support**: Add OpenAI support and refactor LLM client integration
+
 ## 0.31.0 - 2026-02-11
 
 ### Features

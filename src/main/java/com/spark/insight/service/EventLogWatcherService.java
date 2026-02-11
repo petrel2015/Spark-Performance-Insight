@@ -81,11 +81,7 @@ public class EventLogWatcherService {
         });
 
         // Process Standalone
-        standaloneFiles.forEach(file -> {
-            parseExecutor.submit(() -> {
-                processFile(file, 1, 1);
-            });
-        });
+        standaloneFiles.forEach(file -> parseExecutor.submit(() -> processFile(file, 1, 1)));
     }
 
     private void collectFiles(File file, List<File> result) {

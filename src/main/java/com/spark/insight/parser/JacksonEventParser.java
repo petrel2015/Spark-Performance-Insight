@@ -64,22 +64,20 @@ public class JacksonEventParser implements EventParser {
     }
 
     @Override
-    public void parse(File logFile) {
-        parse(logFile, 1, 1);
-    }
-
-    @Override
-    public void parse(File logFile, int currentFileIndex, int totalFiles) {
+    public void parse(File logFile, String appId) {
         long startTime = System.currentTimeMillis();
         long fileSize = logFile.length();
-        log.info("Processing log: {} ({}/{}), size: {} bytes", logFile.getName(), currentFileIndex, totalFiles, fileSize);
+        log.info("Processing log: {}, appId: {}, size: {}",
+                logFile.getName(), (appId != null ? appId : "unknown"), formatFileSize(fileSize));
 
         // 尝试从文件名推断 App ID (支持滚动日志)
-        String inferredAppId = null;
-        if (logFile.getName().startsWith("event")) {
-            String[] parts = logFile.getName().split("_", 3);
-            if (parts.length >= 3) {
-                inferredAppId = parts[2];
+        String inferredAppId = appId;
+        if (inferredAppId == null) {
+            if (logFile.getName().startsWith("event")) {
+                String[] parts = logFile.getName().split("_", 3);
+                if (parts.length >= 3) {
+                    inferredAppId = parts[2];
+                }
             }
         }
         if (inferredAppId == null) {
@@ -112,7 +110,7 @@ public class JacksonEventParser implements EventParser {
                     lineCount++;
                     // Update progress every 2 seconds
                     if (currentAppId != null && System.currentTimeMillis() - lastUpdate > 2000) {
-                        updateParsingProgress(currentAppId, currentFileIndex, totalFiles, countingIs.getBytesRead(), fileSize);
+                        updateParsingProgress(currentAppId, countingIs.getBytesRead(), fileSize);
                         lastUpdate = System.currentTimeMillis();
                     }
 
@@ -143,7 +141,7 @@ public class JacksonEventParser implements EventParser {
                                     app.setStartTime(parseTimestamp(System.currentTimeMillis()));
                                     app.setSparkVersion(versionFromLogStart != null ? versionFromLogStart : "unknown");
                                     app.setParsingStatus("PARSING");
-                                    updateParsingProgress(app, currentFileIndex, totalFiles, countingIs.getBytesRead(), fileSize);
+                                    updateParsingProgress(currentAppId, countingIs.getBytesRead(), fileSize);
                                     applicationService.saveOrUpdate(app);
                                 } else if (versionFromLogStart != null && (app.getSparkVersion() == null || app.getSparkVersion().equals("unknown"))) {
                                     app.setSparkVersion(versionFromLogStart);
@@ -168,7 +166,7 @@ public class JacksonEventParser implements EventParser {
                             case "SparkListenerApplicationStart":
                                 currentAppId = node.get("App ID").asText();
                                 updateImportingStatus(logFile.getName());
-                                handleAppStart(node, currentAppId, currentFileIndex, totalFiles, versionFromLogStart, fileSize);
+                                handleAppStart(node, currentAppId, versionFromLogStart, fileSize);
                                 break;
                             case "SparkListenerEnvironmentUpdate":
                                 if (currentAppId != null) {
@@ -260,17 +258,30 @@ public class JacksonEventParser implements EventParser {
                     dbExecutor.submit(() -> saveDeduplicatedEnv(batchToSave));
                 }
 
-                // Update final progress for this specific file
-                updateParsingProgress(currentAppId, currentFileIndex, totalFiles, countingIs.getBytesRead(), fileSize);
+                // Update final progress for this specific file using dynamic counts if appId is available
+                if (currentAppId != null) {
+                    updateParsingProgress(currentAppId, countingIs.getBytesRead(), fileSize);
+                }
 
                 // 触发后期预计算 - 只在最后一个文件处理完后，或者每个文件都触发但标记 READY 要谨慎
                 if (currentAppId != null) {
                     final String appIdFinal = currentAppId;
-                    final boolean isLastFile = currentFileIndex >= totalFiles;
 
                     dbExecutor.submit(() -> {
                         try {
-                            log.info("Starting post-calculation for App: {} (File {}/{})", appIdFinal, currentFileIndex, totalFiles);
+                            // Check if this is the last file dynamically
+                            long totalFilesForApp = parsedLogMapper.selectCount(
+                                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ParsedEventLogModel>()
+                                            .eq(ParsedEventLogModel::getAppId, appIdFinal)
+                            );
+                            long processedFilesForApp = parsedLogMapper.selectCount(
+                                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ParsedEventLogModel>()
+                                            .eq(ParsedEventLogModel::getAppId, appIdFinal)
+                                            .eq(ParsedEventLogModel::getStatus, EventLogStatus.SUCCESS)
+                            );
+                            final boolean isLastFile = processedFilesForApp >= totalFilesForApp;
+
+                            log.info("Starting post-calculation for App: {} (Processed {}/{})", appIdFinal, processedFilesForApp, totalFilesForApp);
                             updatePostCalculationProgress(appIdFinal, "Calculating Stage/Job metrics...");
 
                             // Optimization: Mark as READY *before* calculating complex metrics if it's the last file,
@@ -291,9 +302,7 @@ public class JacksonEventParser implements EventParser {
                             }
                         } catch (Exception exception) {
                             log.error("Failed to complete post-calculation for App: " + appIdFinal, exception);
-                            if (isLastFile) {
-                                forceMarkReady(appIdFinal);
-                            }
+                            finalizeAppQuality(appIdFinal); // Ensure it's marked ready even on partial failure
                         }
                     });
                 }
@@ -303,6 +312,26 @@ public class JacksonEventParser implements EventParser {
         } catch (Exception exception) {
             log.error("Error parsing " + logFile.getPath(), exception);
         }
+    }
+
+    @Nullable
+    private static String getString(File logFile, String appId) {
+        String inferredAppId = appId;
+        if (inferredAppId == null) {
+            if (logFile.getName().startsWith("event")) {
+                String[] parts = logFile.getName().split("_", 3);
+                if (parts.length >= 3) {
+                    inferredAppId = parts[2];
+                }
+            }
+        }
+        if (inferredAppId == null) {
+            java.util.regex.Matcher matcher = APP_ID_PATTERN.matcher(logFile.getName());
+            if (matcher.find()) {
+                inferredAppId = matcher.group(1);
+            }
+        }
+        return inferredAppId;
     }
 
     private void finalizeAppQuality(String appId) {
@@ -351,18 +380,35 @@ public class JacksonEventParser implements EventParser {
         }
     }
 
-    private void updateParsingProgress(String appId, int fileIdx, int totalFiles, long bytesRead, long totalBytes) {
+    private void updateParsingProgress(String appId, long bytesRead, long totalBytes) {
         ApplicationModel app = applicationService.getById(appId);
         if (app != null) {
-            updateParsingProgress(app, fileIdx, totalFiles, bytesRead, totalBytes);
+            // Dynamically calculate file index and total files for this App
+            long totalFilesForApp = parsedLogMapper.selectCount(
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ParsedEventLogModel>()
+                            .eq(ParsedEventLogModel::getAppId, appId)
+            );
+            long processedFilesForApp = parsedLogMapper.selectCount(
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ParsedEventLogModel>()
+                            .eq(ParsedEventLogModel::getAppId, appId)
+                            .eq(ParsedEventLogModel::getStatus, EventLogStatus.SUCCESS)
+            );
+            int fileIdx = (int) processedFilesForApp + 1;
+            int totalFiles = (int) totalFilesForApp;
+
+            double percentage = totalBytes > 0 ? (bytesRead * 100.0 / totalBytes) : 0;
+            String msg = String.format("Processing file %d/%d (%s/%s, %.1f%%)",
+                    fileIdx, totalFiles, formatFileSize(bytesRead), formatFileSize(totalBytes), percentage);
+            app.setParsingProgress(msg);
             applicationService.updateById(app);
         }
     }
 
-    private void updateParsingProgress(ApplicationModel app, int fileIdx, int totalFiles, long bytesRead, long totalBytes) {
-        double percentage = totalBytes > 0 ? (bytesRead * 100.0 / totalBytes) : 0;
-        String msg = String.format("Processing file %d/%d (%d/%d bytes, %.1f%%)", fileIdx, totalFiles, bytesRead, totalBytes, percentage);
-        app.setParsingProgress(msg);
+    private String formatFileSize(long bytes) {
+        if (bytes <= 0) return "0 B";
+        final String[] units = new String[]{"B", "KB", "MB", "GB", "TB"};
+        int digitGroups = (int) (Math.log10(bytes) / Math.log10(1024));
+        return String.format("%.2f %s", bytes / Math.pow(1024, digitGroups), units[digitGroups]);
     }
 
     private void updatePostCalculationProgress(String appId, String stage) {
@@ -469,7 +515,7 @@ public class JacksonEventParser implements EventParser {
         envService.upsertBatch(new ArrayList<>(unique.values()));
     }
 
-    private void handleAppStart(JsonNode node, String appId, int fileIdx, int totalFiles, String versionFromLogStart, long fileSize) {
+    private void handleAppStart(JsonNode node, String appId, String versionFromLogStart, long fileSize) {
         ApplicationModel app = applicationService.getById(appId);
         if (app == null) {
             app = new ApplicationModel();
@@ -477,7 +523,7 @@ public class JacksonEventParser implements EventParser {
         }
         if (!"READY".equals(app.getParsingStatus())) {
             app.setParsingStatus("PARSING");
-            updateParsingProgress(app, fileIdx, totalFiles, 0, fileSize);
+            updateParsingProgress(appId, 0, fileSize);
         }
         app.setAppName(node.get("App Name").asText());
         app.setUserName(node.get("User").asText());

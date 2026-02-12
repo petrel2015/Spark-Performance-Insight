@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 public class ParsedEventLogModel {
     @TableId
     private String fileName;
+    private String appId;
     private LocalDateTime updateTime;
     private Long fileSize;
     private String fileHash;

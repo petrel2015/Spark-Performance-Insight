@@ -12,6 +12,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.security.MessageDigest;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -55,33 +57,105 @@ public class EventLogWatcherService {
         List<File> allFiles = new ArrayList<>();
         collectFiles(directory, allFiles);
 
-        // Group by App ID inferred from filename
-        Map<String, List<File>> appGroups = new HashMap<>();
-        List<File> standaloneFiles = new ArrayList<>();
+        // 1. Record scanned files into two lists: inferred App ID and standalone
+        List<Map.Entry<File, String>> appIdFileList = new ArrayList<>();
+        List<Map.Entry<File, String>> standaloneFileList = new ArrayList<>();
 
         for (File file : allFiles) {
+            String md5 = calculateMD5(file);
             String appId = inferAppId(file.getName());
             if (appId != null) {
-                appGroups.computeIfAbsent(appId, k -> new ArrayList<>()).add(file);
+                appIdFileList.add(new AbstractMap.SimpleEntry<>(file, md5));
             } else {
-                standaloneFiles.add(file);
+                standaloneFileList.add(new AbstractMap.SimpleEntry<>(file, md5));
             }
         }
 
-        // Process App Groups (Sorted)
-        appGroups.forEach((appId, files) -> {
+        // 2. Query DuckDB to identify new (List 1) and changed (List 2) files
+        Map<String, List<File>> appGroupsToProcess = new HashMap<>();
+        List<File> standaloneToProcess = new ArrayList<>();
+
+        // Process App ID files
+        for (Map.Entry<File, String> entry : appIdFileList) {
+            File file = entry.getKey();
+            if (checkAndMarkForProcessing(file, entry.getValue())) {
+                String appId = inferAppId(file.getName());
+                appGroupsToProcess.computeIfAbsent(appId, k -> new ArrayList<>()).add(file);
+            }
+        }
+
+        // Process standalone files
+        for (Map.Entry<File, String> entry : standaloneFileList) {
+            File file = entry.getKey();
+            if (checkAndMarkForProcessing(file, entry.getValue())) {
+                standaloneToProcess.add(file);
+            }
+        }
+
+        // 3. Submit tasks
+        appGroupsToProcess.forEach((appId, files) -> {
             files.sort(Comparator.comparingInt(this::getFileIndex).thenComparing(File::getName));
-            // Submit as a single task per app to ensure sequential processing of rolling logs
             parseExecutor.submit(() -> {
-                int total = files.size();
-                for (int i = 0; i < total; i++) {
-                    processFile(files.get(i), i + 1, total);
+                for (File file : files) {
+                    processFile(file, appId);
                 }
             });
         });
 
-        // Process Standalone
-        standaloneFiles.forEach(file -> parseExecutor.submit(() -> processFile(file, 1, 1)));
+        standaloneToProcess.forEach(file -> parseExecutor.submit(() -> processFile(file, null)));
+    }
+
+    private boolean checkAndMarkForProcessing(File file, String md5) {
+        String fileName = file.getName();
+        ParsedEventLogModel record = parsedLogMapper.selectById(fileName);
+        LocalDateTime updateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(file.lastModified()), ZoneId.systemDefault());
+
+        if (record == null) {
+            log.info("New log file detected (List 1): {}", fileName);
+            // Insert initial record as IMPORTING
+            ParsedEventLogModel startRecord = new ParsedEventLogModel();
+            startRecord.setFileName(fileName);
+            startRecord.setAppId(inferAppId(fileName));
+            startRecord.setUpdateTime(updateTime);
+            startRecord.setFileSize(file.length());
+            startRecord.setFileHash(md5);
+            startRecord.setStatus(EventLogStatus.IMPORTING);
+            startRecord.setCreateTime(LocalDateTime.now());
+            parsedLogMapper.insert(startRecord);
+            return true;
+        }
+
+        // Check if MD5 changed and status is not IMPORTING (List 2)
+        boolean md5Changed = !Objects.equals(record.getFileHash(), md5);
+        if (record.getStatus() != EventLogStatus.IMPORTING && md5Changed) {
+            log.info("Log file change detected (List 2): {} (MD5 changed)", fileName);
+            return true;
+        }
+
+        // Retry processing if it was stuck in PROCESSING or failed
+        return record.getStatus() == EventLogStatus.PROCESSING || record.getStatus() == EventLogStatus.FAILED;
+    }
+
+    private String calculateMD5(File file) {
+        try (FileInputStream fis = new FileInputStream(file)) {
+            MessageDigest digest = MessageDigest.getInstance("MD5");
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = fis.read(buffer)) != -1) {
+                digest.update(buffer, 0, read);
+            }
+            byte[] hash = digest.digest();
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            return hexString.toString();
+        } catch (Exception e) {
+            log.error("Failed to calculate MD5 for " + file.getName(), e);
+            return "";
+        }
     }
 
     private void collectFiles(File file, List<File> result) {
@@ -129,10 +203,10 @@ public class EventLogWatcherService {
         return name.startsWith("event");
     }
 
-    private void processFile(File file, int currentIdx, int totalFiles) {
+    private void processFile(File file, @Nullable String appId) {
         String absolutePath = file.getAbsolutePath();
         String fileName = file.getName();
-        
+
         // Avoid concurrent processing of the same file (in case of scheduler overlaps)
         if (processingFiles.contains(absolutePath)) {
             return;
@@ -140,61 +214,47 @@ public class EventLogWatcherService {
 
         LocalDateTime updateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(file.lastModified()), ZoneId.systemDefault());
         long fileSize = file.length();
+        String md5 = calculateMD5(file);
 
-        ParsedEventLogModel record = parsedLogMapper.selectById(fileName);
-        boolean needsParse = false;
+        processingFiles.add(absolutePath);
+        try {
+            // Mark as PROCESSING in DB immediately
+            ParsedEventLogModel startRecord = new ParsedEventLogModel();
+            startRecord.setFileName(fileName);
+            startRecord.setAppId(appId);
+            startRecord.setUpdateTime(updateTime);
+            startRecord.setFileSize(fileSize);
+            startRecord.setFileHash(md5);
+            startRecord.setStatus(EventLogStatus.PROCESSING);
+            startRecord.setCreateTime(LocalDateTime.now());
+            parsedLogMapper.updateById(startRecord);
 
-        if (record == null) {
-            log.info("New log file detected: {}", fileName);
-            needsParse = true;
-        } else {
-            // Check if file has been modified since last parse
-            if (!Objects.equals(record.getUpdateTime(), updateTime) || record.getFileSize() != fileSize || EventLogStatus.PROCESSING == record.getStatus()) {
-                log.info("Log file change or retry needed: {} (Status: {}, Size: {} -> {}, Mod: {} -> {})",
-                        fileName, record.getStatus(), record.getFileSize(), fileSize, record.getUpdateTime(), updateTime);
-                needsParse = true;
-            }
-        }
+            eventParser.parse(file, appId);
 
-        if (needsParse) {
-            processingFiles.add(absolutePath);
-            try {
-                // Mark as PROCESSING in DB immediately
-                ParsedEventLogModel startRecord = new ParsedEventLogModel();
-                startRecord.setFileName(fileName);
-                startRecord.setUpdateTime(updateTime);
-                startRecord.setFileSize(fileSize);
-                startRecord.setStatus(EventLogStatus.PROCESSING);
-                startRecord.setCreateTime(LocalDateTime.now());
-                if (record == null) {
-                    parsedLogMapper.insert(startRecord);
-                } else {
-                    parsedLogMapper.updateById(startRecord);
-                }
-
-                eventParser.parse(file, currentIdx, totalFiles);
-
-                // Update record in DB
-                ParsedEventLogModel newRecord = new ParsedEventLogModel();
-                newRecord.setFileName(fileName);
-                newRecord.setUpdateTime(updateTime);
-                newRecord.setFileSize(fileSize);
-                newRecord.setCreateTime(LocalDateTime.now());
-                newRecord.setStatus(EventLogStatus.SUCCESS);
-                parsedLogMapper.updateById(newRecord);
-            } catch (Exception exception) {
-                log.error("Failed to parse " + fileName, exception);
-                // Record failure state
-                ParsedEventLogModel failedRecord = new ParsedEventLogModel();
-                failedRecord.setFileName(fileName);
-                failedRecord.setUpdateTime(updateTime);
-                failedRecord.setFileSize(fileSize);
-                failedRecord.setCreateTime(LocalDateTime.now());
-                failedRecord.setStatus(EventLogStatus.FAILED);
-                parsedLogMapper.updateById(failedRecord);
-            } finally {
-                processingFiles.remove(absolutePath);
-            }
+            // Update record in DB
+            ParsedEventLogModel newRecord = new ParsedEventLogModel();
+            newRecord.setFileName(fileName);
+            newRecord.setAppId(appId);
+            newRecord.setUpdateTime(updateTime);
+            newRecord.setFileSize(fileSize);
+            newRecord.setFileHash(md5);
+            newRecord.setCreateTime(LocalDateTime.now());
+            newRecord.setStatus(EventLogStatus.SUCCESS);
+            parsedLogMapper.updateById(newRecord);
+        } catch (Exception exception) {
+            log.error("Failed to parse " + fileName, exception);
+            // Record failure state
+            ParsedEventLogModel failedRecord = new ParsedEventLogModel();
+            failedRecord.setFileName(fileName);
+            failedRecord.setAppId(appId);
+            failedRecord.setUpdateTime(updateTime);
+            failedRecord.setFileSize(fileSize);
+            failedRecord.setFileHash(md5);
+            failedRecord.setCreateTime(LocalDateTime.now());
+            failedRecord.setStatus(EventLogStatus.FAILED);
+            parsedLogMapper.updateById(failedRecord);
+        } finally {
+            processingFiles.remove(absolutePath);
         }
     }
 }

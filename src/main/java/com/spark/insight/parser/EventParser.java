@@ -10,19 +10,9 @@ public interface EventParser {
      * 解析指定的 EventLog 文件并入库
      *
      * @param logFile 原始日志文件
+     * @param appId   预推断的 App ID (可为 null)
      */
-    void parse(File logFile);
-
-    /**
-     * 解析指定的 EventLog 文件并更新进度
-     *
-     * @param logFile          原始日志文件
-     * @param currentFileIndex 当前文件序号 (1-based)
-     * @param totalFiles       总文件数
-     */
-    default void parse(File logFile, int currentFileIndex, int totalFiles) {
-        parse(logFile);
-    }
+    void parse(File logFile, String appId);
 
     /**
      * 是否支持该版本的日志解析

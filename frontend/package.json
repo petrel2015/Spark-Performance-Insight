@@ -10,10 +10,14 @@
   },
   "dependencies": {
     "@antv/x6": "^3.1.5",
+    "@types/sockjs-client": "^1.5.4",
+    "@types/stompjs": "^2.3.10",
     "axios": "^1.6.7",
     "dagre": "^0.8.5",
     "echarts": "^5.5.0",
     "marked": "^11.1.1",
+    "sockjs-client": "^1.6.1",
+    "stompjs": "^2.3.3",
     "vue": "^3.4.15",
     "vue-router": "^4.2.5"
   },

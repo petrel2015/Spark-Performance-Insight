@@ -89,14 +89,18 @@
         <table class="styled-table">
           <thead>
           <tr>
+            <!-- Comparison Selection Column -->
+            <th v-if="compareStore.isCompareMode" style="width: 50px; text-align: center;">
+              <span class="material-symbols-outlined" style="font-size: 16px; color: #666;">compare_arrows</span>
+            </th>
             <th v-for="col in columns"
                 :key="col.field"
-                @click="handleSort(col.field, $event)"
-                class="sortable"
+                @click="col.sortable !== false && handleSort(col.field, $event)"
+                :class="{ 'sortable': col.sortable !== false }"
                 :style="{ width: col.width }">
               <div class="header-container">
                 {{ col.label }}
-                <div class="sort-indicator">
+                <div v-if="col.sortable !== false" class="sort-indicator">
                   <span class="material-symbols-outlined sort-icon" :class="{ active: isFieldSorted(col.field) }">
                     {{ getSortIcon(col.field) }}
                   </span>
@@ -107,34 +111,69 @@
           </tr>
           </thead>
           <tbody>
-          <tr v-for="app in apps" :key="app.appId">
-            <td>
-              <router-link :to="'/app/' + app.appId" class="app-link">
-                {{ app.appName }}
-              </router-link>
+          <tr v-for="app in apps" :key="app.appId" :class="{ 'processing-row': isProcessing(app.parsingStatus) }">
+            <!-- Comparison Selection -->
+            <td v-if="compareStore.isCompareMode" style="text-align: center;">
+              <button class="select-btn" 
+                      :disabled="isProcessing(app.parsingStatus)"
+                      :class="{ selected: compareStore.isInWorkspace(app.appId, 'app') }"
+                      @click="toggleCompare(app)">
+                <span class="material-symbols-outlined">
+                  {{ compareStore.isInWorkspace(app.appId, 'app') ? 'check_box' : 'check_box_outline_blank' }}
+                </span>
+              </button>
+            </td>
+
+            <td :title="app.parsingProgress || 'Click to view details'">
+              <div class="name-cell-wrapper">
+                <router-link :to="'/app/' + app.appId" 
+                             class="app-link"
+                             :class="{ 'disabled-link': isProcessing(app.parsingStatus) }">
+                  {{ app.appName || 'Unknown Application' }}
+                </router-link>
+                <div v-if="app.parsingStatus === 'PENDING_OVERWRITE'" class="overwrite-prompt">
+                  <span class="prompt-text">New logs found. Re-import?</span>
+                  <div class="prompt-actions">
+                    <button class="mini-btn confirm" @click="handleOverwrite(app.appId, true)" title="Yes, clear data and re-import">Confirm</button>
+                    <button class="mini-btn cancel" @click="handleOverwrite(app.appId, false)" title="No, keep current data">Cancel</button>
+                  </div>
+                </div>
+              </div>
             </td>
 
             <td>
-                          <span v-if="app.sparkVersion && app.sparkVersion !== 'unknown'" class="spark-version-badge">
-                            {{ app.sparkVersion }}
-                          </span>
+              <span v-if="app.sparkVersion && app.sparkVersion !== 'unknown'" class="spark-version-badge">
+                {{ app.sparkVersion }}
+              </span>
             </td>
             <td><code class="app-id-code">{{ app.appId }}</code></td>
             <td>{{ app.userName }}</td>
             <td>{{ formatDateTime(app.startTime) }}</td>
             <td>{{ (app.duration / 1000).toFixed(1) }} s</td>
-            <td><span :class="'status-' + app.status">{{ app.status }}</span></td>
+            
+            <!-- PROGRESS Column -->
             <td>
-              <div class="actions-cell">
-                <button v-if="compareStore.isCompareMode" 
-                        class="compare-action-btn"
-                        :class="{ 'in-workspace': compareStore.isInWorkspace(app.appId, 'app') }"
-                        @click="toggleCompare(app)">
-                  <span class="material-symbols-outlined">
-                    {{ compareStore.isInWorkspace(app.appId, 'app') ? 'check_circle' : 'add_circle' }}
-                  </span>
-                  {{ compareStore.isInWorkspace(app.appId, 'app') ? 'Added' : 'Compare' }}
-                </button>
+              <div class="progress-cell">
+                <div class="progress-track">
+                  <div class="progress-fill" 
+                       :style="{ 
+                         width: (app.parsingStatus === 'SUCCESS' || !app.parsingStatus ? 100 : (app.progressValue || 0)) + '%', 
+                         backgroundColor: getProgressColor(app.parsingStatus || 'SUCCESS') 
+                       }">
+                  </div>
+                  <div class="progress-text-overlay">
+                    {{ app.parsingStatus === 'SUCCESS' || !app.parsingStatus ? '100%' : Math.round(app.progressValue || 0) + '%' }}
+                  </div>
+                </div>
+              </div>
+            </td>
+
+            <!-- STATUS Column -->
+            <td>
+              <div class="status-cell">
+                <span :class="'status-badge status-' + (app.parsingStatus || 'SUCCESS')">
+                  {{ formatStatus(app.parsingStatus) }}
+                </span>
               </div>
             </td>
           </tr>
@@ -149,11 +188,14 @@
 </template>
 
 <script setup>
-import {ref, onMounted, computed} from 'vue';
+import {ref, onMounted, onUnmounted, computed} from 'vue';
 import {getApps} from '../api';
 import {formatDateTime} from '../utils/format';
 import {useRoute, useRouter} from 'vue-router';
 import { compareStore } from '../store/compareStore';
+import axios from 'axios';
+import SockJS from 'sockjs-client';
+import Stomp from 'stompjs';
 
 const route = useRoute();
 const router = useRouter();
@@ -168,29 +210,104 @@ const jumpPageInput = ref(1);
 const searchQuery = ref('');
 const sorts = ref([{field: 'startTime', dir: 'desc'}]);
 
+// WebSocket State
+let stompClient = null;
+let socket = null;
+
+const connectWebSocket = () => {
+  socket = new SockJS('/ws-status');
+  stompClient = Stomp.over(socket);
+  stompClient.debug = null; // Disable debug logging
+  stompClient.connect({}, () => {
+    stompClient.subscribe('/topic/status', (message) => {
+      const data = JSON.parse(message.body);
+      updateAppProgress(data);
+    });
+  }, (err) => {
+    console.error('WebSocket connection error:', err);
+    // Retry connection after 5 seconds
+    setTimeout(connectWebSocket, 5000);
+  });
+};
+
+const updateAppProgress = (data) => {
+  const index = apps.value.findIndex(a => a.appId === data.appId);
+  if (index !== -1) {
+    const app = apps.value[index];
+    app.parsingStatus = data.status;
+    app.parsingProgress = data.progressText;
+    app.progressValue = data.progressValue;
+    
+    if (app.appName === 'Initializing...' || !app.appName) {
+      fetchApps();
+    }
+    
+    if (data.status === 'SUCCESS' || data.status === 'FAILED') {
+      setTimeout(fetchApps, 1500);
+    }
+  } else {
+    if (data.status === 'PENDING_TO_LOADING' || data.status === 'LOADING') {
+      fetchApps();
+    }
+  }
+};
+
+const handleOverwrite = async (appId, confirm) => {
+  try {
+    const action = confirm ? 'confirm' : 'cancel';
+    await axios.post(`/api/applications/${appId}/overwrite-${action}`);
+    fetchApps();
+  } catch (err) {
+    console.error(`Failed to ${action} overwrite`, err);
+  }
+};
+
 const columns = [
-  {field: 'appName', label: 'App Name'},
-  {field: 'sparkVersion', label: 'Version', width: '100px'},
-  {field: 'appId', label: 'App ID', width: '280px'},
-  {field: 'userName', label: 'User', width: '120px'},
-  {field: 'startTime', label: 'Submitted', width: '180px'},
-  {field: 'duration', label: 'Duration', width: '120px'},
-  {field: 'status', label: 'Status', width: '100px'},
-  {field: 'actions', label: 'Actions', width: '120px'}
+  {field: 'appName', label: 'App Name', sortable: true},
+  {field: 'sparkVersion', label: 'Version', width: '100px', sortable: true},
+  {field: 'appId', label: 'App ID', width: '400px', sortable: true},
+  {field: 'userName', label: 'User', width: '120px', sortable: true},
+  {field: 'startTime', label: 'Submitted', width: '180px', sortable: true},
+  {field: 'duration', label: 'Duration', width: '120px', sortable: true},
+  {field: 'progress', label: 'Progress', width: '150px', sortable: false},
+  {field: 'status', label: 'Status', width: '150px', sortable: true}
 ];
 
+const getProgressColor = (status) => {
+  if (status === 'FAILED') return '#e74c3c';
+  if (status === 'SUCCESS') return '#27ae60';
+  if (status === 'PRE_CALCULATING') return '#3498db';
+  return '#f39c12';
+};
+
+const formatStatus = (status) => {
+  if (!status) return 'SUCCESS';
+  return status.split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
+const isProcessing = (status) => {
+  return status && status !== 'SUCCESS' && status !== 'FAILED';
+};
+
 const toggleCompare = (app) => {
-  compareStore.addItem({
-    id: `app:${app.appId}`,
-    type: 'app',
-    itemId: app.appId,
-    appId: app.appId,
-    name: app.appName,
-    details: {
-      duration: app.duration,
-      status: app.status
-    }
-  });
+  const key = `app:${app.appId}`;
+  if (compareStore.isInWorkspace(app.appId, 'app')) {
+    compareStore.removeItem(key);
+  } else {
+    compareStore.addItem({
+      id: key,
+      type: 'app',
+      itemId: app.appId,
+      appId: app.appId,
+      name: app.appName,
+      details: {
+        duration: app.duration,
+        status: app.status
+      }
+    });
+  }
 };
 
 const fetchApps = async () => {
@@ -198,7 +315,16 @@ const fetchApps = async () => {
     const sortStr = sorts.value.map(s => `${s.field},${s.dir}`).join(';');
     const res = await getApps(currentPage.value, pageSize.value, sortStr, searchQuery.value);
     if (res.data && res.data.items) {
-      apps.value = res.data.items;
+      apps.value = res.data.items.map(app => {
+        if (isProcessing(app.parsingStatus) && app.parsingProgress) {
+          const match = app.parsingProgress.match(/([\d.]+)%/);
+          if (match) {
+            const rawPct = parseFloat(match[1]);
+            app.progressValue = app.parsingStatus === 'LOADING' ? rawPct * 0.8 : 80;
+          }
+        }
+        return app;
+      });
       totalApps.value = res.data.total;
       totalPages.value = res.data.totalPages;
     } else {
@@ -244,6 +370,9 @@ const handleSizeChange = () => {
 };
 
 const handleSort = (field, event) => {
+  const col = columns.find(c => c.field === field);
+  if (!col || col.sortable === false) return;
+
   const existingIndex = sorts.value.findIndex(s => s.field === field);
   const isShift = event.shiftKey;
 
@@ -300,10 +429,16 @@ const isFieldSorted = (field) => {
 onMounted(() => {
   if (route.query.processingMsg) {
     processingMessage.value = route.query.processingMsg;
-    // Clear query param to avoid showing it on refresh
     router.replace({query: {}});
   }
   fetchApps();
+  connectWebSocket();
+});
+
+onUnmounted(() => {
+  if (stompClient) {
+    stompClient.disconnect();
+  }
 });
 </script>
 
@@ -342,14 +477,8 @@ onMounted(() => {
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .header-section {
@@ -359,21 +488,11 @@ onMounted(() => {
   margin-bottom: 1.5rem;
 }
 
-.header-section h2 {
-  margin: 0;
-  color: #2c3e50;
-}
+.header-section h2 { margin: 0; color: #2c3e50; }
 
-.header-actions {
-  display: flex;
-  gap: 20px;
-  align-items: center;
-}
+.header-actions { display: flex; gap: 20px; align-items: center; }
 
-.search-box {
-  display: flex;
-  gap: 8px;
-}
+.search-box { display: flex; gap: 8px; }
 
 .search-input {
   padding: 8px 12px;
@@ -392,15 +511,14 @@ onMounted(() => {
   font-size: 0.9rem;
 }
 
-.search-btn:hover {
-  background: #e9ecef;
-}
+.search-btn:hover { background: #e9ecef; }
 
 .table-card {
   background: white;
   border-radius: 8px;
   padding: 1.5rem;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  overflow-x: auto;
 }
 
 .table-header-toolbar {
@@ -412,25 +530,11 @@ onMounted(() => {
   border-bottom: 1px solid #f0f0f0;
 }
 
-.header-left span {
-  color: #7f8c8d;
-  font-size: 0.9rem;
-  font-weight: 500;
-}
+.header-left span { color: #7f8c8d; font-size: 0.9rem; font-weight: 500; }
 
-.modern-pagination {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
+.modern-pagination { display: flex; align-items: center; gap: 20px; }
 
-.page-size-picker {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
-  color: #606266;
-}
+.page-size-picker { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #606266; }
 
 .modern-select {
   padding: 4px 24px 4px 8px;
@@ -453,15 +557,9 @@ onMounted(() => {
   height: 32px;
 }
 
-.modern-select:hover {
-  border-color: #3498db;
-}
+.modern-select:hover { border-color: #3498db; }
 
-.pager-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
+.pager-actions { display: flex; align-items: center; gap: 4px; }
 
 .pager-btn {
   width: 32px;
@@ -477,28 +575,13 @@ onMounted(() => {
   transition: all 0.2s;
 }
 
-.pager-btn:hover:not(:disabled) {
-  border-color: #3498db;
-  color: #3498db;
-  background: #f0f7ff;
-}
+.pager-btn:hover:not(:disabled) { border-color: #3498db; color: #3498db; background: #f0f7ff; }
 
-.pager-btn:disabled {
-  color: #c0c4cc;
-  cursor: not-allowed;
-  background: #f5f7fa;
-}
+.pager-btn:disabled { color: #c0c4cc; cursor: not-allowed; background: #f5f7fa; }
 
-.pager-btn .material-symbols-outlined {
-  font-size: 1.2rem;
-}
+.pager-btn .material-symbols-outlined { font-size: 1.2rem; }
 
-.pager-info {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0 8px;
-}
+.pager-info { display: flex; align-items: center; gap: 6px; margin: 0 8px; }
 
 .pager-input {
   width: 40px;
@@ -510,14 +593,9 @@ onMounted(() => {
   outline: none;
 }
 
-.pager-input:focus {
-  border-color: #3498db;
-}
+.pager-input:focus { border-color: #3498db; }
 
-.pager-total {
-  font-size: 0.85rem;
-  color: #909399;
-}
+.pager-total { font-size: 0.85rem; color: #909399; }
 
 .active-sorts-bar {
   display: flex;
@@ -531,16 +609,9 @@ onMounted(() => {
   font-size: 0.85rem;
 }
 
-.sort-label {
-  font-weight: 600;
-  color: #555;
-}
+.sort-label { font-weight: 600; color: #555; }
 
-.sort-tags {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
+.sort-tags { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .sort-tag {
   display: inline-flex;
@@ -553,24 +624,11 @@ onMounted(() => {
   border: 1px solid #bbdefb;
 }
 
-.sort-dir {
-  margin-left: 4px;
-  font-size: 0.7rem;
-  opacity: 0.8;
-  font-weight: bold;
-}
+.sort-dir { margin-left: 4px; font-size: 0.7rem; opacity: 0.8; font-weight: bold; }
 
-.remove-sort {
-  margin-left: 6px;
-  cursor: pointer;
-  font-weight: bold;
-  opacity: 0.6;
-}
+.remove-sort { margin-left: 6px; cursor: pointer; font-weight: bold; opacity: 0.6; }
 
-.remove-sort:hover {
-  opacity: 1;
-  color: #c62828;
-}
+.remove-sort:hover { opacity: 1; color: #c62828; }
 
 .clear-sort-btn {
   background: none;
@@ -582,70 +640,35 @@ onMounted(() => {
   padding: 0 4px;
 }
 
-.clear-sort-btn:hover {
-  color: #d32f2f;
-}
+.clear-sort-btn:hover { color: #d32f2f; }
 
-.sort-hint {
-  margin-left: auto;
-  color: #888;
-  font-style: italic;
-  font-size: 0.8rem;
-}
+.sort-hint { margin-left: auto; color: #888; font-style: italic; font-size: 0.8rem; }
 
-.table-wrapper {
-  overflow-x: auto;
-}
+.table-wrapper { min-width: 1500px; }
 
-.styled-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
+.styled-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 
 .styled-table th, .styled-table td {
   padding: 12px 15px;
   text-align: left;
   border-bottom: 1px solid #eee;
+  white-space: nowrap;
+  vertical-align: middle;
 }
 
-.styled-table th {
-  background-color: #f8f9fa;
-  font-weight: bold;
-  color: #333;
-}
+.styled-table th { background-color: #f8f9fa; font-weight: bold; color: #333; }
 
-.styled-table th.sortable {
-  cursor: pointer;
-  user-select: none;
-}
+.styled-table th.sortable { cursor: pointer; user-select: none; }
 
-.styled-table th.sortable:hover {
-  background: #edf2f7;
-  color: #3498db;
-}
+.styled-table th.sortable:hover { background: #edf2f7; color: #3498db; }
 
-.header-container {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
+.header-container { display: flex; align-items: center; gap: 4px; }
 
-.sort-indicator {
-  display: inline-flex;
-  align-items: center;
-  position: relative;
-}
+.sort-indicator { display: inline-flex; align-items: center; position: relative; }
 
-.sort-icon {
-  font-size: 16px !important;
-  color: #ccc;
-  transition: color 0.2s;
-}
+.sort-icon { font-size: 16px !important; color: #ccc; transition: color 0.2s; }
 
-.sort-icon.active {
-  color: #3498db;
-}
+.sort-icon.active { color: #3498db; }
 
 .sort-order {
   font-size: 10px;
@@ -662,21 +685,7 @@ onMounted(() => {
   top: -4px;
 }
 
-.styled-table tbody tr:hover {
-  background-color: #fcfcfc;
-}
-
-.name-cell {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  vertical-align: middle;
-}
-
-.app-name {
-  font-weight: 600;
-  color: #2c3e50;
-}
+.styled-table tbody tr:hover { background-color: #fcfcfc; }
 
 .spark-version-badge {
   background-color: #e8f4f8;
@@ -689,62 +698,12 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-.status-FINISHED {
-  color: #27ae60;
-  font-weight: bold;
-}
+.app-link { color: #3498db; text-decoration: none; font-weight: 600; }
 
-.status-RUNNING {
-  color: #f39c12;
-  font-weight: bold;
-}
-
-.status-FAILED {
-  color: #e74c3c;
-  font-weight: bold;
-}
-
-.view-btn {
-  padding: 6px 12px;
-  background: white;
-  border: 1px solid #3498db;
-  color: #3498db;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  transition: all 0.2s;
-}
-
-.view-btn:hover {
-  background: #3498db;
-  color: white;
-}
-
-.app-link {
-  color: #3498db;
-  text-decoration: none;
-  font-weight: 600;
-}
-
-.app-link:hover {
-  text-decoration: underline;
-  color: #2980b9;
-}
-
-.app-link {
-  color: #3498db;
-  text-decoration: none;
-  font-weight: 600;
-}
-
-.app-link:hover {
-  text-decoration: underline;
-  color: #2980b9;
-}
+.app-link:hover { text-decoration: underline; color: #2980b9; }
 
 .app-id-code {
-  word-break: break-all;
-  white-space: normal;
+  white-space: nowrap;
   font-family: monospace;
   font-size: 0.8rem;
   color: #c7254e;
@@ -753,37 +712,114 @@ onMounted(() => {
   border-radius: 3px;
 }
 
-.actions-cell {
+.processing-row { opacity: 0.7; background-color: #f9f9f9; }
+
+.disabled-link { pointer-events: none; color: #95a5a6 !important; cursor: default; }
+
+.name-cell-wrapper { display: flex; flex-direction: column; gap: 4px; }
+
+.overwrite-prompt {
+  background: #fff3cd;
+  border: 1px solid #ffeeba;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
   display: flex;
-  gap: 8px;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  pointer-events: auto !important;
 }
 
-.compare-action-btn {
-  display: inline-flex;
+.prompt-text { color: #856404; font-weight: 600; }
+
+.prompt-actions { display: flex; gap: 4px; }
+
+.mini-btn {
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+.mini-btn.confirm { background: #27ae60; color: white; }
+
+.mini-btn.cancel { background: #bdc3c7; color: #333; }
+
+.progress-cell { width: 100%; }
+
+.progress-track {
+  width: 100%;
+  height: 16px;
+  background-color: #e9ecef;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
+  justify-content: center;
+  border: 1px solid #dcdfe6;
+}
+
+.progress-fill {
+  height: 100%;
+  transition: width 0.6s ease;
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 1;
+}
+
+.progress-text-overlay {
+  position: relative;
+  z-index: 2;
+  font-size: 0.7rem;
+  font-weight: bold;
+  color: #333;
+  text-shadow: 0 0 2px rgba(255, 255, 255, 0.8);
+}
+
+.status-cell { display: flex; align-items: center; }
+
+.status-badge {
+  font-weight: bold;
+  padding: 4px 8px;
   border-radius: 4px;
   font-size: 0.8rem;
-  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-SUCCESS, .status-FINISHED { color: #27ae60; background-color: rgba(39, 174, 96, 0.1); }
+
+.status-FAILED { color: #e74c3c; background-color: rgba(231, 76, 60, 0.1); }
+
+.status-LOADING, .status-RUNNING { color: #f39c12; background-color: rgba(243, 156, 18, 0.1); }
+
+.status-PENDING_TO_LOADING, .status-PENDING_OVERWRITE { color: #3498db; background-color: rgba(52, 152, 219, 0.1); }
+
+.status-PRE_CALCULATING { color: #9b59b6; background-color: rgba(155, 89, 182, 0.1); }
+
+.select-btn {
+  background: none;
+  border: none;
   cursor: pointer;
+  color: #909399;
+  padding: 4px;
+  border-radius: 4px;
   transition: all 0.2s;
-  background: white;
-  border: 1px solid #3498db;
-  color: #3498db;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.compare-action-btn:hover {
-  background: #f0f7ff;
-}
+.select-btn:hover:not(:disabled) { color: #3498db; background: #f0f7ff; }
 
-.compare-action-btn.in-workspace {
-  background: #3498db;
-  color: white;
-}
+.select-btn.selected { color: #3498db; }
 
-.compare-action-btn .material-symbols-outlined {
-  font-size: 16px;
-}
+.select-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.select-btn .material-symbols-outlined { font-size: 20px; }
 </style>

@@ -27,4 +27,6 @@ public class ApplicationModel {
     private String llmReport;
     private Long llmStartTime;
     private Long llmEndTime;
+    private Long totalLogSize;
+    private LocalDateTime createdAt;
 }

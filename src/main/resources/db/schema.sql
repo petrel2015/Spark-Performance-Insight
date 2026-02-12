@@ -17,7 +17,18 @@ CREATE TABLE IF NOT EXISTS applications (
     llm_report TEXT,
     llm_start_time BIGINT,
     llm_end_time BIGINT,
+    total_log_size BIGINT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 扫描到的待处理日志记录 (用于重复导入确认)
+CREATE TABLE IF NOT EXISTS event_log_scans (
+    id VARCHAR PRIMARY KEY, -- uuid
+    app_id VARCHAR,
+    file_paths JSON, -- 列表
+    total_size BIGINT,
+    previous_status VARCHAR,
+    detected_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 环境配置

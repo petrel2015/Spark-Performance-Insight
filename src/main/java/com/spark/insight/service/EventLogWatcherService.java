@@ -2,6 +2,7 @@ package com.spark.insight.service;
 
 import com.spark.insight.config.InsightProperties;
 import com.spark.insight.mapper.ParsedEventLogMapper;
+import com.spark.insight.model.ApplicationModel;
 import com.spark.insight.model.EventLogStatus;
 import com.spark.insight.model.ParsedEventLogModel;
 import com.spark.insight.parser.EventParser;
@@ -32,6 +33,9 @@ public class EventLogWatcherService {
     private final InsightProperties properties;
     private final EventParser eventParser;
     private final ParsedEventLogMapper parsedLogMapper;
+    private final ApplicationService applicationService;
+    private final com.spark.insight.mapper.EventLogScanMapper scanMapper;
+    private final StatusBroadcaster broadcaster;
 
     // Create a pool for parsing to avoid blocking the scheduler thread
     private final ExecutorService parseExecutor = Executors.newFixedThreadPool(10);
@@ -57,55 +61,102 @@ public class EventLogWatcherService {
         List<File> allFiles = new ArrayList<>();
         collectFiles(directory, allFiles);
 
-        // 1. Record scanned files into two lists: inferred App ID and standalone
-        List<Map.Entry<File, String>> appIdFileList = new ArrayList<>();
-        List<Map.Entry<File, String>> standaloneFileList = new ArrayList<>();
-
-        for (File file : allFiles) {
-            String md5 = calculateMD5(file);
-            String appId = inferAppId(file.getName());
-            if (appId != null) {
-                appIdFileList.add(new AbstractMap.SimpleEntry<>(file, md5));
-            } else {
-                standaloneFileList.add(new AbstractMap.SimpleEntry<>(file, md5));
-            }
-        }
-
-        // 2. Query DuckDB to identify new (List 1) and changed (List 2) files
-        Map<String, List<File>> appGroupsToProcess = new HashMap<>();
+        // 1. Record scanned files into two groups: inferred App ID and standalone
+        Map<String, List<File>> appGroups = new HashMap<>();
         List<File> standaloneToProcess = new ArrayList<>();
 
-        // Process App ID files
-        for (Map.Entry<File, String> entry : appIdFileList) {
-            File file = entry.getKey();
-            if (checkAndMarkForProcessing(file, entry.getValue())) {
-                String appId = inferAppId(file.getName());
-                appGroupsToProcess.computeIfAbsent(appId, k -> new ArrayList<>()).add(file);
-            }
-        }
-
-        // Process standalone files
-        for (Map.Entry<File, String> entry : standaloneFileList) {
-            File file = entry.getKey();
-            if (checkAndMarkForProcessing(file, entry.getValue())) {
-                standaloneToProcess.add(file);
-            }
-        }
-
-        // 3. Submit tasks
-        appGroupsToProcess.forEach((appId, files) -> {
-            files.sort(Comparator.comparingInt(this::getFileIndex).thenComparing(File::getName));
-            parseExecutor.submit(() -> {
-                for (File file : files) {
-                    processFile(file, appId);
+        for (File file : allFiles) {
+            String appId = inferAppId(file.getName());
+            if (appId != null) {
+                appGroups.computeIfAbsent(appId, k -> new ArrayList<>()).add(file);
+            } else {
+                // For standalone, we check MD5 here as before
+                String md5 = calculateMD5(file);
+                if (checkAndMarkForProcessing(file, md5, null)) {
+                    standaloneToProcess.add(file);
                 }
-            });
+            }
+        }
+
+        // 2. Process App Groups: Check for Overwrite or New
+        appGroups.forEach((appId, files) -> {
+            long totalSize = files.stream().mapToLong(File::length).sum();
+            ApplicationModel existingApp = applicationService.getById(appId);
+
+            if (existingApp != null) {
+                // Logic for PENDING_OVERWRITE
+                handlePendingOverwrite(appId, files, totalSize, existingApp.getParsingStatus());
+            } else {
+                // Logic for New App
+                handleNewApp(appId, files, totalSize);
+            }
         });
 
+        // 3. Submit standalone tasks
         standaloneToProcess.forEach(file -> parseExecutor.submit(() -> processFile(file, null)));
     }
 
-    private boolean checkAndMarkForProcessing(File file, String md5) {
+    private void handleNewApp(String appId, List<File> files, long totalSize) {
+        ApplicationModel app = new ApplicationModel();
+        app.setAppId(appId);
+        app.setAppName("Initializing...");
+        app.setParsingStatus("PENDING_TO_LOADING");
+        app.setTotalLogSize(totalSize);
+        applicationService.save(app);
+
+        broadcaster.broadcastStatus(appId, "PENDING_TO_LOADING", 0.0, "Waiting to process...");
+
+        // Start processing immediately for new apps
+        triggerProcessing(appId, files);
+    }
+
+    private void handlePendingOverwrite(String appId, List<File> files, long totalSize, String currentStatus) {
+        // Skip if already in a transient state
+        if ("PENDING_OVERWRITE".equals(currentStatus) || "LOADING".equals(currentStatus) || "PRE_CALCULATING".equals(currentStatus)) {
+            return;
+        }
+
+        // Check if MD5 of any file has changed compared to recorded ones? 
+        // For simplicity, if we detect new/changed files in an existing app, we prompt for overwrite
+        // Let's refine: calculate current set MD5 and compare.
+        
+        // Save scan details
+        com.spark.insight.model.EventLogScanModel scan = new com.spark.insight.model.EventLogScanModel();
+        scan.setId(UUID.randomUUID().toString());
+        scan.setAppId(appId);
+        scan.setTotalSize(totalSize);
+        scan.setPreviousStatus(currentStatus);
+        scan.setDetectedTime(LocalDateTime.now());
+        
+        // Serialize file info (paths and names)
+        List<String> filePaths = files.stream().map(File::getAbsolutePath).toList();
+        try {
+            scan.setFilePaths(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(filePaths));
+        } catch (Exception e) {
+            log.error("Failed to serialize file paths", e);
+        }
+        
+        scanMapper.insert(scan);
+
+        // Update App status
+        ApplicationModel app = applicationService.getById(appId);
+        app.setParsingStatus("PENDING_OVERWRITE");
+        applicationService.updateById(app);
+
+        broadcaster.broadcastStatus(appId, "PENDING_OVERWRITE", 0.0, "New logs detected. Overwrite needed.");
+    }
+
+    public void triggerProcessing(String appId, List<File> files) {
+        List<File> modifiableFiles = new ArrayList<>(files);
+        modifiableFiles.sort(Comparator.comparingInt(this::getFileIndex).thenComparing(File::getName));
+        parseExecutor.submit(() -> {
+            for (File file : modifiableFiles) {
+                processFile(file, appId);
+            }
+        });
+    }
+
+    private boolean checkAndMarkForProcessing(File file, String md5, @Nullable String appId) {
         String fileName = file.getName();
         ParsedEventLogModel record = parsedLogMapper.selectById(fileName);
         LocalDateTime updateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(file.lastModified()), ZoneId.systemDefault());

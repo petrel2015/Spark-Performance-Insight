@@ -5,6 +5,18 @@
     <update id="calculateJobMetrics">
         UPDATE jobs
         SET 
+            duration = (
+                SELECT COALESCE(CAST((epoch(MAX(completion_time)) - epoch(MIN(submission_time))) * 1000 AS BIGINT), 0)
+                FROM stages s
+                WHERE s.app_id = jobs.app_id 
+                  AND list_contains(string_split(jobs.stage_ids, ','), CAST(s.stage_id AS VARCHAR))
+            ),
+            num_tasks = (
+                SELECT COALESCE(SUM(s.num_tasks), 0)
+                FROM stages s
+                WHERE s.app_id = jobs.app_id 
+                  AND list_contains(string_split(jobs.stage_ids, ','), CAST(s.stage_id AS VARCHAR))
+            ),
             num_completed_stages = (
                 SELECT COUNT(*) 
                 FROM stages s 
@@ -28,7 +40,10 @@
             ),
             performance_score = (
                 SELECT 
-                    CAST(COALESCE(SUM(s.performance_score * s.duration) / NULLIF(SUM(s.duration), 0), 0) AS DOUBLE)
+                    CASE 
+                        WHEN SUM(s.duration) > 0 THEN CAST(SUM(s.performance_score * s.duration) / SUM(s.duration) AS DOUBLE)
+                        ELSE CAST(COALESCE(AVG(s.performance_score), 0) AS DOUBLE)
+                    END
                 FROM stages s
                 WHERE s.app_id = jobs.app_id 
                   AND list_contains(string_split(jobs.stage_ids, ','), CAST(s.stage_id AS VARCHAR))

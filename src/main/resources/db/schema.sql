@@ -1,4 +1,5 @@
 -- Application 元数据
+
 CREATE TABLE IF NOT EXISTS applications (
     app_id VARCHAR PRIMARY KEY,
     app_name VARCHAR,
@@ -32,6 +33,7 @@ CREATE TABLE IF NOT EXISTS event_log_scans (
 );
 
 -- 环境配置
+
 CREATE TABLE IF NOT EXISTS environment_configs (
     id VARCHAR PRIMARY KEY,
     app_id VARCHAR,
@@ -151,6 +153,7 @@ CREATE TABLE IF NOT EXISTS stages (
 );
 
 -- Task 细节
+
 CREATE TABLE IF NOT EXISTS tasks (
     id VARCHAR PRIMARY KEY,
     app_id VARCHAR,
@@ -216,6 +219,7 @@ CREATE TABLE IF NOT EXISTS stage_statistics (
 );
 
 -- EventLog 文件解析状态记录
+
 CREATE TABLE IF NOT EXISTS parsed_event_logs (
     file_name VARCHAR PRIMARY KEY,
     app_id VARCHAR,
@@ -256,6 +260,7 @@ CREATE TABLE IF NOT EXISTS storage_rdds (
 );
 
 -- RDD 分片明细 (Block 级别)
+
 CREATE TABLE IF NOT EXISTS storage_blocks (
     id VARCHAR PRIMARY KEY, -- appId:rddId:blockName
     app_id VARCHAR,

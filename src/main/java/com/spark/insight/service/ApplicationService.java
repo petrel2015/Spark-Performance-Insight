@@ -7,4 +7,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class ApplicationService extends ServiceImpl<ApplicationMapper, ApplicationModel> {
+    public void updateAppMetrics(String appId) {
+        baseMapper.updateAppMetrics(appId);
+    }
 }

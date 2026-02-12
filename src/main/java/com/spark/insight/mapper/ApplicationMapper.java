@@ -6,5 +6,5 @@ import org.apache.ibatis.annotations.Mapper;
 
 @Mapper
 public interface ApplicationMapper extends BaseMapper<ApplicationModel> {
-    // 可以在此处定义自定义的 XML 查询
+    void updateAppMetrics(String appId);
 }

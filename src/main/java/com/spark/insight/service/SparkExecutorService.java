@@ -6,7 +6,7 @@ import com.spark.insight.model.ExecutorModel;
 import org.springframework.stereotype.Service;
 
 @Service
-public class ExecutorService extends ServiceImpl<ExecutorMapper, ExecutorModel> {
+public class SparkExecutorService extends ServiceImpl<ExecutorMapper, ExecutorModel> {
     public void calculateExecutorMetrics(String appId) {
         baseMapper.updateExecutorMetrics(appId);
     }

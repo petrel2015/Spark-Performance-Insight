@@ -1,7 +1,6 @@
 package com.spark.insight.controller;
 
 import com.spark.insight.model.*;
-import com.spark.insight.model.dto.AppComparisonResult;
 import com.spark.insight.model.dto.ComparisonResult;
 import com.spark.insight.model.dto.PageResponse;
 import com.spark.insight.service.*;
@@ -23,7 +22,7 @@ public class InsightController {
     private final ComparisonService comparisonService;
     private final DiagnosisService diagnosisService;
     private final JobService jobService;
-    private final ExecutorService executorService;
+    private final SparkExecutorService sparkExecutorService;
     private final TaskService taskService;
     private final EnvironmentConfigService envService;
     private final SqlExecutionService sqlExecutionService;
@@ -152,7 +151,7 @@ public class InsightController {
     @GetMapping("/apps/{appId}/executors")
     public List<ExecutorModel> listExecutors(@PathVariable String appId) {
         checkAppReady(appId);
-        return executorService.lambdaQuery().eq(ExecutorModel::getAppId, appId).list();
+        return sparkExecutorService.lambdaQuery().eq(ExecutorModel::getAppId, appId).list();
     }
 
     /**

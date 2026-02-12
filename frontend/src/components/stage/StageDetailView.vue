@@ -30,7 +30,7 @@
     </div>
 
     <!-- Performance Diagnosis Card -->
-    <CollapsibleCard v-if="currentStage && (currentStage.performanceScore > 0 || currentStage.diagnosisInfo)" 
+    <CollapsibleCard v-if="currentStage" 
                      title="Performance Diagnosis" :initial-collapsed="false">
       <StageDiagnosisCard :diagnosis-info="currentStage.diagnosisInfo" :performance-score="currentStage.performanceScore" />
     </CollapsibleCard>

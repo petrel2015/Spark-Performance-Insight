@@ -2,7 +2,8 @@
   <div class="diagnosis-card-container">
     <div class="score-section">
       <div class="score-circle tooltip-container" :class="scoreClass">
-        <span class="score-value">{{ Math.round(performanceScore || 0) }}</span>
+        <span v-if="performanceScore !== null" class="score-value">{{ Math.round(performanceScore) }}</span>
+        <span v-else class="score-value" style="font-size: 1rem;">Pending</span>
         <span class="score-label">Health</span>
         <div class="tooltip-text score-tooltip">
           <strong>Health Score Distribution:</strong><br/>
@@ -14,12 +15,16 @@
       </div>
       <div class="score-desc">
         Application Health Score
-        <small>Weighted evaluation of efficiency factors</small>
+        <small v-if="performanceScore !== null">Weighted evaluation of efficiency factors</small>
+        <small v-else>Calculating metrics...</small>
       </div>
     </div>
 
     <div class="dimensions-list">
-      <div v-for="item in topDimensions" :key="item.dimension" class="dimension-item">
+      <div v-if="performanceScore === null" class="no-issues">
+        Metrics are being aggregated. Please wait a few seconds...
+      </div>
+      <div v-else v-for="item in topDimensions" :key="item.dimension" class="dimension-item">
         <div class="dim-header tooltip-container">
           <div class="dim-name-wrapper">
             <span class="dim-name">{{ item.dimension }}</span>
@@ -77,6 +82,7 @@ const topDimensions = computed(() => {
 
 const scoreClass = computed(() => {
   const s = props.performanceScore;
+  if (s === null) return 'good'; // Default color during pending
   if (s < 40) return 'critical';
   if (s < 80) return 'warning';
   return 'good';

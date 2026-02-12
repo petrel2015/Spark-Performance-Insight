@@ -15,6 +15,15 @@ public interface EventParser {
     void parse(File logFile, String appId) throws InterruptedException;
 
     /**
+     * 并行解析属于同一个 App 的多个 EventLog 文件
+     */
+    default void parseFiles(java.util.List<java.io.File> logFiles, String appId) throws InterruptedException {
+        for (java.io.File file : logFiles) {
+            parse(file, appId);
+        }
+    }
+
+    /**
      * 是否支持该版本的日志解析
      */
     boolean supports(String version);

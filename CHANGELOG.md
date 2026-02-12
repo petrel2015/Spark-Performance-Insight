@@ -1,3 +1,8 @@
+## 0.34.1 - 2026-02-13
+
+### Fixes
+- Resolve data loss in tasks table and incorrect performance scores
+
 ## 0.34.0 - 2026-02-12
 
 ### Features

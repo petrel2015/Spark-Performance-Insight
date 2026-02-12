@@ -1,3 +1,15 @@
+## 0.34.0 - 2026-02-12
+
+### Features
+- **Real-time Status**: Implemented WebSocket support for real-time application status and parsing progress updates
+- **Overwrite Confirmation**: Added manual confirmation flow for re-importing existing applications when new logs are detected
+- **UI Overhaul**: Redesigned Application List with progress bars, status badges, and improved horizontal scrolling
+
+### Refactor
+- **Event Parsing**: Optimized JacksonEventParser to use total log size for precise 0-100% progress tracking
+- **Service Layer**: Decoupled overwrite logic into ApplicationOverwriteService
+- **Code Style**: Cleaned up imports and simplified MyBatis Plus query wrappers across the project
+
 ## 0.33.0 - 2026-02-12
 
 ### Refactor

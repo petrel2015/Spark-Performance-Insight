@@ -1,5 +1,6 @@
 package com.spark.insight.parser;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -258,11 +259,11 @@ public class JacksonEventParser implements EventParser {
                         try {
                             // Check if this is the last file dynamically
                             long totalFilesForApp = parsedLogMapper.selectCount(
-                                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ParsedEventLogModel>()
+                                    new LambdaQueryWrapper<ParsedEventLogModel>()
                                             .eq(ParsedEventLogModel::getAppId, appIdFinal)
                             );
                             long processedFilesForApp = parsedLogMapper.selectCount(
-                                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ParsedEventLogModel>()
+                                    new LambdaQueryWrapper<ParsedEventLogModel>()
                                             .eq(ParsedEventLogModel::getAppId, appIdFinal)
                                             .eq(ParsedEventLogModel::getStatus, EventLogStatus.SUCCESS)
                             );
@@ -359,7 +360,7 @@ public class JacksonEventParser implements EventParser {
             
             // Sum sizes of already processed (SUCCESS) files for this specific App
             long previouslyProcessedBytes = parsedLogMapper.selectList(
-                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ParsedEventLogModel>()
+                    new LambdaQueryWrapper<ParsedEventLogModel>()
                             .eq(ParsedEventLogModel::getAppId, appId)
                             .eq(ParsedEventLogModel::getStatus, EventLogStatus.SUCCESS)
             ).stream().mapToLong(ParsedEventLogModel::getFileSize).sum();

@@ -1,12 +1,13 @@
 package com.spark.insight.model;
 
+import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
 @Data
 @TableName("executors")
 public class ExecutorModel {
-    @com.baomidou.mybatisplus.annotation.TableId
+    @TableId
     private String id;
     private String appId;
     private String executorId;

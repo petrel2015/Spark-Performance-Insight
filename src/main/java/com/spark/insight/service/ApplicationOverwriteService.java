@@ -1,5 +1,6 @@
 package com.spark.insight.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.spark.insight.mapper.*;
 import com.spark.insight.model.ApplicationModel;
 import com.spark.insight.model.EventLogScanModel;
@@ -35,7 +36,7 @@ public class ApplicationOverwriteService {
         
         // 1. Fetch scan details
         List<EventLogScanModel> scans = scanMapper.selectList(
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<EventLogScanModel>()
+                new LambdaQueryWrapper<EventLogScanModel>()
                         .eq(EventLogScanModel::getAppId, appId)
                         .orderByDesc(EventLogScanModel::getDetectedTime)
         );
@@ -47,15 +48,15 @@ public class ApplicationOverwriteService {
         EventLogScanModel scan = scans.get(0);
 
         // 2. Clear old business data
-        jobMapper.delete(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.spark.insight.model.JobModel>().eq(com.spark.insight.model.JobModel::getAppId, appId));
-        stageMapper.delete(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.spark.insight.model.StageModel>().eq(com.spark.insight.model.StageModel::getAppId, appId));
-        taskMapper.delete(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.spark.insight.model.TaskModel>().eq(com.spark.insight.model.TaskModel::getAppId, appId));
-        executorMapper.delete(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.spark.insight.model.ExecutorModel>().eq(com.spark.insight.model.ExecutorModel::getAppId, appId));
-        sqlExecutionMapper.delete(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.spark.insight.model.SqlExecutionModel>().eq(com.spark.insight.model.SqlExecutionModel::getAppId, appId));
-        envMapper.delete(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.spark.insight.model.EnvironmentConfigModel>().eq(com.spark.insight.model.EnvironmentConfigModel::getAppId, appId));
+        jobMapper.delete(new LambdaQueryWrapper<com.spark.insight.model.JobModel>().eq(com.spark.insight.model.JobModel::getAppId, appId));
+        stageMapper.delete(new LambdaQueryWrapper<com.spark.insight.model.StageModel>().eq(com.spark.insight.model.StageModel::getAppId, appId));
+        taskMapper.delete(new LambdaQueryWrapper<com.spark.insight.model.TaskModel>().eq(com.spark.insight.model.TaskModel::getAppId, appId));
+        executorMapper.delete(new LambdaQueryWrapper<com.spark.insight.model.ExecutorModel>().eq(com.spark.insight.model.ExecutorModel::getAppId, appId));
+        sqlExecutionMapper.delete(new LambdaQueryWrapper<com.spark.insight.model.SqlExecutionModel>().eq(com.spark.insight.model.SqlExecutionModel::getAppId, appId));
+        envMapper.delete(new LambdaQueryWrapper<com.spark.insight.model.EnvironmentConfigModel>().eq(com.spark.insight.model.EnvironmentConfigModel::getAppId, appId));
         
         // Clear parsed logs status for this app to allow re-parsing
-        parsedLogMapper.delete(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ParsedEventLogModel>().eq(ParsedEventLogModel::getAppId, appId));
+        parsedLogMapper.delete(new LambdaQueryWrapper<ParsedEventLogModel>().eq(ParsedEventLogModel::getAppId, appId));
 
         // 3. Update Application status
         ApplicationModel app = applicationMapper.selectById(appId);
@@ -86,7 +87,7 @@ public class ApplicationOverwriteService {
         log.info("Cancelling overwrite for App: {}", appId);
         
         List<EventLogScanModel> scans = scanMapper.selectList(
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<EventLogScanModel>()
+                new LambdaQueryWrapper<EventLogScanModel>()
                         .eq(EventLogScanModel::getAppId, appId)
                         .orderByDesc(EventLogScanModel::getDetectedTime)
         );

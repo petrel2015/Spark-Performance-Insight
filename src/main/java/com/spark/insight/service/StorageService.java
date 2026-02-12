@@ -1,5 +1,6 @@
 package com.spark.insight.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.spark.insight.mapper.StorageBlockMapper;
 import com.spark.insight.mapper.StorageRddMapper;
@@ -18,13 +19,13 @@ public class StorageService {
     private final StorageBlockMapper blockMapper;
 
     public List<StorageRddModel> getRdds(String appId) {
-        return rddMapper.selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<StorageRddModel>()
+        return rddMapper.selectList(new LambdaQueryWrapper<StorageRddModel>()
                 .eq(StorageRddModel::getAppId, appId)
                 .orderByAsc(StorageRddModel::getRddId));
     }
 
     public List<StorageBlockModel> getRddBlocks(String appId, Integer rddId) {
-        return blockMapper.selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<StorageBlockModel>()
+        return blockMapper.selectList(new LambdaQueryWrapper<StorageBlockModel>()
                 .eq(StorageBlockModel::getAppId, appId)
                 .eq(StorageBlockModel::getRddId, rddId));
     }

@@ -51,4 +51,4 @@ insight:
 logging:
   config: classpath:log4j2.xml
   level:
-    com.spark.insight.mapper: debug
+    com.spark.insight.mapper: info

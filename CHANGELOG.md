@@ -1,3 +1,14 @@
+## 0.33.0 - 2026-02-12
+
+### Refactor
+- **Event Scanning**: Enhanced EventLogWatcherService with MD5-based change detection and App ID grouping for more efficient incremental parsing
+- **Parsing Progress**: Implemented dynamic progress tracking in JacksonEventParser by querying DuckDB for real-time status updates
+- **Interface Cleanup**: Simplified EventParser interface by removing redundant file counters and incorporating pre-inferred App IDs
+- **User Experience**: Improved log readability with human-readable file sizes and percentage-based progress tracking
+
+### Database
+- **Schema Update**: Added `app_id` column to `parsed_event_logs` to better track the relationship between log files and Spark applications
+
 ## 0.32.1 - 2026-02-12
 
 ### Refactor

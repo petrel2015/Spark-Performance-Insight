@@ -183,6 +183,13 @@
             <!-- ACTION Column -->
             <td>
               <div class="action-cell">
+                <button class="action-btn bronze" 
+                        @click="handleBronzeImport(app.appId)" 
+                        title="Full Medallion Pipeline (Bronze -> Silver -> Gold)"
+                        :disabled="isProcessing(app.parsingStatus)">
+                  <span class="material-symbols-outlined">database</span>
+                  Medallion
+                </button>
                 <button class="action-btn reimport" 
                         @click="handleReimport(app.appId)" 
                         title="Re-import application logs"
@@ -305,6 +312,22 @@ const handleReimport = async (appId) => {
     } catch (err) {
       console.error(`Failed to re-import application ${appId}`, err);
       alert('Re-import failed: ' + (err.response?.data?.message || err.message));
+    }
+  }
+};
+
+const handleBronzeImport = async (appId) => {
+  if (confirm(`Trigger Medallion Ingestion (Bronze -> Silver -> Gold) for application ${appId}? This uses high-speed DuckDB processing.`)) {
+    try {
+      processingMessage.value = `Starting high-speed ingestion for ${appId}...`;
+      await axios.post(`/api/bronze/import/${appId}`);
+      processingMessage.value = `Ingestion completed for ${appId}. Reloading data...`;
+      setTimeout(() => { processingMessage.value = ''; }, 3000);
+      fetchApps();
+    } catch (err) {
+      console.error(`Failed to trigger Medallion import for ${appId}`, err);
+      alert('Medallion import failed: ' + (err.response?.data?.message || err.message));
+      processingMessage.value = '';
     }
   }
 };
@@ -904,6 +927,12 @@ onUnmounted(() => {
   border-color: #3498db;
   color: #3498db;
   background: #f0f7ff;
+}
+
+.action-btn.bronze:hover:not(:disabled) {
+  border-color: #9b59b6;
+  color: #9b59b6;
+  background: #f5ebf7;
 }
 
 .action-btn.delete:hover:not(:disabled) {

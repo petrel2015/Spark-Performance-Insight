@@ -20,4 +20,14 @@ public class ApplicationOverwriteController {
     public void cancel(@PathVariable String appId) {
         overwriteService.cancelOverwrite(appId);
     }
+
+    @DeleteMapping("/{appId}")
+    public void deleteApp(@PathVariable String appId) {
+        overwriteService.deleteApp(appId);
+    }
+
+    @PostMapping("/{appId}/reimport")
+    public void reimportApp(@PathVariable String appId) {
+        overwriteService.reimportApp(appId);
+    }
 }

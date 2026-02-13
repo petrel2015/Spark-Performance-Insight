@@ -179,6 +179,26 @@
                 </span>
               </div>
             </td>
+
+            <!-- ACTION Column -->
+            <td>
+              <div class="action-cell">
+                <button class="action-btn reimport" 
+                        @click="handleReimport(app.appId)" 
+                        title="Re-import application logs"
+                        :disabled="isProcessing(app.parsingStatus)">
+                  <span class="material-symbols-outlined">restart_alt</span>
+                  Import
+                </button>
+                <button class="action-btn delete" 
+                        @click="handleDelete(app.appId)" 
+                        title="Delete application data"
+                        :disabled="isProcessing(app.parsingStatus)">
+                  <span class="material-symbols-outlined">delete</span>
+                  Delete
+                </button>
+              </div>
+            </td>
           </tr>
           <tr v-if="apps.length === 0">
             <td :colspan="columns.length + (compareStore.isCompareMode ? 1 : 0)" style="text-align: center; padding: 40px;">No applications found.</td>
@@ -265,6 +285,30 @@ const handleOverwrite = async (appId, confirm) => {
   }
 };
 
+const handleDelete = async (appId) => {
+  if (confirm(`Are you sure you want to delete application ${appId}? This will clear all parsed data.`)) {
+    try {
+      await axios.delete(`/api/applications/${appId}`);
+      fetchApps();
+    } catch (err) {
+      console.error(`Failed to delete application ${appId}`, err);
+      alert('Delete failed: ' + (err.response?.data?.message || err.message));
+    }
+  }
+};
+
+const handleReimport = async (appId) => {
+  if (confirm(`Re-import application ${appId}? Existing data will be cleared and logs will be parsed again.`)) {
+    try {
+      await axios.post(`/api/applications/${appId}/reimport`);
+      fetchApps();
+    } catch (err) {
+      console.error(`Failed to re-import application ${appId}`, err);
+      alert('Re-import failed: ' + (err.response?.data?.message || err.message));
+    }
+  }
+};
+
 const columns = [
   {field: 'appName', label: 'App Name', sortable: true},
   {field: 'sparkVersion', label: 'Version', width: '100px', sortable: true},
@@ -273,7 +317,8 @@ const columns = [
   {field: 'startTime', label: 'Submitted', width: '180px', sortable: true},
   {field: 'duration', label: 'Duration', width: '120px', sortable: true},
   {field: 'progress', label: 'Progress', width: '150px', sortable: false},
-  {field: 'status', label: 'Status', width: '150px', sortable: true}
+  {field: 'status', label: 'Status', width: '150px', sortable: true},
+  {field: 'action', label: 'Action', width: '180px', sortable: false}
 ];
 
 const getProgressColor = (status) => {
@@ -825,4 +870,51 @@ onUnmounted(() => {
 .select-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .select-btn .material-symbols-outlined { font-size: 20px; }
+
+.action-cell {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  background: white;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  color: #606266;
+}
+
+.action-btn .material-symbols-outlined {
+  font-size: 16px;
+}
+
+.action-btn:hover:not(:disabled) {
+  background: #f5f7fa;
+}
+
+.action-btn.reimport:hover:not(:disabled) {
+  border-color: #3498db;
+  color: #3498db;
+  background: #f0f7ff;
+}
+
+.action-btn.delete:hover:not(:disabled) {
+  border-color: #e74c3c;
+  color: #e74c3c;
+  background: #fff5f5;
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f5f7fa;
+}
 </style>

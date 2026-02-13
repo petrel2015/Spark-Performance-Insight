@@ -42,6 +42,9 @@ insight:
   ai:
     provider: ${AI_PROVIDER:zhipu}
   event-log-path: ./workspace/eventlog
+  duckdb:
+    threads: ${DUCKDB_THREADS:4}
+    memory-limit: ${DUCKDB_MEMORY_LIMIT:2GB}
   scheduler:
     scan-interval-seconds: 3600
   comparison:

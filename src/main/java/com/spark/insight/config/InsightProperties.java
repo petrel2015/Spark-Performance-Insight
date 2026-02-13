@@ -23,6 +23,11 @@ public class InsightProperties {
      */
     private Comparison comparison = new Comparison();
 
+    /**
+     * DuckDB configuration.
+     */
+    private DuckDB duckdb = new DuckDB();
+
     @Data
     public static class Scheduler {
         /**
@@ -42,5 +47,18 @@ public class InsightProperties {
          * List of environment config categories to ignore during comparison.
          */
         private java.util.List<String> ignoreCategories = new java.util.ArrayList<>();
+    }
+
+    @Data
+    public static class DuckDB {
+        /**
+         * Number of threads DuckDB can use.
+         */
+        private Integer threads;
+
+        /**
+         * Memory limit for DuckDB (e.g., "2GB").
+         */
+        private String memoryLimit;
     }
 }

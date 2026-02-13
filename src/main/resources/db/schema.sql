@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS applications (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 扫描到的待处理日志记录
+-- 扫描到的待处理日志记录 (用于重复导入确认)
 CREATE TABLE IF NOT EXISTS event_log_scans (
     id VARCHAR PRIMARY KEY,
     app_id VARCHAR,
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS environment_configs (
     category VARCHAR
 );
 
--- Executor 信息 (全量兼容)
+-- Executor 信息 (恢复全部 30+ 字段)
 CREATE TABLE IF NOT EXISTS executors (
     id VARCHAR PRIMARY KEY,
     app_id VARCHAR,
@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS executors (
     exec_loss_reason TEXT
 );
 
--- Job 详情 (全量兼容)
+-- Job 详情 (恢复全量统计字段)
 CREATE TABLE IF NOT EXISTS jobs (
     id VARCHAR PRIMARY KEY,
     app_id VARCHAR,
@@ -103,7 +103,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     performance_score DOUBLE DEFAULT 0.0
 );
 
--- Stage 详情 (全量兼容)
+-- Stage 详情 (恢复全部 40+ 字段)
 CREATE TABLE IF NOT EXISTS stages (
     id VARCHAR PRIMARY KEY,
     app_id VARCHAR,
@@ -150,7 +150,7 @@ CREATE TABLE IF NOT EXISTS stages (
     performance_score DOUBLE DEFAULT 0.0
 );
 
--- Task 细节 (全量兼容)
+-- Task 细节 (恢复全量字段)
 CREATE TABLE IF NOT EXISTS tasks (
     id VARCHAR PRIMARY KEY,
     app_id VARCHAR,
@@ -189,7 +189,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     locality VARCHAR
 );
 
--- 其他业务表保持全量
+-- 其他业务支持表
 CREATE TABLE IF NOT EXISTS diagnosis_reports (id INTEGER PRIMARY KEY, app_id VARCHAR, diag_type VARCHAR, severity VARCHAR, target_stage_id INT, summary_text TEXT, suggestion TEXT);
 CREATE TABLE IF NOT EXISTS stage_statistics (id VARCHAR PRIMARY KEY, app_id VARCHAR, stage_id INT, attempt_id INT, metric_name VARCHAR, min_value BIGINT, p25 BIGINT, p50 BIGINT, p75 BIGINT, p95 BIGINT, max_value BIGINT);
 CREATE TABLE IF NOT EXISTS parsed_event_logs (file_name VARCHAR PRIMARY KEY, app_id VARCHAR, update_time TIMESTAMP, file_size BIGINT, file_hash VARCHAR, create_time TIMESTAMP, status INTEGER);
@@ -219,17 +219,24 @@ CREATE TABLE IF NOT EXISTS bronze_event_log_start (id UUID DEFAULT uuid(), app_i
 CREATE TABLE IF NOT EXISTS bronze_event_unknown (id UUID DEFAULT uuid(), app_id VARCHAR, file_name VARCHAR, event_name VARCHAR, raw_json JSON, ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
 
 -- ==========================================
--- SILVER LAYER
+-- SILVER LAYER (No PK constraints for robustness)
 -- ==========================================
-CREATE TABLE IF NOT EXISTS silver_jobs (app_id VARCHAR, job_id INT, submission_time TIMESTAMP, completion_time TIMESTAMP, duration_ms BIGINT, status VARCHAR, num_stages INT, stage_ids JSON, description TEXT, sql_execution_id BIGINT, PRIMARY KEY (app_id, job_id));
-CREATE TABLE IF NOT EXISTS silver_stages (app_id VARCHAR, stage_id INT, attempt_id INT, name VARCHAR, num_tasks INT, status VARCHAR, submission_time TIMESTAMP, completion_time TIMESTAMP, duration_ms BIGINT, input_bytes BIGINT DEFAULT 0, shuffle_read_bytes BIGINT DEFAULT 0, parent_ids JSON, PRIMARY KEY (app_id, stage_id, attempt_id));
-CREATE TABLE IF NOT EXISTS silver_tasks (app_id VARCHAR, task_id BIGINT, stage_id INT, stage_attempt_id INT, executor_id VARCHAR, host VARCHAR, index INT, attempt_number INT, launch_time TIMESTAMP, finish_time TIMESTAMP, duration_ms BIGINT, status VARCHAR, locality VARCHAR, speculative BOOLEAN, executor_run_time BIGINT, executor_cpu_time BIGINT, gc_time BIGINT, input_bytes BIGINT, output_bytes BIGINT, shuffle_read_bytes BIGINT, shuffle_write_bytes BIGINT, memory_bytes_spilled BIGINT, disk_bytes_spilled BIGINT, peak_execution_memory BIGINT, PRIMARY KEY (app_id, task_id));
-CREATE TABLE IF NOT EXISTS silver_executors (app_id VARCHAR, executor_id VARCHAR, host VARCHAR, total_cores INT, add_time TIMESTAMP, remove_time TIMESTAMP, remove_reason TEXT, PRIMARY KEY (app_id, executor_id));
+CREATE TABLE IF NOT EXISTS silver_jobs (app_id VARCHAR, job_id INT, submission_time TIMESTAMP, completion_time TIMESTAMP, duration_ms BIGINT, status VARCHAR, num_stages INT, stage_ids JSON, description TEXT, sql_execution_id BIGINT);
+CREATE INDEX IF NOT EXISTS idx_silver_jobs_app_job ON silver_jobs(app_id, job_id);
+
+CREATE TABLE IF NOT EXISTS silver_stages (app_id VARCHAR, stage_id INT, attempt_id INT, name VARCHAR, num_tasks INT, status VARCHAR, submission_time TIMESTAMP, completion_time TIMESTAMP, duration_ms BIGINT, input_bytes BIGINT DEFAULT 0, shuffle_read_bytes BIGINT DEFAULT 0, parent_ids JSON);
+CREATE INDEX IF NOT EXISTS idx_silver_stages_app_stage ON silver_stages(app_id, stage_id, attempt_id);
+
+CREATE TABLE IF NOT EXISTS silver_tasks (app_id VARCHAR, task_id BIGINT, stage_id INT, stage_attempt_id INT, executor_id VARCHAR, host VARCHAR, index INT, attempt_number INT, launch_time TIMESTAMP, finish_time TIMESTAMP, duration_ms BIGINT, status VARCHAR, locality VARCHAR, speculative BOOLEAN, executor_run_time BIGINT, executor_cpu_time BIGINT, gc_time BIGINT, input_bytes BIGINT, output_bytes BIGINT, shuffle_read_bytes BIGINT, shuffle_write_bytes BIGINT, memory_bytes_spilled BIGINT, disk_bytes_spilled BIGINT, peak_execution_memory BIGINT);
+CREATE INDEX IF NOT EXISTS idx_silver_tasks_app_task ON silver_tasks(app_id, task_id);
+
+CREATE TABLE IF NOT EXISTS silver_executors (app_id VARCHAR, executor_id VARCHAR, host VARCHAR, total_cores INT, add_time TIMESTAMP, remove_time TIMESTAMP, remove_reason TEXT);
+CREATE INDEX IF NOT EXISTS idx_silver_executors_app_exec ON silver_executors(app_id, executor_id);
 
 -- ==========================================
 -- GOLD LAYER
 -- ==========================================
-CREATE TABLE IF NOT EXISTS gold_app_metrics (app_id VARCHAR PRIMARY KEY, total_duration_ms BIGINT, total_input_bytes BIGINT, total_shuffle_read_bytes BIGINT, performance_score DOUBLE, total_tasks INT, failed_tasks INT);
-CREATE TABLE IF NOT EXISTS gold_job_metrics (app_id VARCHAR, job_id INT, performance_score DOUBLE, PRIMARY KEY (app_id, job_id));
-CREATE TABLE IF NOT EXISTS gold_stage_metrics (app_id VARCHAR, stage_id INT, attempt_id INT, duration_p50 BIGINT, duration_p95 BIGINT, skew_ratio DOUBLE, gc_time_ratio DOUBLE, score_skew DOUBLE, score_gc DOUBLE, score_locality DOUBLE, performance_score DOUBLE, PRIMARY KEY (app_id, stage_id, attempt_id));
-CREATE TABLE IF NOT EXISTS gold_executor_metrics (app_id VARCHAR, executor_id VARCHAR, avg_task_duration_ms DOUBLE, cpu_utilization_ratio DOUBLE, PRIMARY KEY (app_id, executor_id));
+CREATE TABLE IF NOT EXISTS gold_app_metrics (app_id VARCHAR, total_duration_ms BIGINT, total_input_bytes BIGINT, total_shuffle_read_bytes BIGINT, performance_score DOUBLE, total_tasks INT, failed_tasks INT);
+CREATE TABLE IF NOT EXISTS gold_job_metrics (app_id VARCHAR, job_id INT, performance_score DOUBLE);
+CREATE TABLE IF NOT EXISTS gold_stage_metrics (app_id VARCHAR, stage_id INT, attempt_id INT, duration_p50 BIGINT, duration_p95 BIGINT, skew_ratio DOUBLE, gc_time_ratio DOUBLE, score_skew DOUBLE, score_gc DOUBLE, score_locality DOUBLE, performance_score DOUBLE);
+CREATE TABLE IF NOT EXISTS gold_executor_metrics (app_id VARCHAR, executor_id VARCHAR, avg_task_duration_ms DOUBLE, cpu_utilization_ratio DOUBLE);

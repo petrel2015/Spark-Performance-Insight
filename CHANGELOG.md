@@ -1,3 +1,14 @@
+## 0.35.0 - 2026-02-13
+
+### Features
+- **Lifecycle Logging**: Introduced a dedicated `application_logs` table to track every stage of an application's lifecycle (Scan, Import, Parse, Finalize, Success/Fail).
+- **Performance Tracing**: Added detailed timing logs for each step of the metric aggregation process.
+
+### Fixes
+- **Visualizations**: Restored missing Stage DAG and SQL Physical Plan metadata that was lost in a recent refactor.
+- **Incremental Parsing**: Implemented MD5-based change detection to avoid redundant re-import prompts when no changes are detected.
+- **UI Alignment**: Fixed misalignment in the Application List table when Compare Mode is enabled.
+
 ## 0.34.1 - 2026-02-13
 
 ### Fixes

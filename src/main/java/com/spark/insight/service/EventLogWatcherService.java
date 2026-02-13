@@ -110,9 +110,20 @@ public class EventLogWatcherService {
             return;
         }
 
-        // Check if MD5 of any file has changed compared to recorded ones? 
-        // For simplicity, if we detect new/changed files in an existing app, we prompt for overwrite
-        // Let's refine: calculate current set MD5 and compare.
+        // Check if any file is new or changed by comparing MD5
+        boolean hasChanges = false;
+        for (File file : files) {
+            String md5 = calculateMD5(file);
+            ParsedEventLogModel record = parsedLogMapper.selectById(file.getName());
+            if (record == null || !Objects.equals(record.getFileHash(), md5) || record.getStatus() == EventLogStatus.FAILED) {
+                hasChanges = true;
+                break;
+            }
+        }
+
+        if (!hasChanges) {
+            return;
+        }
 
         // Save scan details
         com.spark.insight.model.EventLogScanModel scan = new com.spark.insight.model.EventLogScanModel();
@@ -158,41 +169,56 @@ public class EventLogWatcherService {
     }
 
     private void markFileAsProcessing(File file, String appId) {
-        ParsedEventLogModel record = new ParsedEventLogModel();
-        record.setFileName(file.getName());
-        record.setAppId(appId);
-        record.setUpdateTime(LocalDateTime.now());
-        record.setFileSize(file.length());
-        record.setStatus(EventLogStatus.PROCESSING);
-        parsedLogMapper.updateById(record);
+        String fileName = file.getName();
+        ParsedEventLogModel record = parsedLogMapper.selectById(fileName);
+        if (record == null) {
+            record = new ParsedEventLogModel();
+            record.setFileName(fileName);
+            record.setAppId(appId);
+            record.setCreateTime(LocalDateTime.now());
+            record.setFileHash(calculateMD5(file));
+            record.setFileSize(file.length());
+            record.setStatus(EventLogStatus.PROCESSING);
+            record.setUpdateTime(LocalDateTime.now());
+            parsedLogMapper.insert(record);
+        } else {
+            record.setAppId(appId);
+            record.setUpdateTime(LocalDateTime.now());
+            record.setFileSize(file.length());
+            record.setStatus(EventLogStatus.PROCESSING);
+            parsedLogMapper.updateById(record);
+        }
     }
 
     private boolean checkAndMarkForProcessing(File file, String md5, String appId) {
         String fileName = file.getName();
         ParsedEventLogModel record = parsedLogMapper.selectById(fileName);
-        LocalDateTime updateTime = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now();
 
         if (record == null) {
             log.info("New log file detected: {}", fileName);
             ParsedEventLogModel startRecord = new ParsedEventLogModel();
             startRecord.setFileName(fileName);
             startRecord.setAppId(appId != null ? appId : inferAppId(fileName));
-            startRecord.setUpdateTime(updateTime);
+            startRecord.setUpdateTime(now);
             startRecord.setFileSize(file.length());
             startRecord.setFileHash(md5);
             startRecord.setStatus(EventLogStatus.IMPORTING);
-            startRecord.setCreateTime(LocalDateTime.now());
+            startRecord.setCreateTime(now);
             parsedLogMapper.insert(startRecord);
             return true;
         }
 
-        boolean md5Changed = !Objects.equals(record.getFileHash(), md5);
-        if (record.getStatus() != EventLogStatus.IMPORTING && md5Changed) {
-            log.info("Log file change detected: {} (MD5 changed)", fileName);
-            return true;
+        if (record.getStatus() == EventLogStatus.SUCCESS) {
+            boolean md5Changed = !Objects.equals(record.getFileHash(), md5);
+            if (md5Changed) {
+                log.info("Log file change detected: {} (MD5 changed)", fileName);
+                return true;
+            }
+            return false;
         }
 
-        return record.getStatus() == EventLogStatus.PROCESSING || record.getStatus() == EventLogStatus.FAILED;
+        return record.getStatus() == EventLogStatus.PROCESSING || record.getStatus() == EventLogStatus.FAILED || record.getStatus() == EventLogStatus.IMPORTING;
     }
 
     private String calculateMD5(File file) {

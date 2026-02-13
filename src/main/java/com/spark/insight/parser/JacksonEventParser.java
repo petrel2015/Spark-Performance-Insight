@@ -559,6 +559,22 @@ public class JacksonEventParser implements EventParser {
         stage.setNumTasks(info.get("Number of Tasks").asInt());
         stage.setSubmissionTime(parseTimestamp(info.get("Submission Time").asLong()));
         stage.setStatus("RUNNING");
+
+        if (info.has("Parent IDs")) {
+            JsonNode parents = info.get("Parent IDs");
+            if (parents.isArray() && !parents.isEmpty()) {
+                List<String> parentIds = new ArrayList<>();
+                for (JsonNode parentNode : parents) {
+                    parentIds.add(parentNode.asText());
+                }
+                stage.setParentStageIds(String.join(",", parentIds));
+            }
+        }
+
+        if (info.has("RDD Info")) {
+            stage.setRddInfo(info.get("RDD Info").toString());
+        }
+
         return stage;
     }
 
@@ -584,6 +600,11 @@ public class JacksonEventParser implements EventParser {
         sql.setAppId(appId);
         sql.setExecutionId(executionId);
         sql.setDescription(node.get("description").asText());
+        sql.setDetails(node.path("details").asText(""));
+        sql.setPhysicalPlan(node.path("physicalPlanDescription").asText(""));
+        if (node.has("sparkPlanInfo")) {
+            sql.setPlanInfo(node.get("sparkPlanInfo").toString());
+        }
         sql.setStartTime(parseTimestamp(node.get("time").asLong()));
         sql.setStatus("RUNNING");
         return sql;

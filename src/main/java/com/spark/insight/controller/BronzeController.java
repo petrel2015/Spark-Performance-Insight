@@ -3,6 +3,7 @@ package com.spark.insight.controller;
 import com.spark.insight.config.InsightProperties;
 import com.spark.insight.service.BronzeIngestionService;
 import com.spark.insight.service.SilverTransformationService;
+import com.spark.insight.service.GoldAggregationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,11 +23,12 @@ public class BronzeController {
 
     private final BronzeIngestionService bronzeIngestionService;
     private final SilverTransformationService silverTransformationService;
+    private final GoldAggregationService goldAggregationService;
     private final InsightProperties properties;
 
     @PostMapping("/import/{appId}")
     public void importToBronze(@PathVariable String appId) {
-        log.info("Triggering Bronze import and Silver transformation for appId: {}", appId);
+        log.info("Triggering full Medallion pipeline (Bronze->Silver->Gold) for appId: {}", appId);
         
         String logPath = properties.getEventLogPath();
         File directory = new File(logPath);
@@ -39,13 +41,16 @@ public class BronzeController {
             throw new RuntimeException("No log files found for appId: " + appId);
         }
 
-        // 1. Bronze Ingestion
+        // 1. Bronze Ingestion (Raw JSON)
         bronzeIngestionService.ingest(appId, appFiles);
         
-        // 2. Silver Transformation
+        // 2. Silver Transformation (Structured Columns)
         silverTransformationService.transform(appId);
+
+        // 3. Gold Aggregation (Analytical Summary)
+        goldAggregationService.aggregate(appId);
         
-        log.info("Successfully completed Bronze and Silver pipeline for appId: {}", appId);
+        log.info("Successfully completed full Medallion pipeline for appId: {}", appId);
     }
 
     private List<File> findAppFiles(File dir, String appId) {

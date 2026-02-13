@@ -42,7 +42,6 @@ public class BronzeIngestionService {
     public void ingest(String appId, List<File> files) {
         log.info("Starting Bronze ingestion for app: {}, files: {}", appId, files.size());
         
-        // 1. Ensure JSON extension is loaded
         jdbcTemplate.execute("INSTALL json; LOAD json;");
 
         for (File file : files) {
@@ -58,39 +57,37 @@ public class BronzeIngestionService {
         
         log.debug("Ingesting file into Bronze: {}", fileName);
 
-        // 2. Ingest known events
         for (Map.Entry<String, String> entry : EVENT_TABLE_MAP.entrySet()) {
             String eventName = entry.getKey();
             String tableName = entry.getValue();
             
-            String sql = String.format(
-                "INSERT INTO %s (app_id, file_name, raw_json) " +
-                "SELECT '%s', '%s', line " +
-                "FROM read_text('%s') " +
-                "WHERE json_extract_string(line, '$.Event') = '%s'",
-                tableName, appId, fileName, filePath, eventName
-            );
+            // Using \u0001 (SOH) as delimiter to avoid SQL truncation and JSON splitting
+            String sql = """
+                INSERT INTO %s (app_id, file_name, raw_json)
+                SELECT ?, ?, line
+                FROM read_csv(?, delim='\u0001', header=false, quote='', escape='', columns={'line': 'VARCHAR'})
+                WHERE json_extract_string(line, '$.Event') = ?
+                """.formatted(tableName);
             
-            jdbcTemplate.execute(sql);
+            jdbcTemplate.update(sql, appId, fileName, filePath, eventName);
         }
 
-        // 3. Ingest unknown events
-        StringBuilder knownEvents = new StringBuilder();
+        // Unknown events ingestion
+        StringBuilder knownEventsPart = new StringBuilder();
         for (String event : EVENT_TABLE_MAP.keySet()) {
-            if (knownEvents.length() > 0) {
-                knownEvents.append(", ");
+            if (knownEventsPart.length() > 0) {
+                knownEventsPart.append(", ");
             }
-            knownEvents.append("'").append(event).append("'");
+            knownEventsPart.append("'").append(event).append("'");
         }
 
-        String unknownSql = String.format(
-            "INSERT INTO bronze_event_unknown (app_id, file_name, event_name, raw_json) " +
-            "SELECT '%s', '%s', json_extract_string(line, '$.Event'), line " +
-            "FROM read_text('%s') " +
-            "WHERE json_extract_string(line, '$.Event') NOT IN (%s)",
-            appId, fileName, filePath, knownEvents.toString()
-        );
+        String unknownSql = """
+            INSERT INTO bronze_event_unknown (app_id, file_name, event_name, raw_json)
+            SELECT ?, ?, json_extract_string(line, '$.Event'), line
+            FROM read_csv(?, delim='\u0001', header=false, quote='', escape='', columns={'line': 'VARCHAR'})
+            WHERE json_extract_string(line, '$.Event') NOT IN (%s)
+            """.formatted(knownEventsPart.toString());
         
-        jdbcTemplate.execute(unknownSql);
+        jdbcTemplate.update(unknownSql, appId, fileName, filePath);
     }
 }

@@ -1,5 +1,4 @@
 -- Application 元数据
-
 CREATE TABLE IF NOT EXISTS applications (
     app_id VARCHAR PRIMARY KEY,
     app_name VARCHAR,
@@ -22,18 +21,17 @@ CREATE TABLE IF NOT EXISTS applications (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 扫描到的待处理日志记录 (用于重复导入确认)
+-- 扫描到的待处理日志记录
 CREATE TABLE IF NOT EXISTS event_log_scans (
-    id VARCHAR PRIMARY KEY, -- uuid
+    id VARCHAR PRIMARY KEY,
     app_id VARCHAR,
-    file_paths JSON, -- 列表
+    file_paths JSON,
     total_size BIGINT,
     previous_status VARCHAR,
     detected_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 环境配置
-
 CREATE TABLE IF NOT EXISTS environment_configs (
     id VARCHAR PRIMARY KEY,
     app_id VARCHAR,
@@ -42,7 +40,7 @@ CREATE TABLE IF NOT EXISTS environment_configs (
     category VARCHAR
 );
 
--- Executor 信息
+-- Executor 信息 (全量兼容)
 CREATE TABLE IF NOT EXISTS executors (
     id VARCHAR PRIMARY KEY,
     app_id VARCHAR,
@@ -80,7 +78,7 @@ CREATE TABLE IF NOT EXISTS executors (
     exec_loss_reason TEXT
 );
 
--- Job 详情
+-- Job 详情 (全量兼容)
 CREATE TABLE IF NOT EXISTS jobs (
     id VARCHAR PRIMARY KEY,
     app_id VARCHAR,
@@ -91,7 +89,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     status VARCHAR,
     num_stages INT,
     num_tasks INT,
-    stage_ids TEXT, -- 存储 Stage ID 列表，逗号分隔
+    stage_ids TEXT,
     description TEXT,
     job_group VARCHAR,
     num_completed_stages INT DEFAULT 0,
@@ -105,7 +103,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     performance_score DOUBLE DEFAULT 0.0
 );
 
--- Stage 详情
+-- Stage 详情 (全量兼容)
 CREATE TABLE IF NOT EXISTS stages (
     id VARCHAR PRIMARY KEY,
     app_id VARCHAR,
@@ -152,8 +150,7 @@ CREATE TABLE IF NOT EXISTS stages (
     performance_score DOUBLE DEFAULT 0.0
 );
 
--- Task 细节
-
+-- Task 细节 (全量兼容)
 CREATE TABLE IF NOT EXISTS tasks (
     id VARCHAR PRIMARY KEY,
     app_id VARCHAR,
@@ -192,93 +189,47 @@ CREATE TABLE IF NOT EXISTS tasks (
     locality VARCHAR
 );
 
--- 诊断建议表
-CREATE TABLE IF NOT EXISTS diagnosis_reports (
-    id INTEGER PRIMARY KEY,
-    app_id VARCHAR,
-    diag_type VARCHAR,
-    severity VARCHAR,
-    target_stage_id INT,
-    summary_text TEXT,
-    suggestion TEXT
-);
+-- 其他业务表保持全量
+CREATE TABLE IF NOT EXISTS diagnosis_reports (id INTEGER PRIMARY KEY, app_id VARCHAR, diag_type VARCHAR, severity VARCHAR, target_stage_id INT, summary_text TEXT, suggestion TEXT);
+CREATE TABLE IF NOT EXISTS stage_statistics (id VARCHAR PRIMARY KEY, app_id VARCHAR, stage_id INT, attempt_id INT, metric_name VARCHAR, min_value BIGINT, p25 BIGINT, p50 BIGINT, p75 BIGINT, p95 BIGINT, max_value BIGINT);
+CREATE TABLE IF NOT EXISTS parsed_event_logs (file_name VARCHAR PRIMARY KEY, app_id VARCHAR, update_time TIMESTAMP, file_size BIGINT, file_hash VARCHAR, create_time TIMESTAMP, status INTEGER);
+CREATE TABLE IF NOT EXISTS sql_executions (id VARCHAR PRIMARY KEY, app_id VARCHAR, execution_id BIGINT, description TEXT, details TEXT, physical_plan TEXT, plan_info TEXT, start_time TIMESTAMP, end_time TIMESTAMP, duration BIGINT DEFAULT 0, status VARCHAR, performance_score DOUBLE DEFAULT 0.0);
+CREATE TABLE IF NOT EXISTS storage_rdds (id VARCHAR PRIMARY KEY, app_id VARCHAR, rdd_id INT, name VARCHAR, storage_level VARCHAR, num_partitions INT, num_cached_partitions INT, memory_size BIGINT DEFAULT 0, disk_size BIGINT DEFAULT 0);
+CREATE TABLE IF NOT EXISTS storage_blocks (id VARCHAR PRIMARY KEY, app_id VARCHAR, rdd_id INT, block_name VARCHAR, storage_level VARCHAR, memory_size BIGINT DEFAULT 0, disk_size BIGINT DEFAULT 0, executor_id VARCHAR, host VARCHAR);
+CREATE TABLE IF NOT EXISTS application_logs (id VARCHAR PRIMARY KEY, app_id VARCHAR, event_type VARCHAR, event_name VARCHAR, details TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
 
--- Stage 统计指标 (仿 Spark UI Summary Metrics)
-CREATE TABLE IF NOT EXISTS stage_statistics (
-    id VARCHAR PRIMARY KEY, -- 组合键: app_id:stage_id:attempt_id:metric_name
-    app_id VARCHAR,
-    stage_id INT,
-    attempt_id INT,
-    metric_name VARCHAR, -- duration, gc_time, input_bytes, shuffle_read_bytes, shuffle_write_bytes ...
-    min_value BIGINT,
-    p25 BIGINT,
-    p50 BIGINT,
-    p75 BIGINT,
-    p95 BIGINT,
-    max_value BIGINT
-);
+-- ==========================================
+-- BRONZE LAYER
+-- ==========================================
+CREATE TABLE IF NOT EXISTS bronze_event_application_start (id UUID DEFAULT uuid(), app_id VARCHAR, file_name VARCHAR, raw_json JSON, ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS bronze_event_application_end (id UUID DEFAULT uuid(), app_id VARCHAR, file_name VARCHAR, raw_json JSON, ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS bronze_event_job_start (id UUID DEFAULT uuid(), app_id VARCHAR, file_name VARCHAR, raw_json JSON, ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS bronze_event_job_end (id UUID DEFAULT uuid(), app_id VARCHAR, file_name VARCHAR, raw_json JSON, ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS bronze_event_stage_submitted (id UUID DEFAULT uuid(), app_id VARCHAR, file_name VARCHAR, raw_json JSON, ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS bronze_event_stage_completed (id UUID DEFAULT uuid(), app_id VARCHAR, file_name VARCHAR, raw_json JSON, ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS bronze_event_task_start (id UUID DEFAULT uuid(), app_id VARCHAR, file_name VARCHAR, raw_json JSON, ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS bronze_event_task_end (id UUID DEFAULT uuid(), app_id VARCHAR, file_name VARCHAR, raw_json JSON, ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS bronze_event_executor_added (id UUID DEFAULT uuid(), app_id VARCHAR, file_name VARCHAR, raw_json JSON, ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS bronze_event_executor_removed (id UUID DEFAULT uuid(), app_id VARCHAR, file_name VARCHAR, raw_json JSON, ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS bronze_event_block_manager_added (id UUID DEFAULT uuid(), app_id VARCHAR, file_name VARCHAR, raw_json JSON, ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS bronze_event_sql_execution_start (id UUID DEFAULT uuid(), app_id VARCHAR, file_name VARCHAR, raw_json JSON, ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS bronze_event_sql_execution_end (id UUID DEFAULT uuid(), app_id VARCHAR, file_name VARCHAR, raw_json JSON, ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS bronze_event_environment_update (id UUID DEFAULT uuid(), app_id VARCHAR, file_name VARCHAR, raw_json JSON, ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS bronze_event_log_start (id UUID DEFAULT uuid(), app_id VARCHAR, file_name VARCHAR, raw_json JSON, ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS bronze_event_unknown (id UUID DEFAULT uuid(), app_id VARCHAR, file_name VARCHAR, event_name VARCHAR, raw_json JSON, ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
 
--- EventLog 文件解析状态记录
+-- ==========================================
+-- SILVER LAYER
+-- ==========================================
+CREATE TABLE IF NOT EXISTS silver_jobs (app_id VARCHAR, job_id INT, submission_time TIMESTAMP, completion_time TIMESTAMP, duration_ms BIGINT, status VARCHAR, num_stages INT, stage_ids JSON, description TEXT, sql_execution_id BIGINT, PRIMARY KEY (app_id, job_id));
+CREATE TABLE IF NOT EXISTS silver_stages (app_id VARCHAR, stage_id INT, attempt_id INT, name VARCHAR, num_tasks INT, status VARCHAR, submission_time TIMESTAMP, completion_time TIMESTAMP, duration_ms BIGINT, input_bytes BIGINT DEFAULT 0, shuffle_read_bytes BIGINT DEFAULT 0, parent_ids JSON, PRIMARY KEY (app_id, stage_id, attempt_id));
+CREATE TABLE IF NOT EXISTS silver_tasks (app_id VARCHAR, task_id BIGINT, stage_id INT, stage_attempt_id INT, executor_id VARCHAR, host VARCHAR, index INT, attempt_number INT, launch_time TIMESTAMP, finish_time TIMESTAMP, duration_ms BIGINT, status VARCHAR, locality VARCHAR, speculative BOOLEAN, executor_run_time BIGINT, executor_cpu_time BIGINT, gc_time BIGINT, input_bytes BIGINT, output_bytes BIGINT, shuffle_read_bytes BIGINT, shuffle_write_bytes BIGINT, memory_bytes_spilled BIGINT, disk_bytes_spilled BIGINT, peak_execution_memory BIGINT, PRIMARY KEY (app_id, task_id));
+CREATE TABLE IF NOT EXISTS silver_executors (app_id VARCHAR, executor_id VARCHAR, host VARCHAR, total_cores INT, add_time TIMESTAMP, remove_time TIMESTAMP, remove_reason TEXT, PRIMARY KEY (app_id, executor_id));
 
-CREATE TABLE IF NOT EXISTS parsed_event_logs (
-    file_name VARCHAR PRIMARY KEY,
-    app_id VARCHAR,
-    update_time TIMESTAMP,
-    file_size BIGINT,
-    file_hash VARCHAR,
-    create_time TIMESTAMP,
-    status INTEGER
-);
-
--- SQL 执行详情
-CREATE TABLE IF NOT EXISTS sql_executions (
-    id VARCHAR PRIMARY KEY, -- appId:executionId
-    app_id VARCHAR,
-    execution_id BIGINT,
-    description TEXT,
-    details TEXT,
-    physical_plan TEXT,
-    plan_info TEXT, -- SparkPlanInfo JSON Structure
-    start_time TIMESTAMP,
-    end_time TIMESTAMP,
-    duration BIGINT DEFAULT 0,
-    status VARCHAR, -- RUNNING, SUCCEEDED, FAILED
-    performance_score DOUBLE DEFAULT 0.0
-);
-
--- RDD 存储信息
-CREATE TABLE IF NOT EXISTS storage_rdds (
-    id VARCHAR PRIMARY KEY, -- appId:rddId
-    app_id VARCHAR,
-    rdd_id INT,
-    name VARCHAR,
-    storage_level VARCHAR,
-    num_partitions INT,
-    num_cached_partitions INT,
-    memory_size BIGINT DEFAULT 0,
-    disk_size BIGINT DEFAULT 0
-);
-
--- RDD 分片明细 (Block 级别)
-
-CREATE TABLE IF NOT EXISTS storage_blocks (
-    id VARCHAR PRIMARY KEY, -- appId:rddId:blockName
-    app_id VARCHAR,
-    rdd_id INT,
-    block_name VARCHAR,
-    storage_level VARCHAR,
-    memory_size BIGINT DEFAULT 0,
-    disk_size BIGINT DEFAULT 0,
-    executor_id VARCHAR,
-    host VARCHAR
-);
-
--- 应用生命周期关键日志
-CREATE TABLE IF NOT EXISTS application_logs (
-    id VARCHAR PRIMARY KEY, -- UUID
-    app_id VARCHAR,
-    event_type VARCHAR, -- SCAN, IMPORT, PARSE, FINALIZE, SUCCESS, FAILED
-    event_name VARCHAR,
-    details TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- ==========================================
+-- GOLD LAYER
+-- ==========================================
+CREATE TABLE IF NOT EXISTS gold_app_metrics (app_id VARCHAR PRIMARY KEY, total_duration_ms BIGINT, total_input_bytes BIGINT, total_shuffle_read_bytes BIGINT, performance_score DOUBLE, total_tasks INT, failed_tasks INT);
+CREATE TABLE IF NOT EXISTS gold_job_metrics (app_id VARCHAR, job_id INT, performance_score DOUBLE, PRIMARY KEY (app_id, job_id));
+CREATE TABLE IF NOT EXISTS gold_stage_metrics (app_id VARCHAR, stage_id INT, attempt_id INT, duration_p50 BIGINT, duration_p95 BIGINT, skew_ratio DOUBLE, gc_time_ratio DOUBLE, score_skew DOUBLE, score_gc DOUBLE, score_locality DOUBLE, performance_score DOUBLE, PRIMARY KEY (app_id, stage_id, attempt_id));
+CREATE TABLE IF NOT EXISTS gold_executor_metrics (app_id VARCHAR, executor_id VARCHAR, avg_task_duration_ms DOUBLE, cpu_utilization_ratio DOUBLE, PRIMARY KEY (app_id, executor_id));

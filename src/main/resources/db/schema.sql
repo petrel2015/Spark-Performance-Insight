@@ -272,3 +272,13 @@ CREATE TABLE IF NOT EXISTS storage_blocks (
     executor_id VARCHAR,
     host VARCHAR
 );
+
+-- 应用生命周期关键日志
+CREATE TABLE IF NOT EXISTS application_logs (
+    id VARCHAR PRIMARY KEY, -- UUID
+    app_id VARCHAR,
+    event_type VARCHAR, -- SCAN, IMPORT, PARSE, FINALIZE, SUCCESS, FAILED
+    event_name VARCHAR,
+    details TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

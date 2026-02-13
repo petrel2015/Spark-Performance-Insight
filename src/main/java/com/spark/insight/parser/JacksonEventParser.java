@@ -44,6 +44,7 @@ public class JacksonEventParser implements EventParser {
     private final StatusBroadcaster broadcaster;
     private final DataSource dataSource;
     private final DuckDBAppenderRegistry appenderRegistry;
+    private final ApplicationLogService logService;
 
     private final BlockingQueue<EventEnvelope> rawQueue = new LinkedBlockingQueue<>(100000);
     private final BlockingQueue<Object> writeQueue = new LinkedBlockingQueue<>(100000);
@@ -63,7 +64,8 @@ public class JacksonEventParser implements EventParser {
                               ParsedEventLogMapper parsedLogMapper,
                               StatusBroadcaster broadcaster,
                               DataSource dataSource,
-                              DuckDBAppenderRegistry appenderRegistry) {
+                              DuckDBAppenderRegistry appenderRegistry,
+                              ApplicationLogService logService) {
         JsonFactory factory = JsonFactory.builder()
                 .streamReadConstraints(StreamReadConstraints.builder().maxStringLength(Integer.MAX_VALUE).build())
                 .build();
@@ -80,6 +82,7 @@ public class JacksonEventParser implements EventParser {
         this.broadcaster = broadcaster;
         this.dataSource = dataSource;
         this.appenderRegistry = appenderRegistry;
+        this.logService = logService;
     }
 
     @PostConstruct
@@ -111,6 +114,9 @@ public class JacksonEventParser implements EventParser {
     @Override
     public void parseFiles(List<File> logFiles, String appId) throws InterruptedException {
         long totalSize = logFiles.stream().mapToLong(File::length).sum();
+        log.info("Starting to parse {} files for app {}, total size: {}", logFiles.size(), appId, formatFileSize(totalSize));
+        logService.logEvent(appId, "PARSE", "Parsing Started", String.format("Parsing %d files, total size: %s", logFiles.size(), formatFileSize(totalSize)));
+        long startTime = System.currentTimeMillis();
         AppParsingContext context = new AppParsingContext(appId, totalSize);
         activeApps.put(appId, context);
 
@@ -121,8 +127,12 @@ public class JacksonEventParser implements EventParser {
                     readAndEnqueue(file, appId, context);
                 } catch (Exception e) {
                     log.error("Error reading file: " + file.getName(), e);
+                    logService.logEvent(appId, "ERROR", "File Read Error", "Failed to read " + file.getName() + ": " + e.getMessage());
                 } finally {
                     if (context.activeProducers.decrementAndGet() == 0) {
+                        long duration = System.currentTimeMillis() - startTime;
+                        log.info("Finished reading all log files for app {} in {}ms", appId, duration);
+                        logService.logEvent(appId, "PARSE", "Parsing Finished", String.format("Completed file reading in %dms", duration));
                         checkAndSendEoa(context);
                     }
                 }
@@ -364,8 +374,15 @@ public class JacksonEventParser implements EventParser {
     }
 
     private void finalizeApp(String appId, Connection conn) {
+        long startTime = System.currentTimeMillis();
         try {
+            log.info("Starting finalization for App: {}", appId);
+            logService.logEvent(appId, "FINALIZE", "Finalization Started", "Starting metric aggregation and pre-calculations");
+            
+            long stepStart = System.currentTimeMillis();
             fixStageJobIds(appId, conn);
+            log.info("Step [Fix Stage Job IDs] finished in {}ms", System.currentTimeMillis() - stepStart);
+
             updatePostCalculationProgress(appId, "Aggregating metrics...", 84.0);
 
             // Log task count for verification using the provided connection
@@ -373,24 +390,49 @@ public class JacksonEventParser implements EventParser {
                 ps.setString(1, appId);
                 try (java.sql.ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
-                        log.info("Finalizing App: {}, Task count in DB: {}", appId, rs.getLong(1));
+                        long count = rs.getLong(1);
+                        log.info("Finalizing App: {}, Task count in DB: {}", appId, count);
+                        logService.logEvent(appId, "FINALIZE", "Data Verification", "Task count in DB: " + count);
                     }
                 }
             }
 
+            stepStart = System.currentTimeMillis();
             stageService.calculateStageMetrics(appId);
+            log.info("Step [Stage Metrics Aggregation] finished in {}ms", System.currentTimeMillis() - stepStart);
+            
             updatePostCalculationProgress(appId, "Aggregating metrics...", 88.0);
+            
+            stepStart = System.currentTimeMillis();
             jobService.calculateJobMetrics(appId);
+            log.info("Step [Job Metrics Aggregation] finished in {}ms", System.currentTimeMillis() - stepStart);
+            
             updatePostCalculationProgress(appId, "Aggregating metrics...", 92.0);
+            
+            stepStart = System.currentTimeMillis();
             sqlExecutionService.calculateSqlMetrics(appId);
+            log.info("Step [SQL Metrics Aggregation] finished in {}ms", System.currentTimeMillis() - stepStart);
+            
             updatePostCalculationProgress(appId, "Aggregating metrics...", 96.0);
+            
+            stepStart = System.currentTimeMillis();
             sparkExecutorService.calculateExecutorMetrics(appId);
+            log.info("Step [Executor Metrics Aggregation] finished in {}ms", System.currentTimeMillis() - stepStart);
+            
             updatePostCalculationProgress(appId, "Aggregating metrics...", 98.0);
+            
+            stepStart = System.currentTimeMillis();
             applicationService.updateAppMetrics(appId);
+            log.info("Step [App Metrics Update] finished in {}ms", System.currentTimeMillis() - stepStart);
+            
             finalizeAppQuality(appId);
+            long totalDuration = System.currentTimeMillis() - startTime;
+            log.info("App {} finalization complete. Total time: {}ms", appId, totalDuration);
+            logService.logEvent(appId, "SUCCESS", "Analysis Complete", String.format("Total finalization time: %dms", totalDuration));
             broadcaster.broadcastStatus(appId, "SUCCESS", 100.0, "Analysis complete.");
         } catch (Exception e) {
             log.error("Finalization failed for " + appId, e);
+            logService.logEvent(appId, "FAILED", "Analysis Failed", e.getMessage());
             broadcaster.broadcastStatus(appId, "FAILED", 100.0, "Analysis failed.");
         } finally {
             activeApps.remove(appId);

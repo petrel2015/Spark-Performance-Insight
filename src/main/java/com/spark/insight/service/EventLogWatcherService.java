@@ -30,6 +30,7 @@ public class EventLogWatcherService {
     private final ApplicationService applicationService;
     private final com.spark.insight.mapper.EventLogScanMapper scanMapper;
     private final StatusBroadcaster broadcaster;
+    private final ApplicationLogService logService;
 
     // Create a pool for parsing to avoid blocking the scheduler thread
     private final ExecutorService parseExecutor = Executors.newFixedThreadPool(10);
@@ -91,6 +92,8 @@ public class EventLogWatcherService {
     }
 
     private void handleNewApp(String appId, List<File> files, long totalSize) {
+        logService.logEvent(appId, "SCAN", "New Application Detected", 
+                String.format("Found %d files, total size: %.2f MB", files.size(), totalSize / (1024.0 * 1024.0)));
         ApplicationModel app = new ApplicationModel();
         app.setAppId(appId);
         app.setAppName("Initializing...");
@@ -125,6 +128,9 @@ public class EventLogWatcherService {
             return;
         }
 
+        logService.logEvent(appId, "SCAN", "Changes Detected", 
+                String.format("New/Modified log files found. Total size: %.2f MB", totalSize / (1024.0 * 1024.0)));
+
         // Save scan details
         com.spark.insight.model.EventLogScanModel scan = new com.spark.insight.model.EventLogScanModel();
         scan.setId(UUID.randomUUID().toString());
@@ -152,6 +158,7 @@ public class EventLogWatcherService {
     }
 
     public void triggerProcessing(String appId, List<File> files) {
+        logService.logEvent(appId, "IMPORT", "Triggering Import", "Starting parallel parsing of " + files.size() + " files");
         List<File> sortedFiles = new ArrayList<>(files);
         sortedFiles.sort(Comparator.comparingInt(this::getFileIndex).thenComparing(File::getName));
 

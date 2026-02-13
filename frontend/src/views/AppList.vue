@@ -90,8 +90,10 @@
           <thead>
           <tr>
             <!-- Comparison Selection Column -->
-            <th v-if="compareStore.isCompareMode" style="width: 50px; text-align: center;">
-              <span class="material-symbols-outlined" style="font-size: 16px; color: #666;">compare_arrows</span>
+            <th v-if="compareStore.isCompareMode" style="width: 60px; min-width: 60px; text-align: center;">
+              <div class="header-container" style="justify-content: center;">
+                <span class="material-symbols-outlined" style="font-size: 20px; color: #666;">compare_arrows</span>
+              </div>
             </th>
             <th v-for="col in columns"
                 :key="col.field"
@@ -113,8 +115,9 @@
           <tbody>
           <tr v-for="app in apps" :key="app.appId" :class="{ 'processing-row': isProcessing(app.parsingStatus) }">
             <!-- Comparison Selection -->
-            <td v-if="compareStore.isCompareMode" style="text-align: center;">
+            <td v-if="compareStore.isCompareMode" style="width: 60px; min-width: 60px; text-align: center;">
               <button class="select-btn" 
+                      style="margin: 0 auto;"
                       :disabled="isProcessing(app.parsingStatus)"
                       :class="{ selected: compareStore.isInWorkspace(app.appId, 'app') }"
                       @click="toggleCompare(app)">
@@ -178,7 +181,7 @@
             </td>
           </tr>
           <tr v-if="apps.length === 0">
-            <td colspan="10" style="text-align: center; padding: 40px;">No applications found.</td>
+            <td :colspan="columns.length + (compareStore.isCompareMode ? 1 : 0)" style="text-align: center; padding: 40px;">No applications found.</td>
           </tr>
           </tbody>
         </table>

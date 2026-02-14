@@ -20,7 +20,7 @@ public class DuckDBConfig {
     @PostConstruct
     public void initDuckDB() {
         InsightProperties.DuckDB duckdb = insightProperties.getDuckdb();
-        if (duckdb.getThreads() == null && duckdb.getMemoryLimit() == null) {
+        if (duckdb.getThreads() == null && duckdb.getMemoryLimit() == null && duckdb.getTempDirectory() == null) {
             return;
         }
 
@@ -35,6 +35,15 @@ public class DuckDBConfig {
             if (duckdb.getMemoryLimit() != null) {
                 log.info("Setting DuckDB memory_limit to {}", duckdb.getMemoryLimit());
                 stmt.execute("SET memory_limit TO '" + duckdb.getMemoryLimit() + "'");
+            }
+
+            if (duckdb.getTempDirectory() != null) {
+                log.info("Setting DuckDB temp_directory to {}", duckdb.getTempDirectory());
+                java.io.File tempDir = new java.io.File(duckdb.getTempDirectory());
+                if (!tempDir.exists()) {
+                    tempDir.mkdirs();
+                }
+                stmt.execute("SET temp_directory = '" + duckdb.getTempDirectory() + "'");
             }
             
         } catch (Exception e) {

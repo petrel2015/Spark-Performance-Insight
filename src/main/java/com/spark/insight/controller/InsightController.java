@@ -28,6 +28,8 @@ public class InsightController {
     private final SqlExecutionService sqlExecutionService;
     private final StorageService storageService;
     private final LLMDiagnosisService llmDiagnosisService;
+    private final ParsingQueueService parsingQueueService;
+    private final ApplicationLogService applicationLogService;
 
     private void checkAppReady(String appId) {
         ApplicationModel app = applicationService.getById(appId);
@@ -167,7 +169,7 @@ public class InsightController {
         var query = sqlExecutionService.lambdaQuery().eq(SqlExecutionModel::getAppId, appId);
         if (jobId != null) {
             // 通过子查询找到关联该 Job ID 的 SQL Execution ID
-            query.apply("execution_id IN (SELECT sql_execution_id FROM jobs WHERE app_id = {0} AND job_id = {1})", appId, jobId);
+            query.apply("execution_id IN (SELECT sql_execution_id FROM gold_jobs WHERE app_id = {0} AND job_id = {1})", appId, jobId);
         }
 
         long total = query.count();
@@ -175,7 +177,7 @@ public class InsightController {
         // 重新构建查询以应用分页
         var listQuery = sqlExecutionService.lambdaQuery().eq(SqlExecutionModel::getAppId, appId);
         if (jobId != null) {
-            listQuery.apply("execution_id IN (SELECT sql_execution_id FROM jobs WHERE app_id = {0} AND job_id = {1})", appId, jobId);
+            listQuery.apply("execution_id IN (SELECT sql_execution_id FROM gold_jobs WHERE app_id = {0} AND job_id = {1})", appId, jobId);
         }
 
         listQuery.last(buildSqlSuffix(sort, page, size, "execution_id DESC"));
@@ -272,6 +274,20 @@ public class InsightController {
         query.last(buildSqlSuffix(sort, page, size, "start_time DESC"));
 
         List<ApplicationModel> items = query.list();
+        
+        if (!items.isEmpty()) {
+            List<String> appIds = items.stream().map(ApplicationModel::getAppId).toList();
+            java.util.Map<String, String> queueStatus = parsingQueueService.getQueueStatuses(appIds);
+            
+            for (ApplicationModel app : items) {
+                if (queueStatus.containsKey(app.getAppId())) {
+                    app.setParsingStatus("QUEUED");
+                    app.setParsingProgress("Waiting in queue...");
+                }
+                app.setCompletedStages(applicationLogService.getCompletedStages(app.getAppId()));
+            }
+        }
+        
         int totalPages = (int) Math.ceil((double) total / size);
         return new PageResponse<>(items, total, page, size, totalPages);
     }

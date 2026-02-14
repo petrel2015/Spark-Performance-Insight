@@ -28,7 +28,7 @@ public class ApplicationOverwriteService {
     private final EnvironmentConfigMapper envMapper;
     private final ParsedEventLogMapper parsedLogMapper;
     private final EventLogScanMapper scanMapper;
-    private final EventLogWatcherService watcherService;
+    private final ParsingQueueService parsingQueueService;
     private final StatusBroadcaster broadcaster;
     private final StageStatisticsMapper stageStatisticsMapper;
     private final StorageRddMapper storageRddMapper;
@@ -63,17 +63,16 @@ public class ApplicationOverwriteService {
         applicationMapper.updateById(app);
 
         try {
-            List<String> paths = new com.fasterxml.jackson.databind.ObjectMapper().readValue(scan.getFilePaths(), new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {});
-            List<File> files = paths.stream().map(File::new).toList();
-            
+            // We don't need to parse file paths manually if we trust the queue service to find them
+            // But we keep the logic to delete scans
             scanMapper.deleteBatchIds(scans.stream().map(EventLogScanModel::getId).toList());
             
-            broadcaster.broadcastStatus(appId, "PENDING_TO_LOADING", 0.0, "Ready to re-import.");
+            broadcaster.broadcastStatus(appId, "PENDING_TO_LOADING", 0.0, "Queueing re-import.");
             
-            watcherService.triggerProcessing(appId, files);
+            parsingQueueService.submit(appId, "FULL");
         } catch (Exception e) {
-            log.error("Failed to parse file paths during overwrite confirm", e);
-            throw new RuntimeException("Overwrite failed due to path error", e);
+            log.error("Failed to confirm overwrite", e);
+            throw new RuntimeException("Overwrite failed", e);
         }
     }
 
@@ -120,26 +119,23 @@ public class ApplicationOverwriteService {
         
         parsedLogMapper.delete(new LambdaQueryWrapper<ParsedEventLogModel>().eq(ParsedEventLogModel::getAppId, appId));
 
+        // We check files existence just to fail fast, but queue service will handle actual finding
         String logPath = properties.getEventLogPath();
         File directory = new File(logPath);
         if (!directory.exists() || !directory.isDirectory()) {
              throw new RuntimeException("Event log directory not found: " + logPath);
         }
 
-        List<File> appFiles = findAppFiles(directory, appId);
-        if (appFiles.isEmpty()) {
-            throw new RuntimeException("No log files found for re-importing appId: " + appId);
-        }
-
-        long totalSize = appFiles.stream().mapToLong(File::length).sum();
-
+        // We can skip detailed file finding here as ParsingQueueService/EventLogWatcherService will do it
+        // But for totalSize update we might need it. 
+        // Let's assume re-import keeps previous size or we just update status.
+        
         app.setParsingStatus("PENDING_TO_LOADING");
-        app.setTotalLogSize(totalSize);
-        app.setParsingProgress("Re-importing triggered manually...");
+        app.setParsingProgress("Queueing re-import...");
         applicationMapper.updateById(app);
 
-        broadcaster.broadcastStatus(appId, "PENDING_TO_LOADING", 0.0, "Starting re-import...");
-        watcherService.triggerProcessing(appId, appFiles);
+        broadcaster.broadcastStatus(appId, "PENDING_TO_LOADING", 0.0, "Queueing re-import...");
+        parsingQueueService.submit(appId, "FULL");
     }
 
     private void clearAppData(String appId) {

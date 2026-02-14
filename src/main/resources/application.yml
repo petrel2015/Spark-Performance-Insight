@@ -45,6 +45,7 @@ insight:
   duckdb:
     threads: ${DUCKDB_THREADS:4}
     memory-limit: ${DUCKDB_MEMORY_LIMIT:2GB}
+    temp-directory: ${DUCKDB_TEMP_DIR:./spark-performance-insight-duckdb.tmp}
   scheduler:
     scan-interval-seconds: 3600
   comparison:

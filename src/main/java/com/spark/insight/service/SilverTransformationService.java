@@ -14,81 +14,52 @@ public class SilverTransformationService {
     private final JdbcTemplate jdbcTemplate;
 
     @Transactional
-    public void transform(String appId) {
+    public void transform(String appId, java.util.function.BiConsumer<Double, String> progressReporter) {
         log.info("Starting Silver transformation (Metadata & Feature Recovery) for app: {}", appId);
+        progressReporter.accept(0.0, "Silver: Initializing...");
         
         jdbcTemplate.execute("INSTALL json; LOAD json;");
 
-        rebuildSilverTables();
+        cleanSilverData(appId);
 
         // 1. Extract Application Metadata First (to update "Initializing...")
+        progressReporter.accept(10.0, "Silver: Extracting Metadata...");
         transformApplicationMetadata(appId);
 
         // 2. Core transformations
-        transformJobs(appId);
+        progressReporter.accept(20.0, "Silver: Processing Tasks...");
         transformTasks(appId);
+        
+        progressReporter.accept(40.0, "Silver: Processing Stages...");
         transformStages(appId);
+        
+        progressReporter.accept(60.0, "Silver: Processing Jobs...");
+        transformJobs(appId);
+        
+        progressReporter.accept(75.0, "Silver: Processing Executors...");
         transformExecutors(appId);
+        
+        progressReporter.accept(85.0, "Silver: Processing SQL...");
         transformSql(appId);
+        
+        progressReporter.accept(95.0, "Silver: Processing Environment...");
         transformEnvironment(appId);
 
         log.info("Finished Silver transformation for app: {}", appId);
     }
+    
+    public void transform(String appId) {
+        transform(appId, (p, m) -> {});
+    }
 
-    private void rebuildSilverTables() {
-        log.info("Rebuilding Silver tables for feature recovery...");
-        
-        jdbcTemplate.execute("DROP TABLE IF EXISTS silver_jobs");
-        jdbcTemplate.execute("""
-            CREATE TABLE silver_jobs (
-                app_id VARCHAR, job_id INT, submission_time TIMESTAMP, completion_time TIMESTAMP, 
-                duration_ms BIGINT, status VARCHAR, num_stages INT, stage_ids JSON, 
-                description TEXT, sql_execution_id BIGINT
-            )""");
-        
-        jdbcTemplate.execute("DROP TABLE IF EXISTS silver_stages");
-        jdbcTemplate.execute("""
-            CREATE TABLE silver_stages (
-                app_id VARCHAR, stage_id INT, attempt_id INT, job_id INT, name VARCHAR, num_tasks INT, 
-                status VARCHAR, submission_time TIMESTAMP, completion_time TIMESTAMP, 
-                duration_ms BIGINT, input_bytes BIGINT DEFAULT 0, shuffle_read_bytes BIGINT DEFAULT 0, 
-                parent_ids JSON, rdd_info TEXT
-            )""");
-
-        jdbcTemplate.execute("DROP TABLE IF EXISTS silver_tasks");
-        jdbcTemplate.execute("""
-            CREATE TABLE silver_tasks (
-                app_id VARCHAR, task_id BIGINT, stage_id INT, stage_attempt_id INT, 
-                executor_id VARCHAR, host VARCHAR, index INT, attempt_number INT, 
-                launch_time TIMESTAMP, finish_time TIMESTAMP, duration_ms BIGINT, 
-                status VARCHAR, locality VARCHAR, speculative BOOLEAN, 
-                executor_run_time BIGINT, executor_cpu_time BIGINT, gc_time BIGINT, 
-                executor_deserialize_time BIGINT, result_serialization_time BIGINT, getting_result_time BIGINT, scheduler_delay BIGINT,
-                input_bytes BIGINT, output_bytes BIGINT, shuffle_read_bytes BIGINT, 
-                shuffle_write_bytes BIGINT, memory_bytes_spilled BIGINT, 
-                disk_bytes_spilled BIGINT, peak_execution_memory BIGINT
-            )""");
-
-        jdbcTemplate.execute("DROP TABLE IF EXISTS silver_executors");
-        jdbcTemplate.execute("""
-            CREATE TABLE silver_executors (
-                app_id VARCHAR, executor_id VARCHAR, host VARCHAR, total_cores INT, 
-                add_time TIMESTAMP, remove_time TIMESTAMP, remove_reason TEXT
-            )""");
-
-        jdbcTemplate.execute("DROP TABLE IF EXISTS silver_sql_executions");
-        jdbcTemplate.execute("""
-            CREATE TABLE silver_sql_executions (
-                app_id VARCHAR, execution_id BIGINT, description TEXT, details TEXT, 
-                physical_plan TEXT, plan_info TEXT, start_time TIMESTAMP, end_time TIMESTAMP, 
-                duration_ms BIGINT, status VARCHAR
-            )""");
-
-        jdbcTemplate.execute("DROP TABLE IF EXISTS silver_environment_configs");
-        jdbcTemplate.execute("""
-            CREATE TABLE silver_environment_configs (
-                app_id VARCHAR, param_key VARCHAR, param_value VARCHAR, category VARCHAR
-            )""");
+    private void cleanSilverData(String appId) {
+        log.info("Cleaning Silver data for app: {}", appId);
+        jdbcTemplate.update("DELETE FROM silver_jobs WHERE app_id = ?", appId);
+        jdbcTemplate.update("DELETE FROM silver_stages WHERE app_id = ?", appId);
+        jdbcTemplate.update("DELETE FROM silver_tasks WHERE app_id = ?", appId);
+        jdbcTemplate.update("DELETE FROM silver_executors WHERE app_id = ?", appId);
+        jdbcTemplate.update("DELETE FROM silver_sql_executions WHERE app_id = ?", appId);
+        jdbcTemplate.update("DELETE FROM silver_environment_configs WHERE app_id = ?", appId);
     }
 
     private void transformApplicationMetadata(String appId) {
@@ -96,13 +67,13 @@ public class SilverTransformationService {
         
         // Extract from ApplicationStart and LogStart events
         String sql = """
-            UPDATE applications
+            UPDATE gold_applications
             SET app_name = json_extract_string(b.raw_json, '$."App Name"'),
                 user_name = json_extract_string(b.raw_json, '$.User'),
                 start_time = epoch_ms((json_extract(b.raw_json, '$.Timestamp'))::BIGINT),
                 spark_version = (SELECT json_extract_string(raw_json, '$."Spark Version"') FROM bronze_event_log_start WHERE app_id = ? LIMIT 1)
             FROM bronze_event_application_start b
-            WHERE applications.app_id = b.app_id AND b.app_id = ?
+            WHERE gold_applications.app_id = b.app_id AND b.app_id = ?
             """;
         jdbcTemplate.update(sql, appId, appId);
     }
@@ -198,7 +169,7 @@ public class SilverTransformationService {
                 FROM bronze_event_task_end WHERE app_id = ?
                 ORDER BY app_id, (json_extract(raw_json, '$."Task Info"."Task ID"'))::BIGINT, ingested_at DESC
             )
-            INSERT INTO silver_tasks (app_id, task_id, stage_id, stage_attempt_id, executor_id, host, index, attempt_number, launch_time, finish_time, duration_ms, status, locality, speculative, executor_run_time, executor_cpu_time, gc_time, executor_deserialize_time, result_serialization_time, getting_result_time, scheduler_delay, input_bytes, output_bytes, shuffle_read_bytes, shuffle_write_bytes, memory_bytes_spilled, disk_bytes_spilled, peak_execution_memory)
+            INSERT INTO silver_tasks (app_id, task_id, stage_id, stage_attempt_id, executor_id, host, index, attempt_number, launch_time, finish_time, duration_ms, status, locality, speculative, executor_run_time, executor_cpu_time, gc_time, executor_deserialize_time, result_serialization_time, getting_result_time, scheduler_delay, input_bytes, output_bytes, shuffle_read_bytes, shuffle_fetch_wait_time, shuffle_write_bytes, shuffle_write_time, memory_bytes_spilled, disk_bytes_spilled, peak_execution_memory)
             SELECT DISTINCT ON (app_id, task_id)
                 app_id, task_id,
                 (json_extract(raw_json, '$."Stage ID"'))::INT,
@@ -228,7 +199,9 @@ public class SilverTransformationService {
                 (json_extract(raw_json, '$."Task Metrics"."Input Metrics"."Bytes Read"'))::BIGINT,
                 (json_extract(raw_json, '$."Task Metrics"."Output Metrics"."Bytes Written"'))::BIGINT,
                 (json_extract(raw_json, '$."Task Metrics"."Shuffle Read Metrics"."Total Bytes Read"'))::BIGINT,
+                (json_extract(raw_json, '$."Task Metrics"."Shuffle Read Metrics"."Fetch Wait Time"'))::BIGINT,
                 (json_extract(raw_json, '$."Task Metrics"."Shuffle Write Metrics"."Bytes Written"'))::BIGINT,
+                (json_extract(raw_json, '$."Task Metrics"."Shuffle Write Metrics"."Write Time"'))::BIGINT,
                 (json_extract(raw_json, '$."Task Metrics"."Memory Bytes Spilled"'))::BIGINT,
                 (json_extract(raw_json, '$."Task Metrics"."Disk Bytes Spilled"'))::BIGINT,
                 (json_extract(raw_json, '$."Task Metrics"."Peak Execution Memory"'))::BIGINT

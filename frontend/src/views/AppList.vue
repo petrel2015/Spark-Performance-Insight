@@ -211,11 +211,11 @@
                            <span class="material-symbols-outlined">database</span>
                            Full (Raw &rarr; Gold)
                          </button>
-                         <button class="dropdown-item" @click="openConfirmation('bronze-to-gold', app.appId)">
+                         <button v-if="canStartFromSilver(app)" class="dropdown-item" @click="openConfirmation('bronze-to-gold', app.appId)">
                            <span class="material-symbols-outlined">step</span>
                            From Bronze (Bronze &rarr; Gold)
                          </button>
-                         <button class="dropdown-item" @click="openConfirmation('silver-to-gold', app.appId)">
+                         <button v-if="canStartFromGold(app)" class="dropdown-item" @click="openConfirmation('silver-to-gold', app.appId)">
                            <span class="material-symbols-outlined">analytics</span>
                            From Silver (Silver &rarr; Gold)
                          </button>
@@ -224,8 +224,17 @@
                   </div>
                 </template>
                 
-                <!-- Processing: No Actions -->
-                <span v-if="isProcessing(app.parsingStatus)" class="processing-label">
+                <!-- Processing: Cancel Option -->
+                <button v-if="app.parsingStatus === 'QUEUED'" 
+                        class="action-btn cancel" 
+                        @click="handleCancel(app.appId)" 
+                        title="Cancel Queued Job">
+                  <span class="material-symbols-outlined">cancel</span>
+                  Cancel
+                </button>
+
+                <!-- Processing: No Actions (except Cancel for Queued) -->
+                <span v-if="isActivePipeline(app.parsingStatus)" class="processing-label">
                   Processing...
                 </span>
               </div>
@@ -314,23 +323,19 @@ const toggleDropdown = (appId, event) => {
     nextTick(() => {
       const button = event.currentTarget;
       const rect = button.getBoundingClientRect();
-      // Align right edge of menu with right edge of button
-      // Menu width is min 200px.
-      // Let's position it to the bottom-right of the button
-      dropdownStyle.top = `${rect.bottom + window.scrollY + 4}px`;
-      // We don't know the exact width yet, but aligning right usually works best for last column
-      // However, for fixed position, we set left.
-      // rect.right - menuWidth. But menuWidth is dynamic.
-      // Let's try aligning left edge first, or use a fixed calculation if we knew width.
-      // Safer: Align top-left of menu to bottom-left of button minus some offset if needed.
-      // Actually, if we use fixed positioning, we can set `right: window.innerWidth - rect.right + 'px'`?
-      // CSS `right` property works with fixed positioning relative to viewport.
-      // Let's store right and top.
       dropdownStyle.top = `${rect.bottom + 4}px`;
       dropdownStyle.right = `${document.documentElement.clientWidth - rect.right}px`;
       dropdownStyle.left = 'auto';
     });
   }
+};
+
+const canStartFromSilver = (app) => {
+  return app.completedStages && app.completedStages.includes("Bronze Finished");
+};
+
+const canStartFromGold = (app) => {
+  return app.completedStages && app.completedStages.includes("Silver Finished");
 };
 
 const connectWebSocket = () => {
@@ -366,7 +371,7 @@ const updateAppProgress = (data) => {
     }
   } else {
     // Refresh list if new app enters processing or pending state
-    if (['PENDING_LOAD', 'INGESTING_BRONZE'].includes(data.status)) {
+    if (['PENDING_LOAD', 'INGESTING_BRONZE', 'QUEUED'].includes(data.status)) {
       fetchApps();
     }
   }
@@ -379,6 +384,20 @@ const handleOverwrite = async (appId, confirm) => {
     fetchApps();
   } catch (err) {
     console.error(`Failed to ${action} overwrite`, err);
+  }
+};
+
+const handleCancel = async (appId) => {
+  try {
+    await axios.post(`/api/bronze/cancel/${appId}`);
+    // Optimistic update
+    const app = apps.value.find(a => a.appId === appId);
+    if (app) {
+        app.parsingStatus = 'CANCELLED'; // Or revert to previous? Usually just let WS update or fetchApps
+        setTimeout(fetchApps, 500);
+    }
+  } catch (err) {
+    console.error(`Failed to cancel ${appId}`, err);
   }
 };
 
@@ -453,10 +472,9 @@ const triggerReimport = async (appId, mode) => {
     // Optimistic update
     const app = apps.value.find(a => a.appId === appId);
     if (app) {
-        if (mode === 'silver-to-gold') app.parsingStatus = 'AGGREGATING_GOLD';
-        else if (mode === 'bronze-to-gold') app.parsingStatus = 'TRANSFORMING_SILVER';
-        else app.parsingStatus = 'INGESTING_BRONZE';
+        app.parsingStatus = 'QUEUED';
         app.progressValue = 0;
+        app.parsingProgress = 'Waiting in queue...';
     }
   } catch (err) {
     console.error(`Failed to trigger import for ${appId}`, err);
@@ -493,7 +511,8 @@ const formatStatus = (status) => {
     'TRANSFORMING_SILVER': 'Silver Transform',
     'AGGREGATING_GOLD': 'Gold Aggregation',
     'PENDING_LOAD': 'Ready to Load',
-    'PENDING_REIMPORT': 'Log Changed'
+    'PENDING_REIMPORT': 'Log Changed',
+    'QUEUED': 'Queued'
   };
   if (map[status]) return map[status];
   
@@ -503,6 +522,10 @@ const formatStatus = (status) => {
 };
 
 const isProcessing = (status) => {
+  return ['INGESTING_BRONZE', 'TRANSFORMING_SILVER', 'AGGREGATING_GOLD', 'LOADING', 'PENDING_LOAD', 'PENDING_REIMPORT', 'READY', 'QUEUED'].includes(status);
+};
+
+const isActivePipeline = (status) => {
   return ['INGESTING_BRONZE', 'TRANSFORMING_SILVER', 'AGGREGATING_GOLD', 'LOADING'].includes(status);
 };
 

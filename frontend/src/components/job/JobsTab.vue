@@ -171,7 +171,12 @@
                 <div class="stage-ids-list" :title="job.stageIds">
                   <template v-if="job.stageIds">
                       <span v-for="(sid, idx) in job.stageIds.split(',')" :key="sid">
-                        <router-link :to="'/app/' + appId + '/stage/' + sid" :class="'stage-id-link ' + getStageStatusClass(job, sid)">{{ sid }}</router-link>
+                        <template v-if="getStageStatusClass(job, sid) === 'status-skipped'">
+                          <span class="stage-id-link status-skipped">{{ sid }}</span>
+                        </template>
+                        <router-link v-else :to="'/app/' + appId + '/stage/' + sid" :class="'stage-id-link ' + getStageStatusClass(job, sid)">
+                          {{ sid }}
+                        </router-link>
                         <span v-if="idx < job.stageIds.split(',').length - 1">, </span>
                       </span>
                   </template>
@@ -443,10 +448,18 @@ const calculatePercent = (val, total) => {
 const getStageStatusClass = (job, stageId) => {
   if (!job.stageList) return 'status-skipped';
   const stage = job.stageList.find(s => String(s.stageId) === String(stageId));
+  
+  // 1. 如果在 Job 的关联列表中找不到该 Stage 详情，视为被 Spark 跳过 (Skipped)
   if (!stage) return 'status-skipped';
-  if (stage.status === 'SUCCEEDED') return 'status-succeeded';
-  if (stage.status === 'FAILED') return 'status-failed';
-  if (stage.status === 'RUNNING') return 'status-running';
+  
+  // 2. 规范化后端状态 (后端目前使用 COMPLETED/PENDING)
+  const status = stage.status ? stage.status.toUpperCase() : '';
+  
+  if (status === 'COMPLETED' || status === 'SUCCEEDED') return 'status-succeeded';
+  if (status === 'FAILED') return 'status-failed';
+  if (status === 'RUNNING' || status === 'PENDING') return 'status-running';
+  
+  // 3. 兜底逻辑
   return 'status-unknown';
 };
 

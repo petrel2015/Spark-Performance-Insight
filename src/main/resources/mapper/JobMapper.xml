@@ -3,40 +3,40 @@
 <mapper namespace="com.spark.insight.mapper.JobMapper">
 
     <update id="calculateJobMetrics">
-        UPDATE jobs
+        UPDATE gold_jobs
         SET 
             duration = (
                 SELECT COALESCE(CAST((epoch(MAX(completion_time)) - epoch(MIN(submission_time))) * 1000 AS BIGINT), 0)
-                FROM stages s
-                WHERE s.app_id = jobs.app_id 
-                  AND list_contains(string_split(jobs.stage_ids, ','), CAST(s.stage_id AS VARCHAR))
+                FROM gold_stages s
+                WHERE s.app_id = gold_jobs.app_id 
+                  AND list_contains(string_split(gold_jobs.stage_ids, ','), CAST(s.stage_id AS VARCHAR))
             ),
             num_tasks = (
                 SELECT COALESCE(SUM(s.num_tasks), 0)
-                FROM stages s
-                WHERE s.app_id = jobs.app_id 
-                  AND list_contains(string_split(jobs.stage_ids, ','), CAST(s.stage_id AS VARCHAR))
+                FROM gold_stages s
+                WHERE s.app_id = gold_jobs.app_id 
+                  AND list_contains(string_split(gold_jobs.stage_ids, ','), CAST(s.stage_id AS VARCHAR))
             ),
             num_completed_stages = (
                 SELECT COUNT(*) 
-                FROM stages s 
-                WHERE s.app_id = jobs.app_id 
+                FROM gold_stages s 
+                WHERE s.app_id = gold_jobs.app_id 
                   AND s.completion_time IS NOT NULL 
-                  AND list_contains(string_split(jobs.stage_ids, ','), CAST(s.stage_id AS VARCHAR))
+                  AND list_contains(string_split(gold_jobs.stage_ids, ','), CAST(s.stage_id AS VARCHAR))
             ),
             num_completed_tasks = (
                 SELECT COUNT(*) 
-                FROM tasks t
-                WHERE t.app_id = jobs.app_id 
+                FROM gold_tasks t
+                WHERE t.app_id = gold_jobs.app_id 
                   AND t.status = 'SUCCESS'
-                  AND list_contains(string_split(jobs.stage_ids, ','), CAST(t.stage_id AS VARCHAR))
+                  AND list_contains(string_split(gold_jobs.stage_ids, ','), CAST(t.stage_id AS VARCHAR))
             ),
             num_failed_tasks = (
                 SELECT COUNT(*) 
-                FROM tasks t
-                WHERE t.app_id = jobs.app_id 
+                FROM gold_tasks t
+                WHERE t.app_id = gold_jobs.app_id 
                   AND t.status = 'FAILED'
-                  AND list_contains(string_split(jobs.stage_ids, ','), CAST(t.stage_id AS VARCHAR))
+                  AND list_contains(string_split(gold_jobs.stage_ids, ','), CAST(t.stage_id AS VARCHAR))
             ),
             performance_score = (
                 SELECT 
@@ -44,9 +44,9 @@
                         WHEN SUM(s.duration) > 0 THEN CAST(SUM(s.performance_score * s.duration) / SUM(s.duration) AS DOUBLE)
                         ELSE CAST(COALESCE(AVG(s.performance_score), 0) AS DOUBLE)
                     END
-                FROM stages s
-                WHERE s.app_id = jobs.app_id 
-                  AND list_contains(string_split(jobs.stage_ids, ','), CAST(s.stage_id AS VARCHAR))
+                FROM gold_stages s
+                WHERE s.app_id = gold_jobs.app_id 
+                  AND list_contains(string_split(gold_jobs.stage_ids, ','), CAST(s.stage_id AS VARCHAR))
             )
         WHERE app_id = #{appId}
     </update>

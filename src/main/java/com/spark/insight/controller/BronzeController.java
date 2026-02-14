@@ -1,9 +1,6 @@
 package com.spark.insight.controller;
 
-import com.spark.insight.config.InsightProperties;
-import com.spark.insight.service.BronzeIngestionService;
-import com.spark.insight.service.SilverTransformationService;
-import com.spark.insight.service.GoldAggregationService;
+import com.spark.insight.service.ParsingQueueService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -11,38 +8,18 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-
 @Slf4j
 @RestController
 @RequestMapping("/api/bronze")
 @RequiredArgsConstructor
 public class BronzeController {
 
-    private final com.spark.insight.service.EventLogWatcherService eventLogWatcherService;
-    private final InsightProperties properties;
+    private final ParsingQueueService parsingQueueService;
 
     @PostMapping("/import/{appId}")
     public void importToBronze(@PathVariable String appId) {
-        log.info("Triggering full Medallion pipeline (Bronze->Silver->Gold) for appId: {}", appId);
-        
-        String logPath = properties.getEventLogPath();
-        File directory = new File(logPath);
-        if (!directory.exists() || !directory.isDirectory()) {
-            throw new RuntimeException("Event log directory not found: " + logPath);
-        }
-
-        List<File> appFiles = findAppFiles(directory, appId);
-        if (appFiles.isEmpty()) {
-            throw new RuntimeException("No log files found for appId: " + appId);
-        }
-
-        // Delegate to WatcherService which handles async execution and status updates
-        eventLogWatcherService.triggerProcessing(appId, appFiles);
-        
-        log.info("Pipeline triggered asynchronously for appId: {}", appId);
+        log.info("Queueing full Medallion pipeline (Bronze->Silver->Gold) for appId: {}", appId);
+        parsingQueueService.submit(appId, "FULL");
     }
 
     @PostMapping("/reimport/{appId}/full")
@@ -52,32 +29,19 @@ public class BronzeController {
 
     @PostMapping("/reimport/{appId}/bronze-to-gold")
     public void reimportBronzeToGold(@PathVariable String appId) {
-        log.info("Triggering Medallion pipeline (Bronze->Silver->Gold) for appId: {}", appId);
-        File directory = new File(properties.getEventLogPath());
-        List<File> appFiles = findAppFiles(directory, appId);
-        eventLogWatcherService.triggerProcessingFromBronze(appId, appFiles);
+        log.info("Queueing Medallion pipeline (Bronze->Silver->Gold) for appId: {}", appId);
+        parsingQueueService.submit(appId, "BRONZE_TO_GOLD");
     }
 
     @PostMapping("/reimport/{appId}/silver-to-gold")
     public void reimportSilverToGold(@PathVariable String appId) {
-        log.info("Triggering Medallion pipeline (Silver->Gold) for appId: {}", appId);
-        File directory = new File(properties.getEventLogPath());
-        List<File> appFiles = findAppFiles(directory, appId);
-        eventLogWatcherService.triggerProcessingFromSilver(appId, appFiles);
+        log.info("Queueing Medallion pipeline (Silver->Gold) for appId: {}", appId);
+        parsingQueueService.submit(appId, "SILVER_TO_GOLD");
     }
-
-    private List<File> findAppFiles(File dir, String appId) {
-        List<File> result = new ArrayList<>();
-        File[] files = dir.listFiles();
-        if (files != null) {
-            for (File file : files) {
-                if (file.isDirectory()) {
-                    result.addAll(findAppFiles(file, appId));
-                } else if (file.getName().contains(appId) && file.getName().startsWith("event")) {
-                    result.add(file);
-                }
-            }
-        }
-        return result;
+    
+    @PostMapping("/cancel/{appId}")
+    public void cancel(@PathVariable String appId) {
+        log.info("Cancelling parsing for appId: {}", appId);
+        parsingQueueService.cancel(appId);
     }
 }

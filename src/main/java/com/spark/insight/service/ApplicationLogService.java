@@ -28,4 +28,15 @@ public class ApplicationLogService extends ServiceImpl<ApplicationLogMapper, App
             log.error("Failed to save application log for {}", appId, e);
         }
     }
+
+    public java.util.List<String> getCompletedStages(String appId) {
+        return lambdaQuery()
+                .eq(ApplicationLogModel::getAppId, appId)
+                .in(ApplicationLogModel::getEventName, "Bronze Finished", "Silver Finished", "Gold Finished")
+                .select(ApplicationLogModel::getEventName)
+                .list()
+                .stream()
+                .map(ApplicationLogModel::getEventName)
+                .collect(java.util.stream.Collectors.toList());
+    }
 }

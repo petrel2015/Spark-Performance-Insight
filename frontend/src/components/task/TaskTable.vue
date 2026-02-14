@@ -83,7 +83,7 @@
         <tr v-for="task in tasks" :key="task.taskId">
           <td v-for="col in columns" :key="col.field">
             <template v-if="col.field === 'status'">
-                <span :class="'status-badge status-' + (task.status || 'UNKNOWN').toLowerCase()">
+                <span :class="'status-badge ' + getTaskStatusClass(task.status)">
                   {{ task.status || 'UNKNOWN' }}
                 </span>
             </template>
@@ -310,6 +310,15 @@ const getSortOrder = (field) => {
 
 const isFieldSorted = (field) => {
   return sorts.value.some(x => x.field === field);
+};
+
+const getTaskStatusClass = (status) => {
+  if (!status) return 'status-unknown';
+  const s = status.toUpperCase();
+  if (s === 'SUCCESS' || s === 'SUCCEEDED') return 'status-success';
+  if (s === 'FAILED') return 'status-failed';
+  if (s === 'RUNNING' || s === 'GETTING_RESULT') return 'status-running';
+  return 'status-unknown';
 };
 
 onMounted(fetchTasks);

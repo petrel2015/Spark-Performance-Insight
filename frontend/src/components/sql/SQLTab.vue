@@ -143,7 +143,7 @@
 
               <!-- Status -->
               <template v-else-if="col.field === 'status'">
-                <span :class="'status-' + sql.status">{{ sql.status }}</span>
+                <span :class="'status-badge ' + getSqlStatusClass(sql.status)">{{ sql.status }}</span>
               </template>
 
               <!-- Fallback -->
@@ -300,8 +300,18 @@ const isFieldSorted = (field) => {
 
 const getScoreClass = (score) => {
   if (score < 40) return 'critical';
-  if (score < 80) return 'warning';
-  return 'good';
+  if (score < 70) return 'warning';
+  if (score < 90) return 'good';
+  return 'healthy';
+};
+
+const getSqlStatusClass = (status) => {
+  if (!status) return 'status-unknown';
+  const s = status.toUpperCase();
+  if (s === 'COMPLETED' || s === 'SUCCEEDED') return 'status-succeeded';
+  if (s === 'FAILED') return 'status-failed';
+  if (s === 'RUNNING') return 'status-running';
+  return 'status-unknown';
 };
 
 onMounted(fetchSqls);
@@ -648,19 +658,31 @@ watch(() => props.appId, () => {
   text-decoration: underline;
 }
 
-.status-SUCCEEDED {
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-weight: bold;
+}
+
+.status-succeeded {
   color: #27ae60;
-  font-weight: bold;
+  background-color: rgba(39, 174, 96, 0.1);
 }
 
-.status-FAILED {
+.status-failed {
   color: #e74c3c;
-  font-weight: bold;
+  background-color: rgba(231, 76, 60, 0.1);
 }
 
-.status-RUNNING {
+.status-running {
   color: #f39c12;
-  font-weight: bold;
+  background-color: rgba(243, 156, 18, 0.1);
+}
+
+.status-unknown {
+  color: #95a5a6;
+  background-color: rgba(149, 165, 166, 0.1);
 }
 
 /* Score Badge Styles */
@@ -677,6 +699,11 @@ watch(() => props.appId, () => {
   text-align: center;
   font-weight: bold;
   font-size: 0.8rem;
+}
+
+.score-badge.healthy {
+  background-color: #27ae60;
+  color: white;
 }
 
 .score-badge.good {

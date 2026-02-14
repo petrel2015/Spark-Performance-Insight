@@ -3,13 +3,13 @@
 <mapper namespace="com.spark.insight.mapper.SqlExecutionMapper">
 
     <update id="calculateSqlMetrics">
-        UPDATE sql_executions
+        UPDATE gold_sql_executions
         SET performance_score = (
             SELECT 
                 CAST(COALESCE(SUM(j.performance_score * j.duration) / NULLIF(SUM(j.duration), 0), 0) AS DOUBLE)
-            FROM jobs j
-            WHERE j.app_id = sql_executions.app_id 
-              AND j.sql_execution_id = sql_executions.execution_id
+            FROM gold_jobs j
+            WHERE j.app_id = gold_sql_executions.app_id 
+              AND j.sql_execution_id = gold_sql_executions.execution_id
         )
         WHERE app_id = #{appId}
     </update>

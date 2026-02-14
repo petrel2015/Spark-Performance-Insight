@@ -3,7 +3,7 @@
 <mapper namespace="com.spark.insight.mapper.ExecutorMapper">
 
     <update id="updateExecutorMetrics">
-        UPDATE executors e
+        UPDATE gold_executors e
         SET 
             completed_tasks = m.done_tasks,
             total_tasks = m.total_t,
@@ -12,7 +12,7 @@
             input_bytes = m.total_input,
             shuffle_read_bytes = m.total_shuffle_read,
             shuffle_write_bytes = m.total_shuffle_write,
-            peak_execution_on_heap = m.peak_mem -- 暂简化，使用 peak_execution_memory
+            peak_execution_on_heap = m.peak_mem
         FROM (
             SELECT 
                 app_id, 
@@ -25,7 +25,7 @@
                 sum(shuffle_read_bytes) as total_shuffle_read,
                 sum(shuffle_write_bytes) as total_shuffle_write,
                 max(peak_execution_memory) as peak_mem
-            FROM tasks
+            FROM gold_tasks
             WHERE app_id = #{appId}
             GROUP BY app_id, executor_id
         ) m

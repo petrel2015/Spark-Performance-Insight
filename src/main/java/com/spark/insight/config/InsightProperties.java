@@ -60,5 +60,10 @@ public class InsightProperties {
          * Memory limit for DuckDB (e.g., "2GB").
          */
         private String memoryLimit;
+
+        /**
+         * Temporary directory for DuckDB to avoid memory overflow.
+         */
+        private String tempDirectory = "./spark-performance-insight-duckdb.tmp";
     }
 }

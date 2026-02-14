@@ -3,17 +3,17 @@
 <mapper namespace="com.spark.insight.mapper.ApplicationMapper">
 
     <update id="updateAppMetrics">
-        UPDATE applications
+        UPDATE gold_applications
         SET 
             duration = (
                 SELECT CAST(COALESCE(MAX(finish_time) - MIN(launch_time), 0) AS BIGINT)
-                FROM tasks
+                FROM gold_tasks
                 WHERE app_id = #{appId}
             ),
             performance_score = (
                 SELECT 
                     CAST(COALESCE(SUM(j.performance_score * j.duration) / NULLIF(SUM(j.duration), 0), 100) AS INTEGER)
-                FROM jobs j
+                FROM gold_jobs j
                 WHERE j.app_id = #{appId} AND j.duration > 0
             )
         WHERE app_id = #{appId}

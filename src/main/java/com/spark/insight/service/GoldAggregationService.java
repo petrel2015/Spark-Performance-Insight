@@ -17,234 +17,245 @@ public class GoldAggregationService {
     public void aggregate(String appId) {
         log.info("Starting Gold aggregation and Sync (SQL Recovery Mode) for app: {}", appId);
 
-        rebuildGoldTables();
+        cleanGoldData(appId);
 
         aggregateStages(appId);
         aggregateJobs(appId);
         aggregateExecutors(appId);
-        aggregateSql(appId); // Added SQL aggregation
+        aggregateSql(appId);
+        aggregateEnvironment(appId);
         aggregateApp(appId);
-
-        syncToLegacyTables(appId);
 
         log.info("Finished Gold aggregation and Sync for app: {}", appId);
     }
 
-    private void rebuildGoldTables() {
-        jdbcTemplate.execute("DROP TABLE IF EXISTS gold_app_metrics");
-        jdbcTemplate.execute("""
-            CREATE TABLE gold_app_metrics (
-                app_id VARCHAR, total_duration_ms BIGINT, total_input_bytes BIGINT, 
-                total_shuffle_read_bytes BIGINT, performance_score DOUBLE, 
-                total_tasks INT, failed_tasks INT
-            )""");
-
-        jdbcTemplate.execute("DROP TABLE IF EXISTS gold_job_metrics");
-        jdbcTemplate.execute("""
-            CREATE TABLE gold_job_metrics (
-                app_id VARCHAR, job_id INT, performance_score DOUBLE
-            )""");
-
-        jdbcTemplate.execute("DROP TABLE IF EXISTS gold_stage_metrics");
-        jdbcTemplate.execute("""
-            CREATE TABLE gold_stage_metrics (
-                app_id VARCHAR, stage_id INT, attempt_id INT, duration_p50 BIGINT, 
-                duration_p95 BIGINT, skew_ratio DOUBLE, gc_time_ratio DOUBLE, 
-                score_skew DOUBLE, score_gc DOUBLE, score_locality DOUBLE, performance_score DOUBLE
-            )""");
-
-        jdbcTemplate.execute("DROP TABLE IF EXISTS gold_executor_metrics");
-        jdbcTemplate.execute("""
-            CREATE TABLE gold_executor_metrics (
-                app_id VARCHAR, executor_id VARCHAR, avg_task_duration_ms DOUBLE, 
-                cpu_utilization_ratio DOUBLE, total_tasks_handled INT, total_input_bytes BIGINT,
-                total_shuffle_read_bytes BIGINT
-            )""");
-            
-        jdbcTemplate.execute("DROP TABLE IF EXISTS gold_sql_metrics");
-        jdbcTemplate.execute("""
-            CREATE TABLE gold_sql_metrics (
-                app_id VARCHAR, execution_id BIGINT, performance_score DOUBLE
-            )""");
+    private void cleanGoldData(String appId) {
+        log.info("Cleaning Gold data for app: {}", appId);
+        // Clean the actual gold tables
+        jdbcTemplate.update("DELETE FROM gold_jobs WHERE app_id = ?", appId);
+        jdbcTemplate.update("DELETE FROM gold_stages WHERE app_id = ?", appId);
+        jdbcTemplate.update("DELETE FROM gold_tasks WHERE app_id = ?", appId);
+        jdbcTemplate.update("DELETE FROM gold_executors WHERE app_id = ?", appId);
+        jdbcTemplate.update("DELETE FROM gold_sql_executions WHERE app_id = ?", appId);
+        jdbcTemplate.update("DELETE FROM gold_environment_configs WHERE app_id = ?", appId);
     }
 
     private void aggregateStages(String appId) {
         String sql = """
-            INSERT INTO gold_stage_metrics
+            INSERT INTO gold_stages
             WITH base_metrics AS (
                 SELECT
                     app_id, stage_id, stage_attempt_id,
                     quantile(duration_ms, 0.5) as p50,
+                    quantile(duration_ms, 0.75) as p75,
                     quantile(duration_ms, 0.95) as p95,
+                    quantile(duration_ms, 0.99) as p99,
                     max(duration_ms) as max_dur,
                     sum(gc_time) as total_gc,
-                    sum(executor_run_time) as total_run
+                    sum(executor_run_time) as total_run,
+                    sum(duration_ms) as total_duration,
+                    sum(shuffle_write_time) as total_sw_time,
+                    sum(shuffle_fetch_wait_time) as total_fetch_wait,
+                    sum(executor_cpu_time) as total_cpu_time,
+                    sum(executor_deserialize_time) as total_deser,
+                    sum(result_serialization_time) as total_ser,
+                    sum(getting_result_time) as total_get_res,
+                    sum(scheduler_delay) as total_delay,
+                    sum(disk_bytes_spilled) as total_disk_spill,
+                    sum(memory_bytes_spilled) as total_mem_spill,
+                    max(peak_execution_memory) as max_peak_mem,
+                    sum(peak_execution_memory) as total_peak_mem,
+                    count(case when status = 'SUCCESS' then 1 end) as done_tasks,
+                    count(case when status = 'FAILED' then 1 end) as failed_tasks
                 FROM silver_tasks WHERE app_id = ?
                 GROUP BY app_id, stage_id, stage_attempt_id
             ),
             calculated_scores AS (
                 SELECT *,
                     CASE WHEN p50 > 0 THEN CAST(max_dur AS DOUBLE) / p50 ELSE 1.0 END as skew_ratio,
-                    CASE WHEN total_run > 0 THEN CAST(total_gc AS DOUBLE) / total_run ELSE 0.0 END as gc_ratio
+                    CASE WHEN total_run > 0 THEN CAST(total_gc AS DOUBLE) / total_run ELSE 0.0 END as gc_ratio,
+                    CASE WHEN total_duration > 0 THEN total_duration ELSE 1 END as dur_denom,
+                    CASE WHEN total_run > 0 THEN total_run ELSE 1 END as run_denom
                 FROM base_metrics
             )
             SELECT
-                app_id, stage_id, stage_attempt_id, p50, p95, skew_ratio, gc_ratio,
-                -- Skew Score: Allow up to 10x skew before hitting 0. (10-1)*10 = 90. 100-90=10.
-                -- Previously (skew-1)*20 -> 6x skew = 0.
-                greatest(0, 100 - (skew_ratio - 1) * 10) as score_skew,
-                -- GC Score: Allow up to 50% GC before hitting 0. (0.5 * 200) = 100.
-                -- Previously gc * 500 -> 20% GC = 0.
-                greatest(0, 100 - (gc_ratio * 200)) as score_gc,
-                100.0 as score_locality,
-                (greatest(0, 100 - (skew_ratio - 1) * 10) * 0.6 + greatest(0, 100 - (gc_ratio * 200)) * 0.4) as performance_score
-            FROM calculated_scores
+                uuid(), s.app_id, s.stage_id, s.job_id, s.attempt_id, s.name, s.num_tasks,
+                cs.done_tasks, cs.failed_tasks, s.submission_time, s.completion_time, s.duration_ms,
+                s.input_bytes, 0, 0, s.shuffle_read_bytes, 0, 0, 0, 0,
+                cs.total_gc, cs.total_duration, cs.total_deser, cs.total_ser, cs.total_get_res, cs.total_delay,
+                cs.max_peak_mem, cs.total_peak_mem, cs.total_mem_spill, cs.total_disk_spill, cs.total_sw_time,
+                cs.p50, cs.p75, cs.p95, cs.p99, cs.max_dur,
+                s.status, (cs.skew_ratio > 2.0), cs.skew_ratio, cs.gc_ratio,
+                replace(replace(replace(CAST(s.parent_ids AS VARCHAR), '[', ''), ']', ''), ' ', ''),
+                s.rdd_info,
+                (SELECT string_agg(locality || ': ' || cnt, ', ') FROM (
+                   SELECT locality, count(*) as cnt 
+                   FROM silver_tasks st 
+                   WHERE st.app_id = s.app_id AND st.stage_id = s.stage_id AND st.stage_attempt_id = s.attempt_id AND locality IS NOT NULL 
+                   GROUP BY locality
+                ) loc),
+                json_array(
+                        json_object('dimension', 'GC Impact', 'score', CAST(greatest(0, 100 - (cs.gc_ratio * 200)) AS INTEGER)),
+                        json_object('dimension', 'Shuffle Write Impact', 'score', CAST(greatest(0, 100 - (cs.total_sw_time / 1000000.0 * 100.0 / cs.dur_denom)) AS INTEGER)),
+                        json_object('dimension', 'Shuffle Read Blocked', 'score', CAST(greatest(0, 100 - (cs.total_fetch_wait / 1000000.0 * 100.0 / cs.dur_denom)) AS INTEGER)),
+                        json_object('dimension', 'I/O Wait', 'score', CAST(LEAST(100, (cs.total_cpu_time / 1000000.0 * 100.0 / cs.run_denom)) AS INTEGER)),
+                        json_object('dimension', 'Serialization Impact', 'score', CAST(greatest(0, 100 - ((cs.total_ser + cs.total_deser) * 100.0 / cs.dur_denom)) AS INTEGER)),
+                        json_object('dimension', 'Result Fetching', 'score', CAST(greatest(0, 100 - (cs.total_get_res * 100.0 / cs.dur_denom)) AS INTEGER)),
+                        json_object('dimension', 'Scheduler Delay Impact', 'score', CAST(greatest(0, 100 - (cs.total_delay * 100.0 / cs.dur_denom)) AS INTEGER)),
+                        json_object('dimension', 'Data Skew', 'score', CAST(greatest(0, 100 - (cs.skew_ratio - 1) * 10) AS INTEGER)),
+                        json_object('dimension', 'Disk Spill', 'score', CASE WHEN cs.total_disk_spill > 0 THEN 0 ELSE 100 END)
+                ),
+                (
+                    greatest(0, 100 - (cs.skew_ratio - 1) * 10) * 0.15 +
+                    greatest(0, 100 - (cs.gc_ratio * 200)) * 0.15 +
+                    greatest(0, 100 - (cs.total_sw_time / 1000000.0 * 100.0 / cs.dur_denom)) * 0.15 +
+                    greatest(0, 100 - (cs.total_fetch_wait / 1000000.0 * 100.0 / cs.dur_denom)) * 0.15 +
+                    (CASE WHEN cs.total_disk_spill > 0 THEN 0 ELSE 100 END) * 0.15 +
+                    LEAST(100, (cs.total_cpu_time / 1000000.0 * 100.0 / cs.run_denom)) * 0.10 +
+                    greatest(0, 100 - (cs.total_delay * 100.0 / cs.dur_denom)) * 0.05 +
+                    greatest(0, 100 - ((cs.total_ser + cs.total_deser) * 100.0 / cs.dur_denom)) * 0.05 +
+                    greatest(0, 100 - (cs.total_get_res * 100.0 / cs.dur_denom)) * 0.05
+                ),
+                greatest(0, 100 - (cs.skew_ratio - 1) * 10),
+                greatest(0, 100 - (cs.gc_ratio * 200)),
+                100.0,
+                greatest(0, 100 - (cs.total_sw_time / 1000000.0 * 100.0 / cs.dur_denom)),
+                greatest(0, 100 - (cs.total_fetch_wait / 1000000.0 * 100.0 / cs.dur_denom)),
+                LEAST(100, (cs.total_cpu_time / 1000000.0 * 100.0 / cs.run_denom)),
+                greatest(0, 100 - ((cs.total_ser + cs.total_deser) * 100.0 / cs.dur_denom)),
+                greatest(0, 100 - (cs.total_get_res * 100.0 / cs.dur_denom)),
+                greatest(0, 100 - (cs.total_delay * 100.0 / cs.dur_denom)),
+                CASE WHEN cs.total_disk_spill > 0 THEN 0 ELSE 100 END
+            FROM silver_stages s
+            JOIN calculated_scores cs ON s.app_id = cs.app_id AND s.stage_id = cs.stage_id AND s.attempt_id = cs.stage_attempt_id
+            WHERE s.app_id = ?
             """;
-        jdbcTemplate.update(sql, appId);
+        jdbcTemplate.update(sql, appId, appId);
+
+        jdbcTemplate.update("""
+            INSERT INTO gold_tasks
+            SELECT uuid(), app_id, stage_id, stage_attempt_id, task_id, index, executor_id, host, 
+                   epoch(launch_time) * 1000, epoch(finish_time) * 1000, duration_ms, 
+                   gc_time, scheduler_delay, getting_result_time, executor_deserialize_time, executor_run_time, result_serialization_time, executor_cpu_time, peak_execution_memory,
+                   input_bytes, 0, 0, 0, memory_bytes_spilled, disk_bytes_spilled, 
+                   shuffle_read_bytes, 0, shuffle_fetch_wait_time, shuffle_write_bytes, shuffle_write_time, 0, 0, 
+                   speculative, status, locality
+            FROM silver_tasks
+            WHERE app_id = ?
+            """, appId);
     }
+
 
     private void aggregateJobs(String appId) {
         String sql = """
-            INSERT INTO gold_job_metrics
-            SELECT app_id, job_id, avg(performance_score) as performance_score
-            FROM (
-                SELECT j.app_id, j.job_id, s.performance_score
+            INSERT INTO gold_jobs
+            WITH task_agg AS (
+                SELECT s.job_id, 
+                       count(*) as num_tasks,
+                       count(case when t.status = 'SUCCESS' then 1 end) as num_completed,
+                       count(case when t.status = 'FAILED' then 1 end) as num_failed
+                FROM silver_tasks t
+                JOIN silver_stages s ON t.app_id = s.app_id AND t.stage_id = s.stage_id AND t.stage_attempt_id = s.attempt_id
+                WHERE t.app_id = ?
+                GROUP BY s.job_id
+            ),
+            stage_agg AS (
+                SELECT job_id,
+                       count(*) as num_stages,
+                       count(case when status = 'COMPLETED' then 1 end) as num_completed,
+                       count(case when status = 'FAILED' then 1 end) as num_failed,
+                       count(case when status = 'SKIPPED' then 1 end) as num_skipped
+                FROM silver_stages
+                WHERE app_id = ?
+                GROUP BY job_id
+            ),
+            job_performance AS (
+                SELECT j.job_id, avg(s.performance_score) as performance_score
                 FROM silver_jobs j
                 CROSS JOIN LATERAL (SELECT unnest(CAST(j.stage_ids AS INT[])) as sid) AS j_stages
-                JOIN gold_stage_metrics s ON j.app_id = s.app_id AND j_stages.sid = s.stage_id
+                LEFT JOIN gold_stages s ON j.app_id = s.app_id AND j_stages.sid = s.stage_id
                 WHERE j.app_id = ?
-            ) GROUP BY app_id, job_id
+                GROUP BY j.job_id
+            )
+            SELECT 
+                uuid(), j.app_id, j.job_id, j.submission_time, j.completion_time, j.duration_ms, j.status,
+                COALESCE(sa.num_stages, 0),
+                COALESCE(ta.num_tasks, 0),
+                replace(replace(replace(CAST(j.stage_ids AS VARCHAR), '[', ''), ']', ''), ' ', ''),
+                j.description, NULL,
+                COALESCE(sa.num_completed, 0),
+                COALESCE(sa.num_failed, 0),
+                COALESCE(sa.num_skipped, 0),
+                COALESCE(ta.num_completed, 0),
+                COALESCE(ta.num_failed, 0),
+                0, 0,
+                j.sql_execution_id,
+                COALESCE(jp.performance_score, 0.0)
+            FROM silver_jobs j
+            LEFT JOIN task_agg ta ON j.job_id = ta.job_id
+            LEFT JOIN stage_agg sa ON j.job_id = sa.job_id
+            LEFT JOIN job_performance jp ON j.job_id = jp.job_id
+            WHERE j.app_id = ?
             """;
-        jdbcTemplate.update(sql, appId);
+        jdbcTemplate.update(sql, appId, appId, appId, appId);
     }
 
     private void aggregateSql(String appId) {
         log.debug("Aggregating Gold SQL Metrics for app: {}", appId);
         String sql = """
-            INSERT INTO gold_sql_metrics
+            INSERT INTO gold_sql_executions
             SELECT 
-                app_id, 
-                sql_execution_id, 
-                avg(performance_score) as performance_score
-            FROM silver_jobs
-            JOIN gold_job_metrics USING (app_id, job_id)
-            WHERE app_id = ? AND sql_execution_id IS NOT NULL
-            GROUP BY app_id, sql_execution_id
+                uuid(), s.app_id, s.execution_id, s.description, s.details, s.physical_plan, s.plan_info, 
+                s.start_time, s.end_time, s.duration_ms, s.status,
+                avg(j.performance_score) as performance_score
+            FROM silver_sql_executions s
+            LEFT JOIN gold_jobs j ON s.app_id = j.app_id AND s.execution_id = j.sql_execution_id
+            WHERE s.app_id = ?
+            GROUP BY s.app_id, s.execution_id, s.description, s.details, s.physical_plan, s.plan_info, s.start_time, s.end_time, s.duration_ms, s.status
             """;
         jdbcTemplate.update(sql, appId);
     }
 
     private void aggregateExecutors(String appId) {
         String sql = """
-            INSERT INTO gold_executor_metrics
-            SELECT app_id, executor_id, avg(duration_ms) as avg_task_duration,
-                   sum(executor_cpu_time / 1000000.0) / nullif(sum(executor_run_time), 0) as cpu_utilization,
-                   count(*), sum(input_bytes), sum(shuffle_read_bytes)
-            FROM silver_tasks WHERE app_id = ?
-            GROUP BY app_id, executor_id
-            """;
-        jdbcTemplate.update(sql, appId);
-    }
-
-    private void aggregateApp(String appId) {
-        String sql = """
-            INSERT INTO gold_app_metrics
-            SELECT j.app_id, sum(j.duration_ms), 
-                   (SELECT coalesce(sum(input_bytes), 0) FROM silver_stages WHERE app_id = j.app_id),
-                   (SELECT coalesce(sum(shuffle_read_bytes), 0) FROM silver_stages WHERE app_id = j.app_id),
-                   avg(gm.performance_score),
-                   (SELECT count(*) FROM silver_tasks WHERE app_id = j.app_id),
-                   (SELECT count(*) FROM silver_tasks WHERE app_id = j.app_id AND status = 'FAILED')
-            FROM silver_jobs j
-            JOIN gold_job_metrics gm ON j.app_id = gm.app_id AND j.job_id = gm.job_id
-            WHERE j.app_id = ? GROUP BY j.app_id
-            """;
-        jdbcTemplate.update(sql, appId);
-    }
-
-    private void syncToLegacyTables(String appId) {
-        log.info("Syncing Medallion data to legacy tables for app: {}", appId);
-
-        jdbcTemplate.update("DELETE FROM jobs WHERE app_id = ?", appId);
-        jdbcTemplate.update("DELETE FROM stages WHERE app_id = ?", appId);
-        jdbcTemplate.update("DELETE FROM tasks WHERE app_id = ?", appId);
-        jdbcTemplate.update("DELETE FROM executors WHERE app_id = ?", appId);
-        jdbcTemplate.update("DELETE FROM sql_executions WHERE app_id = ?", appId);
-        jdbcTemplate.update("DELETE FROM environment_configs WHERE app_id = ?", appId);
-
-        // 1. Applications
-        jdbcTemplate.update("""
-            UPDATE applications
-            SET duration = g.total_duration_ms,
-                performance_score = CAST(g.performance_score AS INTEGER)
-            FROM gold_app_metrics g
-            WHERE applications.app_id = g.app_id AND g.app_id = ?
-            """, appId);
-
-        // 2. Jobs - NOW INCLUDING sql_execution_id
-        jdbcTemplate.update("""
-            INSERT INTO jobs (id, app_id, job_id, submission_time, completion_time, duration, status, stage_ids, description, performance_score, sql_execution_id)
-            SELECT uuid(), app_id, job_id, submission_time, completion_time, duration_ms, status, 
-                   replace(replace(replace(CAST(stage_ids AS VARCHAR), '[', ''), ']', ''), ' ', '') as ids,
-                   description, performance_score, sql_execution_id
-            FROM silver_jobs s
-            JOIN gold_job_metrics g USING (app_id, job_id)
-            WHERE app_id = ?
-            """, appId);
-
-        // 3. Stages
-        jdbcTemplate.update("""
-            INSERT INTO stages (id, app_id, stage_id, attempt_id, job_id, stage_name, num_tasks, submission_time, completion_time, duration, status, 
-                               input_bytes, shuffle_read_bytes, duration_p50, duration_p95, performance_score, parent_stage_ids, rdd_info)
-            SELECT DISTINCT ON (app_id, stage_id)
-                   uuid(), app_id, stage_id, attempt_id, job_id, name, num_tasks, submission_time, completion_time, duration_ms, status,
-                   input_bytes, shuffle_read_bytes, duration_p50, duration_p95, performance_score, 
-                   replace(replace(replace(CAST(parent_ids AS VARCHAR), '[', ''), ']', ''), ' ', ''), rdd_info
-            FROM silver_stages s
-            JOIN gold_stage_metrics g USING (app_id, stage_id, attempt_id)
-            WHERE app_id = ?
-            ORDER BY app_id, stage_id, attempt_id DESC
-            """, appId);
-
-        // 4. Tasks
-        jdbcTemplate.update("""
-            INSERT INTO tasks (id, app_id, stage_id, attempt_id, task_id, task_index, executor_id, host, launch_time, finish_time, duration, status,
-                               gc_time, scheduler_delay, getting_result_time, executor_deserialize_time, executor_run_time, result_serialization_time, executor_cpu_time, peak_execution_memory,
-                               input_bytes, output_bytes, shuffle_read_bytes, shuffle_write_bytes, memory_bytes_spilled, disk_bytes_spilled, speculative, locality)
-            SELECT uuid(), app_id, stage_id, stage_attempt_id, task_id, index, executor_id, host, 
-                   epoch(launch_time) * 1000, epoch(finish_time) * 1000, duration_ms, status,
-                   gc_time, scheduler_delay, getting_result_time, executor_deserialize_time, executor_run_time, result_serialization_time, executor_cpu_time, peak_execution_memory,
-                   input_bytes, output_bytes, shuffle_read_bytes, shuffle_write_bytes, memory_bytes_spilled, disk_bytes_spilled, speculative, locality
-            FROM silver_tasks
-            WHERE app_id = ?
-            """, appId);
-
-        // 5. Executors
-        jdbcTemplate.update("""
-            INSERT INTO executors (id, app_id, executor_id, host, add_time, remove_time, total_cores, exec_loss_reason, 
-                                  completed_tasks, input_bytes, shuffle_read_bytes)
-            SELECT uuid(), app_id, executor_id, host, add_time, remove_time, total_cores, remove_reason,
-                   total_tasks_handled, total_input_bytes, total_shuffle_read_bytes
+            INSERT INTO gold_executors
+            SELECT uuid(), app_id, executor_id, silver_executors.host, add_time, remove_time, total_cores, 0, TRUE,
+                   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, NULL, 0,
+                   0, count(case when status = 'FAILED' then 1 end), count(case when status = 'SUCCESS' then 1 end), count(*),
+                   sum(duration_ms), sum(gc_time), sum(input_bytes), sum(shuffle_read_bytes), sum(shuffle_write_bytes),
+                   remove_reason,
+                   avg(duration_ms),
+                   sum(executor_cpu_time / 1000000.0) / nullif(sum(executor_run_time), 0),
+                   max(peak_execution_memory)
             FROM silver_executors
-            JOIN gold_executor_metrics USING (app_id, executor_id)
+            JOIN silver_tasks USING (app_id, executor_id)
             WHERE app_id = ?
-            """, appId);
+            GROUP BY app_id, executor_id, silver_executors.host, add_time, remove_time, total_cores, remove_reason
+            """;
+        jdbcTemplate.update(sql, appId);
+    }
 
-        // 6. SQL Executions - NOW INCLUDING performance_score
+    private void aggregateEnvironment(String appId) {
         jdbcTemplate.update("""
-            INSERT INTO sql_executions (id, app_id, execution_id, description, details, physical_plan, plan_info, start_time, end_time, duration, status, performance_score)
-            SELECT uuid(), app_id, execution_id, description, details, physical_plan, plan_info, start_time, end_time, duration_ms, status, performance_score
-            FROM silver_sql_executions s
-            LEFT JOIN gold_sql_metrics g USING (app_id, execution_id)
-            WHERE app_id = ?
-            """, appId);
-
-        // 7. Environment Configs
-        jdbcTemplate.update("""
-            INSERT INTO environment_configs (id, app_id, param_key, param_value, category)
+            INSERT INTO gold_environment_configs (id, app_id, param_key, param_value, category)
             SELECT uuid(), app_id, param_key, param_value, category
             FROM silver_environment_configs
             WHERE app_id = ?
             """, appId);
+    }
+
+    private void aggregateApp(String appId) {
+        String sql = """
+            UPDATE gold_applications
+            SET 
+                duration = (SELECT sum(duration) FROM gold_jobs WHERE app_id = ?),
+                performance_score = (SELECT CAST(avg(performance_score) AS INTEGER) FROM gold_jobs WHERE app_id = ?),
+                total_tasks = (SELECT count(*) FROM gold_tasks WHERE app_id = ?),
+                failed_tasks = (SELECT count(*) FROM gold_tasks WHERE app_id = ? AND status = 'FAILED'),
+                total_input_bytes = (SELECT coalesce(sum(input_bytes), 0) FROM gold_stages WHERE app_id = ?),
+                total_shuffle_read_bytes = (SELECT coalesce(sum(shuffle_read_bytes), 0) FROM gold_stages WHERE app_id = ?)
+            WHERE app_id = ?
+            """;
+        jdbcTemplate.update(sql, appId, appId, appId, appId, appId, appId, appId);
     }
 }

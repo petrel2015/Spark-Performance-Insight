@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
-@TableName("jobs")
+@TableName("gold_jobs")
 public class JobModel {
     @TableId
     private String id;

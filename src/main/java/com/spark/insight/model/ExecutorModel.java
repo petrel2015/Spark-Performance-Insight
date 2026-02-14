@@ -5,7 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
 @Data
-@TableName("executors")
+@TableName("gold_executors")
 public class ExecutorModel {
     @TableId
     private String id;
@@ -44,4 +44,9 @@ public class ExecutorModel {
     private Long shuffleReadBytes;
     private Long shuffleWriteBytes;
     private String execLossReason;
+    
+    // Gold layer aggregations
+    private Double avgTaskDurationMs;
+    private Double cpuUtilizationRatio;
+    private Long maxPeakMemory;
 }

@@ -7,7 +7,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("stages")
+@TableName("gold_stages")
 public class StageModel {
     @TableId
     private String id;
@@ -49,9 +49,23 @@ public class StageModel {
     private Long maxTaskDuration = 0L;
     private String status;
     private Boolean isSkewed = false;
+    private Double skewRatio = 1.0;
+    private Double gcRatio = 0.0;
     private String parentStageIds;
     private String rddInfo; // JSON string of RDD Lineage
     private String localitySummary;
     private String diagnosisInfo; // JSON string of performance diagnosis
     private Double performanceScore; // Weighted score (0-100)
+    
+    // Detailed scores
+    private Double scoreSkew;
+    private Double scoreGc;
+    private Double scoreLocality;
+    private Double scoreShuffleWrite;
+    private Double scoreShuffleRead;
+    private Double scoreIo;
+    private Double scoreSer;
+    private Double scoreResult;
+    private Double scoreDelay;
+    private Double scoreSpill;
 }

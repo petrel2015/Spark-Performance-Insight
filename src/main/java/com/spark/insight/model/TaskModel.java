@@ -5,7 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
 @Data
-@TableName("tasks")
+@TableName("gold_tasks")
 public class TaskModel {
     @TableId
     private String id;

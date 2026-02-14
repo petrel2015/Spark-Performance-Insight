@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
-@TableName("sql_executions")
+@TableName("gold_sql_executions")
 public class SqlExecutionModel {
     @TableId
     private String id; // appId:executionId

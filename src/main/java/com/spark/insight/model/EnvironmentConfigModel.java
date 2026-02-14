@@ -6,7 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
 @Data
-@TableName("environment_configs")
+@TableName("gold_environment_configs")
 public class EnvironmentConfigModel {
     @TableId(type = IdType.INPUT)
     private String id;

@@ -165,25 +165,66 @@ public class EventLogWatcherService {
         }
     }
 
-    public void triggerProcessing(String appId, List<File> files) {
-        logService.logEvent(appId, "IMPORT", "Bronze Start", "Starting Medallion pipeline");
+    public void executePipeline(String appId, String type, java.util.function.Consumer<Boolean> onComplete) {
+        // Resolve files
+        ApplicationModel app = applicationService.getById(appId);
+        if (app == null) {
+            log.error("App not found for pipeline execution: {}", appId);
+            onComplete.accept(false);
+            return;
+        }
+        
+        // Find files again (as paths might have changed or we just need them)
+        // Ideally we should use the paths from metadata, but scanning dir is safer for now
+        String logPath = properties.getEventLogPath();
+        File directory = new File(logPath);
+        List<File> allFiles = new ArrayList<>();
+        collectFiles(directory, allFiles);
+        List<File> appFiles = allFiles.stream()
+                .filter(f -> Objects.equals(inferAppId(f.getName()), appId))
+                .sorted(Comparator.comparing(File::getName))
+                .collect(Collectors.toList());
+
+        if (appFiles.isEmpty()) {
+            log.error("No files found for app: {}", appId);
+            handleFailure(appId, new RuntimeException("No files found"));
+            onComplete.accept(false);
+            return;
+        }
+
+        if ("FULL".equals(type)) {
+            executeFullPipeline(appId, appFiles, onComplete);
+        } else if ("BRONZE_TO_GOLD".equals(type)) {
+            executeBronzeToGold(appId, appFiles, onComplete);
+        } else if ("SILVER_TO_GOLD".equals(type)) {
+            executeSilverToGold(appId, appFiles, onComplete);
+        } else {
+            log.warn("Unknown pipeline type: {}", type);
+            executeFullPipeline(appId, appFiles, onComplete);
+        }
+    }
+
+    private void executeFullPipeline(String appId, List<File> files, java.util.function.Consumer<Boolean> onComplete) {
+        logService.logEvent(appId, "IMPORT", "Bronze Start", "Starting Medallion pipeline (FULL)");
         
         pipelineExecutor.submit(() -> {
             try {
-                // Bronze
+                // Bronze (0-30%)
                 long t0 = System.currentTimeMillis();
-                updateStatus(appId, "INGESTING_BRONZE", 10.0, "Ingesting to Bronze layer...");
-                bronzeIngestionService.ingest(appId, files);
+                bronzeIngestionService.ingest(appId, files, (p, msg) -> {
+                    updateStatus(appId, "INGESTING_BRONZE", p * 0.3, msg);
+                });
                 logService.logEvent(appId, "IMPORT", "Bronze Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t0) / 1000.0));
 
-                // Silver
+                // Silver (30-70%)
                 long t1 = System.currentTimeMillis();
                 logService.logEvent(appId, "TRANSFORM", "Silver Start", "Structuring data");
-                updateStatus(appId, "TRANSFORMING_SILVER", 40.0, "Transforming to Silver layer...");
-                silverTransformationService.transform(appId);
+                silverTransformationService.transform(appId, (p, msg) -> {
+                    updateStatus(appId, "TRANSFORMING_SILVER", 30.0 + (p * 0.4), msg);
+                });
                 logService.logEvent(appId, "TRANSFORM", "Silver Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t1) / 1000.0));
 
-                // Gold
+                // Gold (70-100%)
                 long t2 = System.currentTimeMillis();
                 logService.logEvent(appId, "AGGREGATE", "Gold Start", "Aggregating metrics");
                 updateStatus(appId, "AGGREGATING_GOLD", 70.0, "Aggregating to Gold layer...");
@@ -192,52 +233,59 @@ public class EventLogWatcherService {
                 
                 // Success
                 finalizeSuccess(appId, files);
+                onComplete.accept(true);
                 
             } catch (Exception e) {
                 handleFailure(appId, e);
+                onComplete.accept(false);
             }
         });
     }
 
-    public void triggerProcessingFromBronze(String appId, List<File> files) {
+    private void executeBronzeToGold(String appId, List<File> files, java.util.function.Consumer<Boolean> onComplete) {
         logService.logEvent(appId, "TRANSFORM", "Silver Start", "Re-running pipeline from Silver (using existing Bronze)");
         
         pipelineExecutor.submit(() -> {
             try {
                 // Silver
                 long t1 = System.currentTimeMillis();
-                updateStatus(appId, "TRANSFORMING_SILVER", 40.0, "Transforming to Silver layer...");
-                silverTransformationService.transform(appId);
+                silverTransformationService.transform(appId, (p, msg) -> {
+                    updateStatus(appId, "TRANSFORMING_SILVER", p * 0.6, msg);
+                });
                 logService.logEvent(appId, "TRANSFORM", "Silver Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t1) / 1000.0));
 
                 // Gold
                 long t2 = System.currentTimeMillis();
                 logService.logEvent(appId, "AGGREGATE", "Gold Start", "Aggregating metrics");
-                updateStatus(appId, "AGGREGATING_GOLD", 70.0, "Aggregating to Gold layer...");
+                updateStatus(appId, "AGGREGATING_GOLD", 60.0, "Aggregating to Gold layer...");
                 goldAggregationService.aggregate(appId);
                 logService.logEvent(appId, "AGGREGATE", "Gold Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t2) / 1000.0));
                 
                 finalizeSuccess(appId, files);
+                onComplete.accept(true);
             } catch (Exception e) {
                 handleFailure(appId, e);
+                onComplete.accept(false);
             }
         });
     }
 
-    public void triggerProcessingFromSilver(String appId, List<File> files) {
+    private void executeSilverToGold(String appId, List<File> files, java.util.function.Consumer<Boolean> onComplete) {
         logService.logEvent(appId, "AGGREGATE", "Gold Start", "Re-running pipeline from Gold (using existing Silver)");
         
         pipelineExecutor.submit(() -> {
             try {
                 // Gold
                 long t2 = System.currentTimeMillis();
-                updateStatus(appId, "AGGREGATING_GOLD", 70.0, "Aggregating to Gold layer...");
+                updateStatus(appId, "AGGREGATING_GOLD", 10.0, "Aggregating to Gold layer...");
                 goldAggregationService.aggregate(appId);
                 logService.logEvent(appId, "AGGREGATE", "Gold Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t2) / 1000.0));
                 
                 finalizeSuccess(appId, files);
+                onComplete.accept(true);
             } catch (Exception e) {
                 handleFailure(appId, e);
+                onComplete.accept(false);
             }
         });
     }

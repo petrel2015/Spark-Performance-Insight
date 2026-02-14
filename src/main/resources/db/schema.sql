@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS applications (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 扫描到的待处理日志记录 (用于重复导入确认)
+-- 扫描到的待处理日志记录
 CREATE TABLE IF NOT EXISTS event_log_scans (
     id VARCHAR PRIMARY KEY,
     app_id VARCHAR,
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS event_log_scans (
     detected_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 环境配置
+-- 环境配置 (API Source)
 CREATE TABLE IF NOT EXISTS environment_configs (
     id VARCHAR PRIMARY KEY,
     app_id VARCHAR,
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS environment_configs (
     category VARCHAR
 );
 
--- Executor 信息 (恢复全部 30+ 字段)
+-- Executor 信息
 CREATE TABLE IF NOT EXISTS executors (
     id VARCHAR PRIMARY KEY,
     app_id VARCHAR,
@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS executors (
     exec_loss_reason TEXT
 );
 
--- Job 详情 (恢复全量统计字段)
+-- Job 详情
 CREATE TABLE IF NOT EXISTS jobs (
     id VARCHAR PRIMARY KEY,
     app_id VARCHAR,
@@ -103,7 +103,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     performance_score DOUBLE DEFAULT 0.0
 );
 
--- Stage 详情 (恢复全部 40+ 字段)
+-- Stage 详情
 CREATE TABLE IF NOT EXISTS stages (
     id VARCHAR PRIMARY KEY,
     app_id VARCHAR,
@@ -150,7 +150,7 @@ CREATE TABLE IF NOT EXISTS stages (
     performance_score DOUBLE DEFAULT 0.0
 );
 
--- Task 细节 (恢复全量字段)
+-- Task 细节
 CREATE TABLE IF NOT EXISTS tasks (
     id VARCHAR PRIMARY KEY,
     app_id VARCHAR,
@@ -219,12 +219,12 @@ CREATE TABLE IF NOT EXISTS bronze_event_log_start (id UUID DEFAULT uuid(), app_i
 CREATE TABLE IF NOT EXISTS bronze_event_unknown (id UUID DEFAULT uuid(), app_id VARCHAR, file_name VARCHAR, event_name VARCHAR, raw_json JSON, ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
 
 -- ==========================================
--- SILVER LAYER (No PK constraints for robustness)
+-- SILVER LAYER
 -- ==========================================
 CREATE TABLE IF NOT EXISTS silver_jobs (app_id VARCHAR, job_id INT, submission_time TIMESTAMP, completion_time TIMESTAMP, duration_ms BIGINT, status VARCHAR, num_stages INT, stage_ids JSON, description TEXT, sql_execution_id BIGINT);
 CREATE INDEX IF NOT EXISTS idx_silver_jobs_app_job ON silver_jobs(app_id, job_id);
 
-CREATE TABLE IF NOT EXISTS silver_stages (app_id VARCHAR, stage_id INT, attempt_id INT, name VARCHAR, num_tasks INT, status VARCHAR, submission_time TIMESTAMP, completion_time TIMESTAMP, duration_ms BIGINT, input_bytes BIGINT DEFAULT 0, shuffle_read_bytes BIGINT DEFAULT 0, parent_ids JSON);
+CREATE TABLE IF NOT EXISTS silver_stages (app_id VARCHAR, stage_id INT, attempt_id INT, name VARCHAR, num_tasks INT, status VARCHAR, submission_time TIMESTAMP, completion_time TIMESTAMP, duration_ms BIGINT, input_bytes BIGINT DEFAULT 0, shuffle_read_bytes BIGINT DEFAULT 0, parent_ids JSON, rdd_info TEXT);
 CREATE INDEX IF NOT EXISTS idx_silver_stages_app_stage ON silver_stages(app_id, stage_id, attempt_id);
 
 CREATE TABLE IF NOT EXISTS silver_tasks (app_id VARCHAR, task_id BIGINT, stage_id INT, stage_attempt_id INT, executor_id VARCHAR, host VARCHAR, index INT, attempt_number INT, launch_time TIMESTAMP, finish_time TIMESTAMP, duration_ms BIGINT, status VARCHAR, locality VARCHAR, speculative BOOLEAN, executor_run_time BIGINT, executor_cpu_time BIGINT, gc_time BIGINT, input_bytes BIGINT, output_bytes BIGINT, shuffle_read_bytes BIGINT, shuffle_write_bytes BIGINT, memory_bytes_spilled BIGINT, disk_bytes_spilled BIGINT, peak_execution_memory BIGINT);
@@ -232,6 +232,12 @@ CREATE INDEX IF NOT EXISTS idx_silver_tasks_app_task ON silver_tasks(app_id, tas
 
 CREATE TABLE IF NOT EXISTS silver_executors (app_id VARCHAR, executor_id VARCHAR, host VARCHAR, total_cores INT, add_time TIMESTAMP, remove_time TIMESTAMP, remove_reason TEXT);
 CREATE INDEX IF NOT EXISTS idx_silver_executors_app_exec ON silver_executors(app_id, executor_id);
+
+CREATE TABLE IF NOT EXISTS silver_sql_executions (app_id VARCHAR, execution_id BIGINT, description TEXT, details TEXT, physical_plan TEXT, plan_info TEXT, start_time TIMESTAMP, end_time TIMESTAMP, duration_ms BIGINT, status VARCHAR);
+CREATE INDEX IF NOT EXISTS idx_silver_sql_app_exec ON silver_sql_executions(app_id, execution_id);
+
+CREATE TABLE IF NOT EXISTS silver_environment_configs (app_id VARCHAR, param_key VARCHAR, param_value VARCHAR, category VARCHAR);
+CREATE INDEX IF NOT EXISTS idx_silver_env_app ON silver_environment_configs(app_id);
 
 -- ==========================================
 -- GOLD LAYER

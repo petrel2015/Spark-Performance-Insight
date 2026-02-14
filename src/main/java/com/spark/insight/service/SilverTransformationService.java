@@ -15,28 +15,29 @@ public class SilverTransformationService {
 
     @Transactional
     public void transform(String appId) {
-        log.info("Starting Silver transformation (Physical Rebuild Mode) for app: {}", appId);
+        log.info("Starting Silver transformation (Metadata & Feature Recovery) for app: {}", appId);
         
         jdbcTemplate.execute("INSTALL json; LOAD json;");
 
-        // Force rebuild tables without constraints
         rebuildSilverTables();
 
+        // 1. Extract Application Metadata First (to update "Initializing...")
+        transformApplicationMetadata(appId);
+
+        // 2. Core transformations
         transformJobs(appId);
         transformTasks(appId);
         transformStages(appId);
         transformExecutors(appId);
+        transformSql(appId);
+        transformEnvironment(appId);
 
         log.info("Finished Silver transformation for app: {}", appId);
     }
 
     private void rebuildSilverTables() {
-        log.info("Dropping and Recreating Silver tables to clear legacy constraints...");
+        log.info("Rebuilding Silver tables for feature recovery...");
         
-        // We drop and recreate. Since this is a data pipeline from Bronze, 
-        // we can always re-generate Silver from Bronze.
-        
-        // Jobs
         jdbcTemplate.execute("DROP TABLE IF EXISTS silver_jobs");
         jdbcTemplate.execute("""
             CREATE TABLE silver_jobs (
@@ -45,17 +46,15 @@ public class SilverTransformationService {
                 description TEXT, sql_execution_id BIGINT
             )""");
         
-        // Stages
         jdbcTemplate.execute("DROP TABLE IF EXISTS silver_stages");
         jdbcTemplate.execute("""
             CREATE TABLE silver_stages (
-                app_id VARCHAR, stage_id INT, attempt_id INT, name VARCHAR, num_tasks INT, 
+                app_id VARCHAR, stage_id INT, attempt_id INT, job_id INT, name VARCHAR, num_tasks INT, 
                 status VARCHAR, submission_time TIMESTAMP, completion_time TIMESTAMP, 
                 duration_ms BIGINT, input_bytes BIGINT DEFAULT 0, shuffle_read_bytes BIGINT DEFAULT 0, 
-                parent_ids JSON
+                parent_ids JSON, rdd_info TEXT
             )""");
 
-        // Tasks
         jdbcTemplate.execute("DROP TABLE IF EXISTS silver_tasks");
         jdbcTemplate.execute("""
             CREATE TABLE silver_tasks (
@@ -69,17 +68,45 @@ public class SilverTransformationService {
                 disk_bytes_spilled BIGINT, peak_execution_memory BIGINT
             )""");
 
-        // Executors
         jdbcTemplate.execute("DROP TABLE IF EXISTS silver_executors");
         jdbcTemplate.execute("""
             CREATE TABLE silver_executors (
                 app_id VARCHAR, executor_id VARCHAR, host VARCHAR, total_cores INT, 
                 add_time TIMESTAMP, remove_time TIMESTAMP, remove_reason TEXT
             )""");
+
+        jdbcTemplate.execute("DROP TABLE IF EXISTS silver_sql_executions");
+        jdbcTemplate.execute("""
+            CREATE TABLE silver_sql_executions (
+                app_id VARCHAR, execution_id BIGINT, description TEXT, details TEXT, 
+                physical_plan TEXT, plan_info TEXT, start_time TIMESTAMP, end_time TIMESTAMP, 
+                duration_ms BIGINT, status VARCHAR
+            )""");
+
+        jdbcTemplate.execute("DROP TABLE IF EXISTS silver_environment_configs");
+        jdbcTemplate.execute("""
+            CREATE TABLE silver_environment_configs (
+                app_id VARCHAR, param_key VARCHAR, param_value VARCHAR, category VARCHAR
+            )""");
+    }
+
+    private void transformApplicationMetadata(String appId) {
+        log.debug("Updating Application Metadata for app: {}", appId);
+        
+        // Extract from ApplicationStart and LogStart events
+        String sql = """
+            UPDATE applications
+            SET app_name = json_extract_string(b.raw_json, '$."App Name"'),
+                user_name = json_extract_string(b.raw_json, '$.User'),
+                start_time = epoch_ms((json_extract(b.raw_json, '$.Timestamp'))::BIGINT),
+                spark_version = (SELECT json_extract_string(raw_json, '$."Spark Version"') FROM bronze_event_log_start WHERE app_id = ? LIMIT 1)
+            FROM bronze_event_application_start b
+            WHERE applications.app_id = b.app_id AND b.app_id = ?
+            """;
+        jdbcTemplate.update(sql, appId, appId);
     }
 
     private void transformJobs(String appId) {
-        log.debug("Transforming Jobs for app: {}", appId);
         String sql = """
             WITH js_dedup AS (
                 SELECT DISTINCT ON (app_id, (json_extract(raw_json, '$."Job ID"'))::INT)
@@ -112,29 +139,37 @@ public class SilverTransformationService {
     }
 
     private void transformStages(String appId) {
-        log.debug("Transforming Stages for app: {}", appId);
         String sql = """
-            WITH ss_dedup AS (
-                SELECT DISTINCT ON (app_id, (json_extract(raw_json, '$."Stage Info"."Stage ID"'))::INT, (json_extract(raw_json, '$."Stage Info"."Stage Attempt ID"'))::INT)
+            WITH stage_job_map AS (
+                SELECT DISTINCT ON (app_id, sid)
+                    app_id, sid as stage_id, job_id
+                FROM (
+                    SELECT app_id, (json_extract(raw_json, '$."Job ID"'))::INT as job_id, unnest(CAST(json_extract(raw_json, '$."Stage IDs"') AS INT[])) as sid
+                    FROM bronze_event_job_start WHERE app_id = ?
+                )
+            ),
+            ss_dedup AS (
+                SELECT DISTINCT ON (app_id, (json_extract(raw_json, '$."Stage Info"."Stage ID"'))::INT)
                     app_id, (json_extract(raw_json, '$."Stage Info"."Stage ID"'))::INT as stage_id, 
                     (json_extract(raw_json, '$."Stage Info"."Stage Attempt ID"'))::INT as attempt_id, raw_json
                 FROM bronze_event_stage_submitted WHERE app_id = ?
-                ORDER BY app_id, (json_extract(raw_json, '$."Stage Info"."Stage ID"'))::INT, (json_extract(raw_json, '$."Stage Info"."Stage Attempt ID"'))::INT, ingested_at DESC
+                ORDER BY app_id, (json_extract(raw_json, '$."Stage Info"."Stage ID"'))::INT, (json_extract(raw_json, '$."Stage Info"."Stage Attempt ID"'))::INT DESC
             ),
             sc_dedup AS (
                 SELECT DISTINCT ON (app_id, (json_extract(raw_json, '$."Stage Info"."Stage ID"'))::INT, (json_extract(raw_json, '$."Stage Info"."Stage Attempt ID"'))::INT)
                     app_id, (json_extract(raw_json, '$."Stage Info"."Stage ID"'))::INT as stage_id, 
                     (json_extract(raw_json, '$."Stage Info"."Stage Attempt ID"'))::INT as attempt_id, raw_json
                 FROM bronze_event_stage_completed WHERE app_id = ?
-                ORDER BY app_id, (json_extract(raw_json, '$."Stage Info"."Stage ID"'))::INT, (json_extract(raw_json, '$."Stage Info"."Stage Attempt ID"'))::INT, ingested_at DESC
+                ORDER BY app_id, (json_extract(raw_json, '$."Stage Info"."Stage ID"'))::INT, (json_extract(raw_json, '$."Stage Info"."Stage Attempt ID"'))::INT DESC
             ),
             task_metrics AS (
                 SELECT stage_id, stage_attempt_id, sum(input_bytes) as input_sum, sum(shuffle_read_bytes) as shuffle_sum
                 FROM silver_tasks WHERE app_id = ? GROUP BY stage_id, stage_attempt_id
             )
-            INSERT INTO silver_stages (app_id, stage_id, attempt_id, name, num_tasks, status, submission_time, completion_time, duration_ms, input_bytes, shuffle_read_bytes, parent_ids)
+            INSERT INTO silver_stages (app_id, stage_id, attempt_id, job_id, name, num_tasks, status, submission_time, completion_time, duration_ms, input_bytes, shuffle_read_bytes, parent_ids, rdd_info)
             SELECT DISTINCT ON (ss.app_id, ss.stage_id, ss.attempt_id)
                 ss.app_id, ss.stage_id, ss.attempt_id,
+                jm.job_id,
                 json_extract_string(ss.raw_json, '$."Stage Info"."Stage Name"'),
                 (json_extract(ss.raw_json, '$."Stage Info"."Number of Tasks"'))::INT,
                 CASE WHEN sc.raw_json IS NOT NULL THEN 'COMPLETED' ELSE 'PENDING' END,
@@ -143,17 +178,18 @@ public class SilverTransformationService {
                 (json_extract(sc.raw_json, '$."Stage Info"."Completion Time"'))::BIGINT - (json_extract(ss.raw_json, '$."Stage Info"."Submission Time"'))::BIGINT,
                 coalesce(tm.input_sum, 0),
                 coalesce(tm.shuffle_sum, 0),
-                json_extract(ss.raw_json, '$."Stage Info"."Parent IDs"')
+                json_extract(ss.raw_json, '$."Stage Info"."Parent IDs"'),
+                json_extract_string(ss.raw_json, '$."Stage Info"."RDD Info"')
             FROM ss_dedup ss
+            LEFT JOIN stage_job_map jm ON ss.app_id = jm.app_id AND ss.stage_id = jm.stage_id
             LEFT JOIN sc_dedup sc ON ss.app_id = sc.app_id AND ss.stage_id = sc.stage_id AND ss.attempt_id = sc.attempt_id
             LEFT JOIN task_metrics tm ON ss.stage_id = tm.stage_id AND ss.attempt_id = tm.stage_attempt_id
             ORDER BY ss.app_id, ss.stage_id, ss.attempt_id
             """;
-        jdbcTemplate.update(sql, appId, appId, appId);
+        jdbcTemplate.update(sql, appId, appId, appId, appId);
     }
 
     private void transformTasks(String appId) {
-        log.debug("Transforming Tasks for app: {}", appId);
         String sql = """
             WITH task_dedup AS (
                 SELECT DISTINCT ON (app_id, (json_extract(raw_json, '$."Task Info"."Task ID"'))::BIGINT)
@@ -193,7 +229,6 @@ public class SilverTransformationService {
     }
 
     private void transformExecutors(String appId) {
-        log.debug("Transforming Executors for app: {}", appId);
         String sql = """
             WITH ea_dedup AS (
                 SELECT DISTINCT ON (app_id, json_extract_string(raw_json, '$."Executor ID"'))
@@ -220,5 +255,66 @@ public class SilverTransformationService {
             ORDER BY ea.app_id, ea.executor_id
             """;
         jdbcTemplate.update(sql, appId, appId);
+    }
+
+    private void transformSql(String appId) {
+        String sql = """
+            WITH sql_start AS (
+                SELECT DISTINCT ON (app_id, (json_extract(raw_json, '$."executionId"'))::BIGINT)
+                    app_id, (json_extract(raw_json, '$."executionId"'))::BIGINT as execution_id, raw_json
+                FROM bronze_event_sql_execution_start WHERE app_id = ?
+                ORDER BY app_id, (json_extract(raw_json, '$."executionId"'))::BIGINT, ingested_at DESC
+            ),
+            sql_end AS (
+                SELECT DISTINCT ON (app_id, (json_extract(raw_json, '$."executionId"'))::BIGINT)
+                    app_id, (json_extract(raw_json, '$."executionId"'))::BIGINT as execution_id, raw_json
+                FROM bronze_event_sql_execution_end WHERE app_id = ?
+                ORDER BY app_id, (json_extract(raw_json, '$."executionId"'))::BIGINT, ingested_at DESC
+            )
+            INSERT INTO silver_sql_executions
+            SELECT DISTINCT ON (s.app_id, s.execution_id)
+                s.app_id, s.execution_id,
+                json_extract_string(s.raw_json, '$.description'),
+                json_extract_string(s.raw_json, '$.details'),
+                json_extract_string(s.raw_json, '$.physicalPlanDescription'),
+                json_extract_string(s.raw_json, '$.sparkPlanInfo'),
+                epoch_ms((json_extract(s.raw_json, '$.time'))::BIGINT),
+                epoch_ms((json_extract(e.raw_json, '$.time'))::BIGINT),
+                (json_extract(e.raw_json, '$.time'))::BIGINT - (json_extract(s.raw_json, '$.time'))::BIGINT,
+                CASE WHEN e.raw_json IS NOT NULL THEN 'COMPLETED' ELSE 'RUNNING' END
+            FROM sql_start s
+            LEFT JOIN sql_end e ON s.app_id = e.app_id AND s.execution_id = e.execution_id
+            ORDER BY s.app_id, s.execution_id
+            """;
+        jdbcTemplate.update(sql, appId, appId);
+    }
+
+    private void transformEnvironment(String appId) {
+        log.debug("Transforming Environment Configs for app: {}", appId);
+        String sql = """
+            INSERT INTO silver_environment_configs
+            SELECT app_id, k, (json_extract(raw_json, '$."Spark Properties"')->>k), 'spark_conf'
+            FROM (
+                SELECT app_id, raw_json, unnest(json_keys(json_extract(raw_json, '$."Spark Properties"'))) as k
+                FROM bronze_event_environment_update WHERE app_id = ?
+            )
+            UNION ALL
+            SELECT app_id, k, (json_extract(raw_json, '$."JVM Information"')->>k), 'jvm_info'
+            FROM (
+                SELECT app_id, raw_json, unnest(json_keys(json_extract(raw_json, '$."JVM Information"'))) as k
+                FROM bronze_event_environment_update WHERE app_id = ?
+            )
+            UNION ALL
+            SELECT app_id, k, (json_extract(raw_json, '$."System Properties"')->>k), 'system_props'
+            FROM (
+                SELECT app_id, raw_json, unnest(json_keys(json_extract(raw_json, '$."System Properties"'))) as k
+                FROM bronze_event_environment_update WHERE app_id = ?
+            )
+            """;
+        try {
+            jdbcTemplate.update(sql, appId, appId, appId);
+        } catch (Exception e) {
+            log.warn("Environment transformation failed: {}", e.getMessage());
+        }
     }
 }

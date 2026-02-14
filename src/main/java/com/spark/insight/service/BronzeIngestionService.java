@@ -32,8 +32,9 @@ public class BronzeIngestionService {
         EVENT_TABLE_MAP.put("SparkListenerExecutorAdded", "bronze_event_executor_added");
         EVENT_TABLE_MAP.put("SparkListenerExecutorRemoved", "bronze_event_executor_removed");
         EVENT_TABLE_MAP.put("SparkListenerBlockManagerAdded", "bronze_event_block_manager_added");
-        EVENT_TABLE_MAP.put("SparkListenerSQLExecutionStart", "bronze_event_sql_execution_start");
-        EVENT_TABLE_MAP.put("SparkListenerSQLExecutionEnd", "bronze_event_sql_execution_end");
+        // Corrected full class names for SQL events
+        EVENT_TABLE_MAP.put("org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart", "bronze_event_sql_execution_start");
+        EVENT_TABLE_MAP.put("org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd", "bronze_event_sql_execution_end");
         EVENT_TABLE_MAP.put("SparkListenerEnvironmentUpdate", "bronze_event_environment_update");
         EVENT_TABLE_MAP.put("SparkListenerLogStart", "bronze_event_log_start");
     }
@@ -44,14 +45,12 @@ public class BronzeIngestionService {
         
         jdbcTemplate.execute("INSTALL json; LOAD json;");
 
-        // 1. Clean up old bronze data for this app to ensure idempotency
         log.debug("Cleaning up old bronze data for app: {}", appId);
         for (String tableName : EVENT_TABLE_MAP.values()) {
             jdbcTemplate.update("DELETE FROM " + tableName + " WHERE app_id = ?", appId);
         }
         jdbcTemplate.update("DELETE FROM bronze_event_unknown WHERE app_id = ?", appId);
 
-        // 2. Ingest files
         for (File file : files) {
             ingestFile(appId, file);
         }
@@ -79,7 +78,6 @@ public class BronzeIngestionService {
             jdbcTemplate.update(sql, appId, fileName, filePath, eventName);
         }
 
-        // Unknown events
         StringBuilder knownEventsPart = new StringBuilder();
         for (String event : EVENT_TABLE_MAP.keySet()) {
             if (knownEventsPart.length() > 0) knownEventsPart.append(", ");

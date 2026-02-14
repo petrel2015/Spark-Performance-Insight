@@ -155,6 +155,17 @@
       </div>
     </div>
   </div>
+  <div v-else-if="errorMessage" class="error-container">
+    <div class="error-card">
+      <span class="material-symbols-outlined error-icon">error</span>
+      <h3>Comparison Error</h3>
+      <p class="error-msg">{{ errorMessage }}</p>
+      <p class="error-hint">This usually happens if an application was deleted or the log was overwritten. Invalid items in your workspace have been marked.</p>
+      <div class="error-actions">
+        <router-link to="/compare" class="back-btn">Back to Workspace</router-link>
+      </div>
+    </div>
+  </div>
   <div v-else class="loading-container">
     <div class="spinner"></div>
     <p>Crunching metrics and identifying bottlenecks...</p>
@@ -166,9 +177,11 @@ import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { getComparisonResult } from '../api';
 import { formatTime, formatBytes, formatNum } from '../utils/format';
+import { compareStore } from '../store/compareStore';
 
 const route = useRoute();
 const result = ref(null);
+const errorMessage = ref(null);
 
 const fetchResult = async () => {
   const { type, app1, id1, app2, id2 } = route.query;
@@ -177,6 +190,16 @@ const fetchResult = async () => {
     result.value = res.data;
   } catch (e) {
     console.error("Comparison failed", e);
+    const msg = e.response?.data?.message || e.message || "Unknown comparison error";
+    errorMessage.value = msg;
+    
+    // Check if error is about missing application/stage/job
+    if (msg.includes("not found")) {
+      // Try to extract appId if possible or just mark both if ambiguous
+      // Our backend messages now look like: "Application not found: application_123"
+      if (msg.includes(app1)) compareStore.markAppAsInvalid(app1);
+      if (msg.includes(app2)) compareStore.markAppAsInvalid(app2);
+    }
   }
 };
 
@@ -595,4 +618,58 @@ onMounted(fetchResult);
 }
 
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* Error Styles */
+.error-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 60vh;
+}
+
+.error-card {
+  text-align: center;
+  background: white;
+  padding: 3rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  border: 1px solid #fee2e2;
+  max-width: 500px;
+}
+
+.error-icon {
+  font-size: 4rem !important;
+  color: #ef4444;
+  margin-bottom: 1rem;
+}
+
+.error-msg {
+  color: #b91c1c;
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  background: #fef2f2;
+  padding: 10px;
+  border-radius: 6px;
+}
+
+.error-hint {
+  color: #64748b;
+  margin-bottom: 2rem;
+}
+
+.back-btn {
+  display: inline-block;
+  padding: 10px 24px;
+  background: #3498db;
+  color: white;
+  text-decoration: none;
+  border-radius: 4px;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.back-btn:hover {
+  background: #2980b9;
+}
 </style>

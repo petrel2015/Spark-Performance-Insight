@@ -24,115 +24,7 @@
       </div>
 
       <div class="workspace-content">
-        <!-- 0. Applications Comparison Selection -->
-        <CollapsibleCard title="Application Candidates for Comparison" :initial-collapsed="false">
-          <template #actions>
-            <button class="compare-now-btn" 
-                    :disabled="!canCompareApps" 
-                    @click="startComparison('app')">
-              <span class="material-symbols-outlined">analytics</span>
-              Start Application Comparison
-            </button>
-          </template>
-          
-          <div v-if="selectedApps.length > 0" class="items-grid">
-            <div v-for="item in selectedApps" :key="item.id" 
-                 class="selected-item-card app-card clickable"
-                 :class="{ 'is-checked': compareStore.isItemSelected(item.id) }"
-                 @click="compareStore.toggleComparisonItem(item.id)">
-               
-               <div class="item-name" :title="item.name">{{ item.name }}</div>
-               <div class="app-identifier">
-                 <span class="material-symbols-outlined">Apps</span>
-                 <code class="app-id-text">{{ item.appId }}</code>
-               </div>
-               <div class="item-stats">
-                 <span class="stat-badge id-badge">ID: {{ item.itemId }}</span>
-                 <template v-if="item.details">
-                   <span v-if="item.details.duration" class="stat-badge">
-                     <span class="material-symbols-outlined">timer</span>
-                     {{ formatTime(item.details.duration) }}
-                   </span>
-                 </template>
-               </div>
-               <div class="card-actions" @click.stop>
-                 <button class="action-btn select-action-btn" 
-                         :class="{ selected: compareStore.isItemSelected(item.id) }"
-                         @click="compareStore.toggleComparisonItem(item.id)">
-                   <span class="material-symbols-outlined">
-                     {{ compareStore.isItemSelected(item.id) ? 'check_circle' : 'radio_button_unchecked' }}
-                   </span>
-                   {{ compareStore.isItemSelected(item.id) ? 'Selected' : 'Select' }}
-                 </button>
-                 <router-link :to="`/app/${item.appId}`" class="action-btn view-link">View Detail</router-link>
-                 <button class="remove-btn-small" @click="compareStore.removeItem(item.id)" title="Remove from workspace">
-                   <span class="material-symbols-outlined">delete</span>
-                 </button>
-               </div>
-            </div>
-          </div>
-          <div v-else class="inner-empty-state">
-            <p>No Application candidates selected.</p>
-          </div>
-        </CollapsibleCard>
-
-        <!-- 1. Jobs Comparison Selection -->
-        <CollapsibleCard title="Job Candidates for Comparison" :initial-collapsed="false">
-          <template #actions>
-            <button class="compare-now-btn" 
-                    :disabled="!canCompareJobs" 
-                    @click="startComparison('job')">
-              <span class="material-symbols-outlined">analytics</span>
-              Start Job Comparison
-            </button>
-          </template>
-          
-          <div v-if="selectedJobs.length > 0" class="items-grid">
-            <div v-for="item in selectedJobs" :key="item.id" 
-                 class="selected-item-card job-card clickable"
-                 :class="{ 'is-checked': compareStore.isItemSelected(item.id) }"
-                 @click="compareStore.toggleComparisonItem(item.id)">
-               
-               <div class="item-name" :title="item.name">{{ item.name }}</div>
-               <div class="app-identifier">
-                 <span class="material-symbols-outlined">Apps</span>
-                 <code class="app-id-text">{{ item.appId }}</code>
-               </div>
-               <div class="item-stats">
-                 <span class="stat-badge id-badge">ID: {{ item.itemId }}</span>
-                 <template v-if="item.details">
-                   <span v-if="item.details.duration" class="stat-badge">
-                     <span class="material-symbols-outlined">timer</span>
-                     {{ formatTime(item.details.duration) }}
-                   </span>
-                   <span v-if="item.details.stages" class="stat-badge">
-                     <span class="material-symbols-outlined">account_tree</span>
-                     {{ item.details.stages }} Stages
-                   </span>
-                 </template>
-               </div>
-               <div class="card-actions" @click.stop>
-                 <button class="action-btn select-action-btn" 
-                         :class="{ selected: compareStore.isItemSelected(item.id) }"
-                         @click="compareStore.toggleComparisonItem(item.id)">
-                   <span class="material-symbols-outlined">
-                     {{ compareStore.isItemSelected(item.id) ? 'check_circle' : 'radio_button_unchecked' }}
-                   </span>
-                   {{ compareStore.isItemSelected(item.id) ? 'Selected' : 'Select' }}
-                 </button>
-                 <router-link :to="`/app/${item.appId}/job/${item.itemId}`" class="action-btn view-link">View Detail</router-link>
-                 <button class="remove-btn-small" @click="compareStore.removeItem(item.id)" title="Remove from workspace">
-                   <span class="material-symbols-outlined">delete</span>
-                 </button>
-               </div>
-            </div>
-          </div>
-          <div v-else class="inner-empty-state">
-            <p>No Job candidates selected.</p>
-          </div>
-        </CollapsibleCard>
-
-        <!-- 2. Stages Comparison Selection -->
+        <!-- 1. Stages Comparison Selection (Moved to top) -->
         <CollapsibleCard title="Stage Candidates for Comparison" :initial-collapsed="false">
           <template #actions>
             <button class="compare-now-btn" 
@@ -145,14 +37,19 @@
 
           <div v-if="selectedStages.length > 0" class="items-grid">
             <div v-for="item in selectedStages" :key="item.id" 
-                 class="selected-item-card stage-card clickable"
-                 :class="{ 'is-checked': compareStore.isItemSelected(item.id) }"
-                 @click="compareStore.toggleComparisonItem(item.id)">
+                 class="selected-item-card stage-card"
+                 :class="{ 
+                   'is-checked': compareStore.isItemSelected(item.id),
+                   'clickable': !item.isInvalid,
+                   'is-invalid': item.isInvalid
+                 }"
+                 @click="!item.isInvalid && compareStore.toggleComparisonItem(item.id)">
                
                <div class="item-name" :title="item.name">{{ item.name }}</div>
                <div class="app-identifier">
                  <span class="material-symbols-outlined">Apps</span>
                  <code class="app-id-text">{{ item.appId }}</code>
+                 <span v-if="item.isInvalid" class="invalid-badge">Invalid / Missing</span>
                </div>
                <div class="item-stats">
                  <span class="stat-badge id-badge">ID: {{ item.itemId }}</span>
@@ -168,7 +65,8 @@
                  </template>
                </div>
                <div class="card-actions" @click.stop>
-                 <button class="action-btn select-action-btn" 
+                 <button v-if="!item.isInvalid"
+                         class="action-btn select-action-btn" 
                          :class="{ selected: compareStore.isItemSelected(item.id) }"
                          @click="compareStore.toggleComparisonItem(item.id)">
                    <span class="material-symbols-outlined">
@@ -176,7 +74,7 @@
                    </span>
                    {{ compareStore.isItemSelected(item.id) ? 'Selected' : 'Select' }}
                  </button>
-                 <router-link :to="`/app/${item.appId}/stage/${item.itemId}`" class="action-btn view-link">View Detail</router-link>
+                 <router-link v-if="!item.isInvalid" :to="`/app/${item.appId}/stage/${item.itemId}`" class="action-btn view-link">View Detail</router-link>
                  <button class="remove-btn-small" @click="compareStore.removeItem(item.id)" title="Remove from workspace">
                    <span class="material-symbols-outlined">delete</span>
                  </button>
@@ -185,6 +83,126 @@
           </div>
           <div v-else class="inner-empty-state">
             <p>No Stage candidates selected.</p>
+          </div>
+        </CollapsibleCard>
+
+        <!-- 2. Jobs Comparison Selection -->
+        <CollapsibleCard title="Job Candidates for Comparison" :initial-collapsed="false">
+          <template #actions>
+            <button class="compare-now-btn" 
+                    :disabled="!canCompareJobs" 
+                    @click="startComparison('job')">
+              <span class="material-symbols-outlined">analytics</span>
+              Start Job Comparison
+            </button>
+          </template>
+          
+          <div v-if="selectedJobs.length > 0" class="items-grid">
+            <div v-for="item in selectedJobs" :key="item.id" 
+                 class="selected-item-card job-card"
+                 :class="{ 
+                   'is-checked': compareStore.isItemSelected(item.id),
+                   'clickable': !item.isInvalid,
+                   'is-invalid': item.isInvalid
+                 }"
+                 @click="!item.isInvalid && compareStore.toggleComparisonItem(item.id)">
+               
+               <div class="item-name" :title="item.name">{{ item.name }}</div>
+               <div class="app-identifier">
+                 <span class="material-symbols-outlined">Apps</span>
+                 <code class="app-id-text">{{ item.appId }}</code>
+                 <span v-if="item.isInvalid" class="invalid-badge">Invalid / Missing</span>
+               </div>
+               <div class="item-stats">
+                 <span class="stat-badge id-badge">ID: {{ item.itemId }}</span>
+                 <template v-if="item.details">
+                   <span v-if="item.details.duration" class="stat-badge">
+                     <span class="material-symbols-outlined">timer</span>
+                     {{ formatTime(item.details.duration) }}
+                   </span>
+                   <span v-if="item.details.stages" class="stat-badge">
+                     <span class="material-symbols-outlined">account_tree</span>
+                     {{ item.details.stages }} Stages
+                   </span>
+                 </template>
+               </div>
+               <div class="card-actions" @click.stop>
+                 <button v-if="!item.isInvalid"
+                         class="action-btn select-action-btn" 
+                         :class="{ selected: compareStore.isItemSelected(item.id) }"
+                         @click="compareStore.toggleComparisonItem(item.id)">
+                   <span class="material-symbols-outlined">
+                     {{ compareStore.isItemSelected(item.id) ? 'check_circle' : 'radio_button_unchecked' }}
+                   </span>
+                   {{ compareStore.isItemSelected(item.id) ? 'Selected' : 'Select' }}
+                 </button>
+                 <router-link v-if="!item.isInvalid" :to="`/app/${item.appId}/job/${item.itemId}`" class="action-btn view-link">View Detail</router-link>
+                 <button class="remove-btn-small" @click="compareStore.removeItem(item.id)" title="Remove from workspace">
+                   <span class="material-symbols-outlined">delete</span>
+                 </button>
+               </div>
+            </div>
+          </div>
+          <div v-else class="inner-empty-state">
+            <p>No Job candidates selected.</p>
+          </div>
+        </CollapsibleCard>
+
+        <!-- 3. Applications Comparison Selection -->
+        <CollapsibleCard title="Application Candidates for Comparison" :initial-collapsed="false">
+          <template #actions>
+            <button class="compare-now-btn" 
+                    :disabled="!canCompareApps" 
+                    @click="startComparison('app')">
+              <span class="material-symbols-outlined">analytics</span>
+              Start Application Comparison
+            </button>
+          </template>
+          
+          <div v-if="selectedApps.length > 0" class="items-grid">
+            <div v-for="item in selectedApps" :key="item.id" 
+                 class="selected-item-card app-card"
+                 :class="{ 
+                   'is-checked': compareStore.isItemSelected(item.id),
+                   'clickable': !item.isInvalid,
+                   'is-invalid': item.isInvalid
+                 }"
+                 @click="!item.isInvalid && compareStore.toggleComparisonItem(item.id)">
+               
+               <div class="item-name" :title="item.name">{{ item.name }}</div>
+               <div class="app-identifier">
+                 <span class="material-symbols-outlined">Apps</span>
+                 <code class="app-id-text">{{ item.appId }}</code>
+                 <span v-if="item.isInvalid" class="invalid-badge">Invalid / Missing</span>
+               </div>
+               <div class="item-stats">
+                 <span class="stat-badge id-badge">ID: {{ item.itemId }}</span>
+                 <template v-if="item.details">
+                   <span v-if="item.details.duration" class="stat-badge">
+                     <span class="material-symbols-outlined">timer</span>
+                     {{ formatTime(item.details.duration) }}
+                   </span>
+                 </template>
+               </div>
+               <div class="card-actions" @click.stop>
+                 <button v-if="!item.isInvalid"
+                         class="action-btn select-action-btn" 
+                         :class="{ selected: compareStore.isItemSelected(item.id) }"
+                         @click="compareStore.toggleComparisonItem(item.id)">
+                   <span class="material-symbols-outlined">
+                     {{ compareStore.isItemSelected(item.id) ? 'check_circle' : 'radio_button_unchecked' }}
+                   </span>
+                   {{ compareStore.isItemSelected(item.id) ? 'Selected' : 'Select' }}
+                 </button>
+                 <router-link v-if="!item.isInvalid" :to="`/app/${item.appId}`" class="action-btn view-link">View Detail</router-link>
+                 <button class="remove-btn-small" @click="compareStore.removeItem(item.id)" title="Remove from workspace">
+                   <span class="material-symbols-outlined">delete</span>
+                 </button>
+               </div>
+            </div>
+          </div>
+          <div v-else class="inner-empty-state">
+            <p>No Application candidates selected.</p>
           </div>
         </CollapsibleCard>
       </div>
@@ -240,6 +258,9 @@ const startComparison = (type) => {
 };
 
 onMounted(() => {
+  if (compareStore.isCompareMode) {
+    compareStore.validateAllItems();
+  }
   if (!compareStore.isCompareMode) {
     timer = setInterval(() => {
       countdown.value--;
@@ -387,10 +408,28 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
-.selected-item-card:hover {
+.selected-item-card.is-invalid {
+  border-top-color: #ff7675;
+  background-color: #fff5f5;
+  cursor: default;
+  opacity: 0.8;
+}
+
+.selected-item-card:hover:not(.is-invalid) {
   transform: translateY(-3px);
   box-shadow: 0 6px 15px rgba(0,0,0,0.08);
   border-color: #b3d8ff;
+}
+
+.invalid-badge {
+  margin-left: auto;
+  font-size: 0.65rem;
+  background: #ff7675;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: bold;
+  text-transform: uppercase;
 }
 
 .selected-item-card.is-checked {

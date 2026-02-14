@@ -9,6 +9,7 @@ const router = createRouter({
     routes: [
         {path: '/', component: AppList},
         {path: '/compare', component: CompareWorkspace},
+        {path: '/compare/workspace', component: CompareWorkspace},
         {path: '/compare/result', component: CompareResult},
         {path: '/app/:id', component: AppDetail},
         {path: '/app/:id/sql', component: AppDetail},

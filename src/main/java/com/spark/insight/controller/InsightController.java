@@ -462,6 +462,38 @@ public class InsightController {
         return applicationService.getById(appId);
     }
 
+    /**
+     * 批量校验工作区项的有效性
+     */
+    @PostMapping("/compare/validate")
+    public java.util.Map<String, Boolean> validateItems(@RequestBody List<String> itemKeys) {
+        java.util.Map<String, Boolean> results = new java.util.HashMap<>();
+        for (String key : itemKeys) {
+            // Key format: "appId:type:itemId"
+            String[] parts = key.split(":", 3);
+            if (parts.length < 3) continue;
+            
+            String appId = parts[0];
+            String type = parts[1];
+            String itemId = parts[2];
+            
+            boolean exists = false;
+            try {
+                if ("app".equalsIgnoreCase(type)) {
+                    exists = applicationService.getById(appId) != null;
+                } else if ("job".equalsIgnoreCase(type)) {
+                    exists = jobService.getJob(appId, Integer.parseInt(itemId)) != null;
+                } else if ("stage".equalsIgnoreCase(type)) {
+                    exists = stageService.getStage(appId, Integer.parseInt(itemId), null) != null;
+                }
+            } catch (Exception e) {
+                exists = false;
+            }
+            results.put(key, exists);
+        }
+        return results;
+    }
+
     private String buildSqlSuffix(String sort, int page, int size, String defaultSort) {
         StringBuilder orderBy = new StringBuilder();
         if (sort != null && !sort.isBlank()) {

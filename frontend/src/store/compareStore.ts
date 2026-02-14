@@ -1,4 +1,5 @@
 import { reactive, watch } from 'vue';
+import { validateCompareItems } from '../api';
 
 const STORAGE_KEY_MODE = 'spark_insight_compare_mode';
 const STORAGE_KEY_ITEMS = 'spark_insight_compare_items';
@@ -23,20 +24,58 @@ export const compareStore = reactive({
     itemId: number | string; // jobId or stageId
     name?: string;
     details?: any;
+    isInvalid?: boolean;
   }>,
   
   // Track which IDs are currently checked for the active comparison action
   comparisonSelection: [] as string[],
+  isValidating: false,
 
   toggleCompareMode() {
     this.isCompareMode = !this.isCompareMode;
   },
 
+  async validateAllItems() {
+    if (this.selectedItems.length === 0) return;
+    this.isValidating = true;
+    try {
+      const keys = this.selectedItems.map(i => i.id);
+      const res = await validateCompareItems(keys);
+      const results = res.data as Record<string, boolean>;
+      
+      this.selectedItems.forEach(item => {
+        if (results[item.id] !== undefined) {
+          item.isInvalid = !results[item.id];
+          // If it became invalid, also unselect it from active comparison
+          if (item.isInvalid) {
+            const idx = this.comparisonSelection.indexOf(item.id);
+            if (idx > -1) this.comparisonSelection.splice(idx, 1);
+          }
+        }
+      });
+    } catch (e) {
+      console.error("Failed to validate items", e);
+    } finally {
+      this.isValidating = false;
+    }
+  },
+
   addItem(item: { type: 'job' | 'stage' | 'app', appId: string, itemId: number | string, name?: string, details?: any }) {
     const key = `${item.appId}:${item.type}:${item.itemId}`;
     if (!this.selectedItems.find(i => i.id === key)) {
-      this.selectedItems.push({ ...item, id: key });
+      this.selectedItems.push({ ...item, id: key, isInvalid: false });
     }
+  },
+
+  markAppAsInvalid(appId: string) {
+    this.selectedItems.forEach(item => {
+      if (item.appId === appId) {
+        item.isInvalid = true;
+        // Unselect invalid items from active comparison
+        const index = this.comparisonSelection.indexOf(item.id);
+        if (index > -1) this.comparisonSelection.splice(index, 1);
+      }
+    });
   },
 
   removeItem(key: string) {

@@ -82,3 +82,5 @@ export const getComparisonResult = (type: string, app1: string, id1: string, app
     request.get(`/compare/result?type=${type}&app1=${app1}&id1=${id1}&app2=${app2}&id2=${id2}`);
 export const compareApps = (appId1: string, appId2: string) =>
     request.get(`/compare?appId1=${appId1}&appId2=${appId2}`);
+export const validateCompareItems = (itemKeys: string[]) =>
+    request.post('/compare/validate', itemKeys);

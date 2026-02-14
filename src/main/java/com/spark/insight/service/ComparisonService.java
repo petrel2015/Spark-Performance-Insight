@@ -43,9 +43,8 @@ public class ComparisonService {
         com.spark.insight.model.ApplicationModel app1 = applicationService.getById(appId1);
         com.spark.insight.model.ApplicationModel app2 = applicationService.getById(appId2);
 
-        if (app1 == null || app2 == null) {
-            throw new RuntimeException("One or both applications not found.");
-        }
+        if (app1 == null) throw new RuntimeException("Application not found: " + appId1);
+        if (app2 == null) throw new RuntimeException("Application not found: " + appId2);
 
         List<MetricDiff> metrics = new ArrayList<>();
         addMetric(metrics, "Total Duration", "duration", "ms", (double) app1.getDuration(), (double) app2.getDuration(), true);
@@ -68,9 +67,8 @@ public class ComparisonService {
         StageModel stage1 = stageService.getStage(appId1, stageId1, 0);
         StageModel stage2 = stageService.getStage(appId2, stageId2, 0);
 
-        if (stage1 == null || stage2 == null) {
-            throw new RuntimeException("One or both stages not found.");
-        }
+        if (stage1 == null) throw new RuntimeException("Stage " + stageId1 + " not found in application: " + appId1);
+        if (stage2 == null) throw new RuntimeException("Stage " + stageId2 + " not found in application: " + appId2);
 
         List<MetricDiff> metrics = new ArrayList<>();
 
@@ -126,9 +124,8 @@ public class ComparisonService {
         JobModel job1 = jobService.getJob(appId1, jobId1);
         JobModel job2 = jobService.getJob(appId2, jobId2);
 
-        if (job1 == null || job2 == null) {
-            throw new RuntimeException("One or both jobs not found.");
-        }
+        if (job1 == null) throw new RuntimeException("Job " + jobId1 + " not found in application: " + appId1);
+        if (job2 == null) throw new RuntimeException("Job " + jobId2 + " not found in application: " + appId2);
 
         List<MetricDiff> metrics = new ArrayList<>();
         addMetric(metrics, "Duration", "duration", "ms", (double) job1.getDuration(), (double) job2.getDuration(), true);

@@ -84,16 +84,20 @@ public class GoldAggregationService {
             ),
             calculated_scores AS (
                 SELECT *,
-                    CASE WHEN p50 > 0 THEN max_dur / p50 ELSE 1.0 END as skew_ratio,
+                    CASE WHEN p50 > 0 THEN CAST(max_dur AS DOUBLE) / p50 ELSE 1.0 END as skew_ratio,
                     CASE WHEN total_run > 0 THEN CAST(total_gc AS DOUBLE) / total_run ELSE 0.0 END as gc_ratio
                 FROM base_metrics
             )
             SELECT
                 app_id, stage_id, stage_attempt_id, p50, p95, skew_ratio, gc_ratio,
-                greatest(0, 100 - (skew_ratio - 1) * 20) as score_skew,
-                greatest(0, 100 - (gc_ratio * 500)) as score_gc,
+                -- Skew Score: Allow up to 10x skew before hitting 0. (10-1)*10 = 90. 100-90=10.
+                -- Previously (skew-1)*20 -> 6x skew = 0.
+                greatest(0, 100 - (skew_ratio - 1) * 10) as score_skew,
+                -- GC Score: Allow up to 50% GC before hitting 0. (0.5 * 200) = 100.
+                -- Previously gc * 500 -> 20% GC = 0.
+                greatest(0, 100 - (gc_ratio * 200)) as score_gc,
                 100.0 as score_locality,
-                (greatest(0, 100 - (skew_ratio - 1) * 20) * 0.6 + greatest(0, 100 - (gc_ratio * 500)) * 0.4) as performance_score
+                (greatest(0, 100 - (skew_ratio - 1) * 10) * 0.6 + greatest(0, 100 - (gc_ratio * 200)) * 0.4) as performance_score
             FROM calculated_scores
             """;
         jdbcTemplate.update(sql, appId);

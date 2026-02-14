@@ -1,16 +1,5 @@
 <template>
   <div class="app-list-container">
-    <!-- Processing Alert -->
-    <div v-if="processingMessage" class="processing-alert">
-      <div class="alert-content">
-        <span class="icon material-symbols-outlined">hourglass_top</span>
-        <span>{{ processingMessage }}</span>
-      </div>
-      <button @click="processingMessage = null" class="close-alert">
-        <span class="material-symbols-outlined">close</span>
-      </button>
-    </div>
-
     <div class="header-section">
       <h2>Application List</h2>
       <div class="header-actions">
@@ -183,27 +172,62 @@
             <!-- ACTION Column -->
             <td>
               <div class="action-cell">
-                <button class="action-btn bronze" 
-                        @click="handleBronzeImport(app.appId)" 
-                        title="Full Medallion Pipeline (Bronze -> Silver -> Gold)"
-                        :disabled="isProcessing(app.parsingStatus)">
-                  <span class="material-symbols-outlined">database</span>
-                  Medallion
-                </button>
-                <button class="action-btn reimport" 
-                        @click="handleReimport(app.appId)" 
-                        title="Re-import application logs"
-                        :disabled="isProcessing(app.parsingStatus)">
-                  <span class="material-symbols-outlined">restart_alt</span>
+                <!-- PENDING_LOAD: Import -->
+                <button v-if="app.parsingStatus === 'PENDING_LOAD'" 
+                        class="action-btn bronze" 
+                        @click="openConfirmation('full', app.appId)" 
+                        title="Start Medallion Pipeline">
+                  <span class="material-symbols-outlined">play_arrow</span>
                   Import
                 </button>
-                <button class="action-btn delete" 
-                        @click="handleDelete(app.appId)" 
-                        title="Delete application data"
-                        :disabled="isProcessing(app.parsingStatus)">
-                  <span class="material-symbols-outlined">delete</span>
-                  Delete
+
+                <!-- PENDING_REIMPORT: Re-import -->
+                <button v-if="app.parsingStatus === 'PENDING_REIMPORT'" 
+                        class="action-btn reimport" 
+                        @click="openConfirmation('full', app.appId)" 
+                        title="Files changed. Click to re-run pipeline.">
+                  <span class="material-symbols-outlined">sync_problem</span>
+                  Update
                 </button>
+
+                <!-- SUCCESS/FAILED: Granular Re-run Options -->
+                <template v-if="['SUCCESS', 'FAILED'].includes(app.parsingStatus) || !app.parsingStatus">
+                  
+                  <!-- Using class 'dropdown-container' mainly for click-outside reference if needed, 
+                       but with Teleport we might handle closing differently or rely on global click listener -->
+                  <div class="dropdown-trigger-wrapper">
+                    <button class="action-btn" @click.stop="toggleDropdown(app.appId, $event)" title="Re-run Pipeline Options">
+                      <span class="material-symbols-outlined">refresh</span>
+                      Re-run
+                      <span class="material-symbols-outlined" style="font-size: 14px">arrow_drop_down</span>
+                    </button>
+                    
+                    <Teleport to="body">
+                      <div v-if="activeDropdown === app.appId" 
+                           class="dropdown-menu-fixed"
+                           :style="{ top: dropdownStyle.top, right: dropdownStyle.right }"
+                           v-click-outside="() => activeDropdown = null">
+                         <button class="dropdown-item" @click="openConfirmation('full', app.appId)">
+                           <span class="material-symbols-outlined">database</span>
+                           Full (Raw &rarr; Gold)
+                         </button>
+                         <button class="dropdown-item" @click="openConfirmation('bronze-to-gold', app.appId)">
+                           <span class="material-symbols-outlined">step</span>
+                           From Bronze (Bronze &rarr; Gold)
+                         </button>
+                         <button class="dropdown-item" @click="openConfirmation('silver-to-gold', app.appId)">
+                           <span class="material-symbols-outlined">analytics</span>
+                           From Silver (Silver &rarr; Gold)
+                         </button>
+                      </div>
+                    </Teleport>
+                  </div>
+                </template>
+                
+                <!-- Processing: No Actions -->
+                <span v-if="isProcessing(app.parsingStatus)" class="processing-label">
+                  Processing...
+                </span>
               </div>
             </td>
           </tr>
@@ -214,24 +238,49 @@
         </table>
       </div>
     </div>
+
+    <ConfirmationModal 
+      :is-open="confirmState.isOpen"
+      :title="confirmState.title"
+      :message="confirmState.message"
+      :type="confirmState.type"
+      :confirm-text="confirmState.confirmText"
+      @confirm="handleConfirm"
+      @cancel="confirmState.isOpen = false"
+    ></ConfirmationModal>
   </div>
 </template>
 
 <script setup>
-import {ref, onMounted, onUnmounted, computed} from 'vue';
+import {ref, onMounted, onUnmounted, computed, reactive, nextTick} from 'vue';
 import {getApps} from '../api';
 import {formatDateTime} from '../utils/format';
 import {useRoute, useRouter} from 'vue-router';
 import { compareStore } from '../store/compareStore';
+import ConfirmationModal from '../components/common/ConfirmationModal.vue';
 import axios from 'axios';
 import SockJS from 'sockjs-client';
 import Stomp from 'stompjs';
+
+// Simple click-outside directive
+const vClickOutside = {
+  mounted(el, binding) {
+    el.clickOutsideEvent = function(event) {
+      if (!(el === event.target || el.contains(event.target))) {
+        binding.value(event, el);
+      }
+    };
+    document.body.addEventListener('click', el.clickOutsideEvent);
+  },
+  unmounted(el) {
+    document.body.removeEventListener('click', el.clickOutsideEvent);
+  }
+};
 
 const route = useRoute();
 const router = useRouter();
 
 const apps = ref([]);
-const processingMessage = ref('');
 const totalApps = ref(0);
 const totalPages = ref(0);
 const currentPage = ref(1);
@@ -239,10 +288,50 @@ const pageSize = ref(20);
 const jumpPageInput = ref(1);
 const searchQuery = ref('');
 const sorts = ref([{field: 'startTime', dir: 'desc'}]);
+const activeDropdown = ref(null);
+const dropdownStyle = reactive({ top: '0px', left: '0px' });
+
+const confirmState = reactive({
+  isOpen: false,
+  title: '',
+  message: '',
+  type: 'info',
+  confirmText: 'Confirm',
+  action: null,
+  payload: null
+});
 
 // WebSocket State
 let stompClient = null;
 let socket = null;
+
+const toggleDropdown = (appId, event) => {
+  if (activeDropdown.value === appId) {
+    activeDropdown.value = null;
+  } else {
+    activeDropdown.value = appId;
+    // Calculate position
+    nextTick(() => {
+      const button = event.currentTarget;
+      const rect = button.getBoundingClientRect();
+      // Align right edge of menu with right edge of button
+      // Menu width is min 200px.
+      // Let's position it to the bottom-right of the button
+      dropdownStyle.top = `${rect.bottom + window.scrollY + 4}px`;
+      // We don't know the exact width yet, but aligning right usually works best for last column
+      // However, for fixed position, we set left.
+      // rect.right - menuWidth. But menuWidth is dynamic.
+      // Let's try aligning left edge first, or use a fixed calculation if we knew width.
+      // Safer: Align top-left of menu to bottom-left of button minus some offset if needed.
+      // Actually, if we use fixed positioning, we can set `right: window.innerWidth - rect.right + 'px'`?
+      // CSS `right` property works with fixed positioning relative to viewport.
+      // Let's store right and top.
+      dropdownStyle.top = `${rect.bottom + 4}px`;
+      dropdownStyle.right = `${document.documentElement.clientWidth - rect.right}px`;
+      dropdownStyle.left = 'auto';
+    });
+  }
+};
 
 const connectWebSocket = () => {
   socket = new SockJS('/ws-status');
@@ -268,7 +357,7 @@ const updateAppProgress = (data) => {
     app.parsingProgress = data.progressText;
     app.progressValue = data.progressValue;
     
-    if (app.appName === 'Initializing...' || !app.appName) {
+    if (app.appName === 'Initializing...' || !app.appName || app.appName === 'New Application') {
       fetchApps();
     }
     
@@ -276,7 +365,8 @@ const updateAppProgress = (data) => {
       setTimeout(fetchApps, 1500);
     }
   } else {
-    if (data.status === 'PENDING_TO_LOADING' || data.status === 'LOADING') {
+    // Refresh list if new app enters processing or pending state
+    if (['PENDING_LOAD', 'INGESTING_BRONZE'].includes(data.status)) {
       fetchApps();
     }
   }
@@ -292,43 +382,85 @@ const handleOverwrite = async (appId, confirm) => {
   }
 };
 
+const openConfirmation = (action, appId) => {
+  activeDropdown.value = null;
+  confirmState.action = action;
+  confirmState.payload = appId;
+  confirmState.isOpen = true;
+
+  const app = apps.value.find(a => a.appId === appId);
+  const isFirstImport = app && app.parsingStatus === 'PENDING_LOAD';
+
+  if (action === 'delete') {
+    confirmState.title = 'Delete Application';
+    confirmState.message = `Are you sure you want to delete application ${appId}?\nThis will permanently clear all parsed data.`;
+    confirmState.type = 'danger';
+    confirmState.confirmText = 'Delete';
+  } else if (action === 'full') {
+    if (isFirstImport) {
+      confirmState.title = 'Import Application';
+      confirmState.message = `Start importing application ${appId}?\nThis process involves deep log parsing and analytical aggregation, which may take a few minutes for large logs.`;
+      confirmState.type = 'info';
+      confirmState.confirmText = 'Start Import';
+    } else {
+      confirmState.title = 'Full Re-import';
+      confirmState.message = `Full Re-import for ${appId}?\nThis will delete all existing parsed data and re-ingest raw logs.`;
+      confirmState.type = 'danger';
+      confirmState.confirmText = 'Re-import';
+    }
+  } else if (action === 'bronze-to-gold') {
+    confirmState.title = 'Re-process from Bronze';
+    confirmState.message = `Re-process from Bronze for ${appId}?\nThis keeps raw data but re-computes Silver and Gold layers.`;
+    confirmState.type = 'warning';
+    confirmState.confirmText = 'Start';
+  } else if (action === 'silver-to-gold') {
+    confirmState.title = 'Re-aggregate from Silver';
+    confirmState.message = `Re-aggregate from Silver for ${appId}?\nThis keeps Silver tables but re-computes Gold metrics and Final Summary.`;
+    confirmState.type = 'warning';
+    confirmState.confirmText = 'Start';
+  }
+};
+
+const handleConfirm = () => {
+  const { action, payload } = confirmState;
+  confirmState.isOpen = false;
+
+  if (action === 'delete') {
+    handleDelete(payload);
+  } else {
+    triggerReimport(payload, action);
+  }
+};
+
 const handleDelete = async (appId) => {
-  if (confirm(`Are you sure you want to delete application ${appId}? This will clear all parsed data.`)) {
-    try {
-      await axios.delete(`/api/applications/${appId}`);
-      fetchApps();
-    } catch (err) {
-      console.error(`Failed to delete application ${appId}`, err);
-      alert('Delete failed: ' + (err.response?.data?.message || err.message));
-    }
+  try {
+    await axios.delete(`/api/applications/${appId}`);
+    fetchApps();
+  } catch (err) {
+    console.error(`Failed to delete application ${appId}`, err);
+    alert('Delete failed: ' + (err.response?.data?.message || err.message));
   }
 };
 
-const handleReimport = async (appId) => {
-  if (confirm(`Re-import application ${appId}? Existing data will be cleared and logs will be parsed again.`)) {
-    try {
-      await axios.post(`/api/applications/${appId}/reimport`);
-      fetchApps();
-    } catch (err) {
-      console.error(`Failed to re-import application ${appId}`, err);
-      alert('Re-import failed: ' + (err.response?.data?.message || err.message));
+const triggerReimport = async (appId, mode) => {
+  try {
+    let url = `/api/bronze/import/${appId}`; // default (full)
+    if (mode === 'bronze-to-gold') url = `/api/bronze/reimport/${appId}/bronze-to-gold`;
+    else if (mode === 'silver-to-gold') url = `/api/bronze/reimport/${appId}/silver-to-gold`;
+    
+    await axios.post(url);
+    
+    // Optimistic update
+    const app = apps.value.find(a => a.appId === appId);
+    if (app) {
+        if (mode === 'silver-to-gold') app.parsingStatus = 'AGGREGATING_GOLD';
+        else if (mode === 'bronze-to-gold') app.parsingStatus = 'TRANSFORMING_SILVER';
+        else app.parsingStatus = 'INGESTING_BRONZE';
+        app.progressValue = 0;
     }
-  }
-};
-
-const handleBronzeImport = async (appId) => {
-  if (confirm(`Trigger Medallion Ingestion (Bronze -> Silver -> Gold) for application ${appId}? This uses high-speed DuckDB processing.`)) {
-    try {
-      processingMessage.value = `Starting high-speed ingestion for ${appId}...`;
-      await axios.post(`/api/bronze/import/${appId}`);
-      processingMessage.value = `Ingestion completed for ${appId}. Reloading data...`;
-      setTimeout(() => { processingMessage.value = ''; }, 3000);
-      fetchApps();
-    } catch (err) {
-      console.error(`Failed to trigger Medallion import for ${appId}`, err);
-      alert('Medallion import failed: ' + (err.response?.data?.message || err.message));
-      processingMessage.value = '';
-    }
+  } catch (err) {
+    console.error(`Failed to trigger import for ${appId}`, err);
+    alert('Import failed: ' + (err.response?.data?.message || err.message));
   }
 };
 
@@ -341,25 +473,37 @@ const columns = [
   {field: 'duration', label: 'Duration', width: '120px', sortable: true},
   {field: 'progress', label: 'Progress', width: '150px', sortable: false},
   {field: 'status', label: 'Status', width: '150px', sortable: true},
-  {field: 'action', label: 'Action', width: '180px', sortable: false}
+  {field: 'action', label: 'Action', width: '220px', sortable: false}
 ];
 
 const getProgressColor = (status) => {
-  if (status === 'FAILED') return '#e74c3c';
-  if (status === 'SUCCESS') return '#27ae60';
-  if (status === 'PRE_CALCULATING') return '#3498db';
-  return '#f39c12';
+  if (status === 'FAILED') return '#e74c3c'; // Red
+  if (status === 'SUCCESS') return '#27ae60'; // Green
+  if (status === 'INGESTING_BRONZE') return '#cd7f32'; // Bronze
+  if (status === 'TRANSFORMING_SILVER') return '#95a5a6'; // Silver
+  if (status === 'AGGREGATING_GOLD') return '#f1c40f'; // Gold
+  return '#3498db'; // Default Blue
 };
 
 const formatStatus = (status) => {
   if (!status) return 'SUCCESS';
+  // Custom mapping for specific statuses
+  const map = {
+    'INGESTING_BRONZE': 'Bronze Ingestion',
+    'TRANSFORMING_SILVER': 'Silver Transform',
+    'AGGREGATING_GOLD': 'Gold Aggregation',
+    'PENDING_LOAD': 'Ready to Load',
+    'PENDING_REIMPORT': 'Log Changed'
+  };
+  if (map[status]) return map[status];
+  
   return status.split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
 };
 
 const isProcessing = (status) => {
-  return status && status !== 'SUCCESS' && status !== 'FAILED';
+  return ['INGESTING_BRONZE', 'TRANSFORMING_SILVER', 'AGGREGATING_GOLD', 'LOADING'].includes(status);
 };
 
 const toggleCompare = (app) => {
@@ -498,10 +642,6 @@ const isFieldSorted = (field) => {
 };
 
 onMounted(() => {
-  if (route.query.processingMsg) {
-    processingMessage.value = route.query.processingMsg;
-    router.replace({query: {}});
-  }
   fetchApps();
   connectWebSocket();
 });
@@ -867,9 +1007,21 @@ onUnmounted(() => {
 
 .status-FAILED { color: #e74c3c; background-color: rgba(231, 76, 60, 0.1); }
 
-.status-LOADING, .status-RUNNING { color: #f39c12; background-color: rgba(243, 156, 18, 0.1); }
+.status-INGESTING_BRONZE { color: #cd7f32; background-color: rgba(205, 127, 50, 0.1); }
+.status-TRANSFORMING_SILVER { color: #7f8c8d; background-color: rgba(149, 165, 166, 0.1); }
+.status-AGGREGATING_GOLD { color: #f1c40f; background-color: rgba(241, 196, 15, 0.1); }
 
-.status-PENDING_TO_LOADING, .status-PENDING_OVERWRITE { color: #3498db; background-color: rgba(52, 152, 219, 0.1); }
+.status-LOADING, .status-RUNNING { 
+  color: #3498db; background-color: rgba(52, 152, 219, 0.1); 
+}
+
+.status-PENDING_LOAD, .status-PENDING_TO_LOADING, .status-READY { 
+  color: #95a5a6; background-color: rgba(149, 165, 166, 0.1); 
+}
+
+.status-PENDING_REIMPORT, .status-PENDING_OVERWRITE { 
+  color: #e67e22; background-color: rgba(230, 126, 34, 0.1); 
+}
 
 .status-PRE_CALCULATING { color: #9b59b6; background-color: rgba(155, 89, 182, 0.1); }
 
@@ -945,5 +1097,51 @@ onUnmounted(() => {
   opacity: 0.5;
   cursor: not-allowed;
   background: #f5f7fa;
+}
+
+.dropdown-trigger-wrapper {
+  display: inline-block;
+}
+
+.dropdown-menu-fixed {
+  position: fixed;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 9999; /* High z-index to be on top of everything */
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #333;
+  transition: background 0.2s;
+}
+
+.dropdown-item:hover {
+  background-color: #f5f7fa;
+  color: #3498db;
+}
+
+.dropdown-item .material-symbols-outlined {
+  font-size: 16px;
+  color: #7f8c8d;
+}
+
+.dropdown-item:hover .material-symbols-outlined {
+  color: #3498db;
 }
 </style>

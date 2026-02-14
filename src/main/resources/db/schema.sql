@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS applications (
     data_quality_note TEXT,
     parsing_status VARCHAR DEFAULT 'READY',
     parsing_progress VARCHAR,
+    source_file_metadata JSON,
     performance_score INTEGER,
     diagnosis_info JSON,
     llm_report TEXT,

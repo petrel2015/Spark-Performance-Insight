@@ -121,6 +121,25 @@
       <StorageTab v-if="activeTab === 'Storage' && app" :app-id="app.appId" />
       <EnvironmentTab v-if="activeTab === 'Environment'" :configs="environment"/>
     </div>
+
+    <!-- Restricted Access Modal -->
+    <div v-if="showRestrictedModal" class="modal-overlay">
+      <div class="modal-card">
+        <div class="modal-header warning">
+          <span class="material-symbols-outlined">warning</span>
+          <h3>Application Not Ready</h3>
+        </div>
+        <div class="modal-body">
+          <p>This application is not ready yet.</p>
+          <p>You cannot view details until the import process is completed.</p>
+        </div>
+        <div class="modal-footer">
+          <button class="primary-btn" @click="handleRestrictedBack">
+            Back to App List ({{ redirectCountdown }}s)
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -157,6 +176,16 @@ const generationMeta = ref({
   endTime: null,
   duration: null
 });
+
+// Access Control
+const showRestrictedModal = ref(false);
+const redirectCountdown = ref(5);
+let redirectTimer = null;
+
+const handleRestrictedBack = () => {
+  if (redirectTimer) clearInterval(redirectTimer);
+  router.push('/');
+};
 
 let pollTimer = null;
 let elapsedTimer = null;
@@ -254,7 +283,7 @@ const stopPolling = () => {
 
 const fetchDataForTab = async (tab) => {
   const appId = route.params.id;
-  if (!appId) return;
+  if (!appId || showRestrictedModal.value) return;
 
   if (tab === 'Diagnosis' && !report.value && !loading.value.diagnosis) {
     loading.value.diagnosis = true;
@@ -383,15 +412,37 @@ const forceRegenerateAIReport = async () => {
   await generateAIReport(true);
 };
 
-watch(() => route.path, () => syncTabWithRoute());
+const checkAppStatus = async () => {
+  if (!app.value) return;
+  const status = app.value.parsingStatus;
+  if (status && status !== 'SUCCESS' && status !== 'FAILED') {
+    showRestrictedModal.value = true;
+    redirectCountdown.value = 5;
+    redirectTimer = setInterval(() => {
+      redirectCountdown.value--;
+      if (redirectCountdown.value <= 0) {
+        handleRestrictedBack();
+      }
+    }, 1000);
+  }
+};
+
+watch(() => route.path, () => {
+  if (!showRestrictedModal.value) syncTabWithRoute();
+});
 
 onMounted(async () => {
-  syncTabWithRoute();
   loading.value.app = true;
   try {
     const appRes = await getApp(route.params.id);
     app.value = appRes.data;
     
+    // Check Status First
+    await checkAppStatus();
+    if (showRestrictedModal.value) return; // Stop if restricted
+
+    syncTabWithRoute();
+
     // Init meta info
     generationMeta.value = {
         startTime: app.value.llmStartTime,
@@ -409,10 +460,89 @@ onMounted(async () => {
   }
 });
 
-onUnmounted(() => stopPolling());
+onUnmounted(() => {
+  stopPolling();
+  if (redirectTimer) clearInterval(redirectTimer);
+});
 </script>
 
 <style scoped>
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.modal-card {
+  background: white;
+  border-radius: 8px;
+  width: 700px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.modal-header {
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: white;
+}
+
+.modal-header.warning {
+  background-color: #f39c12;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.modal-body {
+  padding: 2rem 1.5rem;
+  text-align: center;
+  color: #333;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+.modal-footer {
+  padding: 1rem 1.5rem;
+  background: #f8f9fa;
+  display: flex;
+  justify-content: center;
+}
+
+.primary-btn {
+  background-color: #f39c12;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.primary-btn:hover {
+  background-color: #e67e22;
+}
+
+/* Existing styles */
 .app-detail {
   padding: 0;
   display: flex;

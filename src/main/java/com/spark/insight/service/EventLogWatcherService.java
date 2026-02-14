@@ -1,21 +1,28 @@
 package com.spark.insight.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spark.insight.config.InsightProperties;
+import com.spark.insight.mapper.EventLogScanMapper;
 import com.spark.insight.mapper.ParsedEventLogMapper;
 import com.spark.insight.model.ApplicationModel;
 import com.spark.insight.model.EventLogStatus;
 import com.spark.insight.model.ParsedEventLogModel;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -25,7 +32,7 @@ public class EventLogWatcherService {
     private final InsightProperties properties;
     private final ParsedEventLogMapper parsedLogMapper;
     private final ApplicationService applicationService;
-    private final com.spark.insight.mapper.EventLogScanMapper scanMapper;
+    private final EventLogScanMapper scanMapper;
     private final StatusBroadcaster broadcaster;
     private final ApplicationLogService logService;
     
@@ -34,10 +41,26 @@ public class EventLogWatcherService {
     private final GoldAggregationService goldAggregationService;
 
     private final ExecutorService pipelineExecutor = Executors.newFixedThreadPool(4);
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     // Using [0-9] instead of \d to avoid escaping hell
     private static final Pattern APP_ID_PATTERN = Pattern.compile("(spark-[a-zA-Z0-9-]+)");
     private static final Pattern INDEX_PATTERN = Pattern.compile("[-_]([0-9]+)[-_]");
+
+    @Data
+    public static class FileMetadata {
+        private String name;
+        private String md5;
+        private long size;
+
+        public FileMetadata() {}
+
+        public FileMetadata(String name, String md5, long size) {
+            this.name = name;
+            this.md5 = md5;
+            this.size = size;
+        }
+    }
 
     @Scheduled(fixedDelayString = "${insight.scheduler.scan-interval-seconds:10}000")
     public void scan() {
@@ -66,10 +89,10 @@ public class EventLogWatcherService {
             long totalSize = files.stream().mapToLong(File::length).sum();
             ApplicationModel existingApp = applicationService.getById(appId);
 
-            if (existingApp != null) {
-                handlePendingOverwrite(appId, files, totalSize, existingApp.getParsingStatus());
-            } else {
+            if (existingApp == null) {
                 handleNewApp(appId, files, totalSize);
+            } else {
+                handleExistingApp(existingApp, files, totalSize);
             }
         });
     }
@@ -80,124 +103,200 @@ public class EventLogWatcherService {
         
         ApplicationModel app = new ApplicationModel();
         app.setAppId(appId);
-        app.setAppName("Initializing...");
-        app.setParsingStatus("PENDING_TO_LOADING");
+        app.setAppName("New Application"); // Will be updated during processing
+        app.setParsingStatus("PENDING_LOAD");
         app.setTotalLogSize(totalSize);
-        applicationService.save(app);
+        
+        try {
+            List<FileMetadata> metadataList = generateMetadata(files);
+            app.setSourceFileMetadata(objectMapper.writeValueAsString(metadataList));
+        } catch (Exception e) {
+            log.error("Failed to generate metadata for app: " + appId, e);
+        }
 
-        broadcaster.broadcastStatus(appId, "PENDING_TO_LOADING", 0.0, "Waiting to process...");
-        triggerProcessing(appId, files);
+        applicationService.save(app);
+        broadcaster.broadcastStatus(appId, "PENDING_LOAD", 0.0, "Ready to import");
     }
 
-    private void handlePendingOverwrite(String appId, List<File> files, long totalSize, String currentStatus) {
-        if ("PENDING_OVERWRITE".equals(currentStatus) || "LOADING".equals(currentStatus)) {
+    private void handleExistingApp(ApplicationModel app, List<File> files, long totalSize) {
+        String currentStatus = app.getParsingStatus();
+        // Skip if currently processing
+        if ("INGESTING_BRONZE".equals(currentStatus) || 
+            "TRANSFORMING_SILVER".equals(currentStatus) || 
+            "AGGREGATING_GOLD".equals(currentStatus)) {
             return;
         }
 
-        boolean hasChanges = false;
-        for (File file : files) {
-            String md5 = calculateMD5(file);
-            ParsedEventLogModel record = parsedLogMapper.selectById(file.getName());
-            if (record == null || !Objects.equals(record.getFileHash(), md5) || record.getStatus() == EventLogStatus.FAILED) {
-                hasChanges = true;
-                break;
-            }
-        }
-
-        if (!hasChanges) {
-            return;
-        }
-
-        logService.logEvent(appId, "SCAN", "Changes Detected", 
-                String.format("New/Modified log files found. Total size: %.2f MB", totalSize / (1024.0 * 1024.0)));
-
-        com.spark.insight.model.EventLogScanModel scan = new com.spark.insight.model.EventLogScanModel();
-        scan.setId(UUID.randomUUID().toString());
-        scan.setAppId(appId);
-        scan.setTotalSize(totalSize);
-        scan.setPreviousStatus(currentStatus);
-        scan.setDetectedTime(LocalDateTime.now());
-
-        List<String> filePaths = files.stream().map(File::getAbsolutePath).toList();
+        // Check if files changed
         try {
-            scan.setFilePaths(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(filePaths));
+            List<FileMetadata> currentMetadata = generateMetadata(files);
+            String storedMetadataJson = app.getSourceFileMetadata();
+            
+            boolean changed = false;
+            if (storedMetadataJson == null || storedMetadataJson.isEmpty()) {
+                // Backward compatibility: if no metadata stored, assume changed if it was previously SUCCESS/FAILED
+                // or maybe we should just update the metadata if it matches the files?
+                // For safety, let's treat null metadata as "changed" if we have files now.
+                changed = true;
+            } else {
+                List<FileMetadata> storedMetadata = objectMapper.readValue(storedMetadataJson, new TypeReference<List<FileMetadata>>() {});
+                if (!isMetadataEqual(currentMetadata, storedMetadata)) {
+                    changed = true;
+                }
+            }
+
+            if (changed && !"PENDING_REIMPORT".equals(currentStatus)) {
+                logService.logEvent(app.getAppId(), "SCAN", "Log File Changed", "File content or list changed.");
+                app.setParsingStatus("PENDING_REIMPORT");
+                // Update metadata to current? No, keep old metadata until re-import? 
+                // Plan says "Update status PENDING_REIMPORT". 
+                // We should probably NOT update the source_file_metadata in DB yet, 
+                // so we know what was the "original" vs "current". 
+                // But wait, if we don't update it, next scan will still see it as changed.
+                // Actually, the `scan()` runs periodically. If we update status to PENDING_REIMPORT, 
+                // we don't need to keep updating it. 
+                
+                applicationService.updateById(app);
+                broadcaster.broadcastStatus(app.getAppId(), "PENDING_REIMPORT", 0.0, "Log files changed");
+            }
+
         } catch (Exception e) {
-            log.error("Failed to serialize file paths", e);
+            log.error("Error checking existing app: " + app.getAppId(), e);
         }
-
-        scanMapper.insert(scan);
-
-        ApplicationModel app = applicationService.getById(appId);
-        app.setParsingStatus("PENDING_OVERWRITE");
-        applicationService.updateById(app);
-
-        broadcaster.broadcastStatus(appId, "PENDING_OVERWRITE", 0.0, "New logs detected. Overwrite needed.");
     }
 
     public void triggerProcessing(String appId, List<File> files) {
-        logService.logEvent(appId, "IMPORT", "Triggering Pipeline", "Starting Medallion pipeline for " + files.size() + " files");
+        logService.logEvent(appId, "IMPORT", "Bronze Start", "Starting Medallion pipeline");
         
         pipelineExecutor.submit(() -> {
             try {
-                ApplicationModel app = applicationService.getById(appId);
-                app.setParsingStatus("LOADING");
-                applicationService.updateById(app);
-                broadcaster.broadcastStatus(appId, "LOADING", 10.0, "Bronze: Ingesting raw logs...");
-
+                // Bronze
+                long t0 = System.currentTimeMillis();
+                updateStatus(appId, "INGESTING_BRONZE", 10.0, "Ingesting to Bronze layer...");
                 bronzeIngestionService.ingest(appId, files);
-                broadcaster.broadcastStatus(appId, "LOADING", 40.0, "Silver: Structuring data...");
+                logService.logEvent(appId, "IMPORT", "Bronze Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t0) / 1000.0));
 
+                // Silver
+                long t1 = System.currentTimeMillis();
+                logService.logEvent(appId, "TRANSFORM", "Silver Start", "Structuring data");
+                updateStatus(appId, "TRANSFORMING_SILVER", 40.0, "Transforming to Silver layer...");
                 silverTransformationService.transform(appId);
-                broadcaster.broadcastStatus(appId, "LOADING", 70.0, "Gold: Aggregating metrics...");
+                logService.logEvent(appId, "TRANSFORM", "Silver Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t1) / 1000.0));
 
+                // Gold
+                long t2 = System.currentTimeMillis();
+                logService.logEvent(appId, "AGGREGATE", "Gold Start", "Aggregating metrics");
+                updateStatus(appId, "AGGREGATING_GOLD", 70.0, "Aggregating to Gold layer...");
                 goldAggregationService.aggregate(appId);
+                logService.logEvent(appId, "AGGREGATE", "Gold Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t2) / 1000.0));
                 
-                app.setParsingStatus("SUCCESS");
-                applicationService.updateById(app);
-                
-                for (File file : files) {
-                    markFileAsSuccess(file, appId);
-                }
-                
-                broadcaster.broadcastStatus(appId, "SUCCESS", 100.0, "Pipeline completed successfully.");
-                logService.logEvent(appId, "SUCCESS", "Pipeline Finished", "App data fully processed and aggregated.");
+                // Success
+                finalizeSuccess(appId, files);
                 
             } catch (Exception e) {
-                log.error("Medallion pipeline failed for app: {}", appId, e);
-                ApplicationModel app = applicationService.getById(appId);
-                if (app != null) {
-                    app.setParsingStatus("FAILED");
-                    applicationService.updateById(app);
-                }
-                broadcaster.broadcastStatus(appId, "FAILED", 0.0, "Error: " + e.getMessage());
-                logService.logEvent(appId, "FAILED", "Pipeline Error", e.getMessage());
+                handleFailure(appId, e);
             }
         });
     }
 
-    private void markFileAsSuccess(File file, String appId) {
-        String fileName = file.getName();
-        ParsedEventLogModel record = parsedLogMapper.selectById(fileName);
-        if (record == null) {
-            record = new ParsedEventLogModel();
-            record.setFileName(fileName);
-            record.setAppId(appId);
-            record.setCreateTime(LocalDateTime.now());
+    public void triggerProcessingFromBronze(String appId, List<File> files) {
+        logService.logEvent(appId, "TRANSFORM", "Silver Start", "Re-running pipeline from Silver (using existing Bronze)");
+        
+        pipelineExecutor.submit(() -> {
+            try {
+                // Silver
+                long t1 = System.currentTimeMillis();
+                updateStatus(appId, "TRANSFORMING_SILVER", 40.0, "Transforming to Silver layer...");
+                silverTransformationService.transform(appId);
+                logService.logEvent(appId, "TRANSFORM", "Silver Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t1) / 1000.0));
+
+                // Gold
+                long t2 = System.currentTimeMillis();
+                logService.logEvent(appId, "AGGREGATE", "Gold Start", "Aggregating metrics");
+                updateStatus(appId, "AGGREGATING_GOLD", 70.0, "Aggregating to Gold layer...");
+                goldAggregationService.aggregate(appId);
+                logService.logEvent(appId, "AGGREGATE", "Gold Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t2) / 1000.0));
+                
+                finalizeSuccess(appId, files);
+            } catch (Exception e) {
+                handleFailure(appId, e);
+            }
+        });
+    }
+
+    public void triggerProcessingFromSilver(String appId, List<File> files) {
+        logService.logEvent(appId, "AGGREGATE", "Gold Start", "Re-running pipeline from Gold (using existing Silver)");
+        
+        pipelineExecutor.submit(() -> {
+            try {
+                // Gold
+                long t2 = System.currentTimeMillis();
+                updateStatus(appId, "AGGREGATING_GOLD", 70.0, "Aggregating to Gold layer...");
+                goldAggregationService.aggregate(appId);
+                logService.logEvent(appId, "AGGREGATE", "Gold Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t2) / 1000.0));
+                
+                finalizeSuccess(appId, files);
+            } catch (Exception e) {
+                handleFailure(appId, e);
+            }
+        });
+    }
+
+    private void finalizeSuccess(String appId, List<File> files) throws Exception {
+        ApplicationModel app = applicationService.getById(appId);
+        app.setParsingStatus("SUCCESS");
+        
+        // Update metadata to reflect the files we just successfully processed
+        List<FileMetadata> metadata = generateMetadata(files);
+        app.setSourceFileMetadata(objectMapper.writeValueAsString(metadata));
+        
+        applicationService.updateById(app);
+        
+        broadcaster.broadcastStatus(appId, "SUCCESS", 100.0, "Pipeline completed successfully.");
+        logService.logEvent(appId, "SUCCESS", "Pipeline Finished", "App data fully processed.");
+    }
+
+    private void handleFailure(String appId, Exception e) {
+        log.error("Medallion pipeline failed for app: {}", appId, e);
+        updateStatus(appId, "FAILED", 0.0, "Error: " + e.getMessage());
+        logService.logEvent(appId, "FAILED", "Pipeline Error", e.getMessage());
+    }
+
+    private void updateStatus(String appId, String status, double progress, String msg) {
+        ApplicationModel app = applicationService.getById(appId);
+        if (app != null) {
+            app.setParsingStatus(status);
+            // We use 'msg' as parsingProgress text, or format it with percentage
+            app.setParsingProgress(String.format("%.0f%% %s", progress, msg));
+            applicationService.updateById(app);
         }
-        record.setFileHash(calculateMD5(file));
-        record.setFileSize(file.length());
-        record.setStatus(EventLogStatus.SUCCESS);
-        record.setUpdateTime(LocalDateTime.now());
-        if (parsedLogMapper.selectById(fileName) == null) {
-            parsedLogMapper.insert(record);
-        } else {
-            parsedLogMapper.updateById(record);
+        broadcaster.broadcastStatus(appId, status, progress, msg);
+    }
+
+    private List<FileMetadata> generateMetadata(List<File> files) {
+        return files.stream()
+                .sorted(Comparator.comparing(File::getName))
+                .map(f -> new FileMetadata(f.getName(), calculateMD5(f), f.length()))
+                .collect(Collectors.toList());
+    }
+
+    private boolean isMetadataEqual(List<FileMetadata> list1, List<FileMetadata> list2) {
+        if (list1.size() != list2.size()) return false;
+        for (int i = 0; i < list1.size(); i++) {
+            FileMetadata m1 = list1.get(i);
+            FileMetadata m2 = list2.get(i);
+            if (!Objects.equals(m1.getName(), m2.getName()) || 
+                !Objects.equals(m1.getMd5(), m2.getMd5()) || 
+                m1.getSize() != m2.getSize()) {
+                return false;
+            }
         }
+        return true;
     }
 
     private String calculateMD5(File file) {
-        try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
-            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("MD5");
+        try (FileInputStream fis = new FileInputStream(file)) {
+            MessageDigest digest = MessageDigest.getInstance("MD5");
             byte[] buffer = new byte[8192];
             int read;
             while ((read = fis.read(buffer)) != -1) {

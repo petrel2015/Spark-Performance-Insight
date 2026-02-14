@@ -21,9 +21,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class BronzeController {
 
-    private final BronzeIngestionService bronzeIngestionService;
-    private final SilverTransformationService silverTransformationService;
-    private final GoldAggregationService goldAggregationService;
+    private final com.spark.insight.service.EventLogWatcherService eventLogWatcherService;
     private final InsightProperties properties;
 
     @PostMapping("/import/{appId}")
@@ -41,16 +39,31 @@ public class BronzeController {
             throw new RuntimeException("No log files found for appId: " + appId);
         }
 
-        // 1. Bronze Ingestion (Raw JSON)
-        bronzeIngestionService.ingest(appId, appFiles);
+        // Delegate to WatcherService which handles async execution and status updates
+        eventLogWatcherService.triggerProcessing(appId, appFiles);
         
-        // 2. Silver Transformation (Structured Columns)
-        silverTransformationService.transform(appId);
+        log.info("Pipeline triggered asynchronously for appId: {}", appId);
+    }
 
-        // 3. Gold Aggregation (Analytical Summary)
-        goldAggregationService.aggregate(appId);
-        
-        log.info("Successfully completed full Medallion pipeline for appId: {}", appId);
+    @PostMapping("/reimport/{appId}/full")
+    public void reimportFull(@PathVariable String appId) {
+        importToBronze(appId);
+    }
+
+    @PostMapping("/reimport/{appId}/bronze-to-gold")
+    public void reimportBronzeToGold(@PathVariable String appId) {
+        log.info("Triggering Medallion pipeline (Bronze->Silver->Gold) for appId: {}", appId);
+        File directory = new File(properties.getEventLogPath());
+        List<File> appFiles = findAppFiles(directory, appId);
+        eventLogWatcherService.triggerProcessingFromBronze(appId, appFiles);
+    }
+
+    @PostMapping("/reimport/{appId}/silver-to-gold")
+    public void reimportSilverToGold(@PathVariable String appId) {
+        log.info("Triggering Medallion pipeline (Silver->Gold) for appId: {}", appId);
+        File directory = new File(properties.getEventLogPath());
+        List<File> appFiles = findAppFiles(directory, appId);
+        eventLogWatcherService.triggerProcessingFromSilver(appId, appFiles);
     }
 
     private List<File> findAppFiles(File dir, String appId) {

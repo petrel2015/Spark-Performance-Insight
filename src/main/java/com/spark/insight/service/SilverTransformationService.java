@@ -23,28 +23,29 @@ public class SilverTransformationService {
         cleanSilverData(appId);
 
         // 1. Extract Application Metadata First (to update "Initializing...")
-        progressReporter.accept(10.0, "Silver: Extracting Metadata...");
+        progressReporter.accept(5.0, "Silver: Extracting Metadata...");
         transformApplicationMetadata(appId);
 
-        // 2. Core transformations
-        progressReporter.accept(20.0, "Silver: Processing Tasks...");
+        // 2. Core transformations - Estimated weights based on complexity
+        progressReporter.accept(10.0, "Silver: Transforming Tasks (Heavy)...");
         transformTasks(appId);
         
-        progressReporter.accept(40.0, "Silver: Processing Stages...");
+        progressReporter.accept(40.0, "Silver: Transforming Stages...");
         transformStages(appId);
         
-        progressReporter.accept(60.0, "Silver: Processing Jobs...");
+        progressReporter.accept(60.0, "Silver: Transforming Jobs...");
         transformJobs(appId);
         
-        progressReporter.accept(75.0, "Silver: Processing Executors...");
+        progressReporter.accept(75.0, "Silver: Transforming Executors...");
         transformExecutors(appId);
         
-        progressReporter.accept(85.0, "Silver: Processing SQL...");
+        progressReporter.accept(85.0, "Silver: Transforming SQL Executions...");
         transformSql(appId);
         
-        progressReporter.accept(95.0, "Silver: Processing Environment...");
+        progressReporter.accept(95.0, "Silver: Finalizing Environment...");
         transformEnvironment(appId);
 
+        progressReporter.accept(100.0, "Silver: Completed");
         log.info("Finished Silver transformation for app: {}", appId);
     }
     

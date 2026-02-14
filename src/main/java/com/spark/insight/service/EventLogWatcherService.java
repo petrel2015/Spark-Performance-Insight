@@ -227,8 +227,9 @@ public class EventLogWatcherService {
                 // Gold (70-100%)
                 long t2 = System.currentTimeMillis();
                 logService.logEvent(appId, "AGGREGATE", "Gold Start", "Aggregating metrics");
-                updateStatus(appId, "AGGREGATING_GOLD", 70.0, "Aggregating to Gold layer...");
-                goldAggregationService.aggregate(appId);
+                goldAggregationService.aggregate(appId, (p, msg) -> {
+                    updateStatus(appId, "AGGREGATING_GOLD", 70.0 + (p * 0.3), msg);
+                });
                 logService.logEvent(appId, "AGGREGATE", "Gold Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t2) / 1000.0));
                 
                 // Success
@@ -257,8 +258,9 @@ public class EventLogWatcherService {
                 // Gold
                 long t2 = System.currentTimeMillis();
                 logService.logEvent(appId, "AGGREGATE", "Gold Start", "Aggregating metrics");
-                updateStatus(appId, "AGGREGATING_GOLD", 60.0, "Aggregating to Gold layer...");
-                goldAggregationService.aggregate(appId);
+                goldAggregationService.aggregate(appId, (p, msg) -> {
+                    updateStatus(appId, "AGGREGATING_GOLD", 60.0 + (p * 0.4), msg);
+                });
                 logService.logEvent(appId, "AGGREGATE", "Gold Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t2) / 1000.0));
                 
                 finalizeSuccess(appId, files);
@@ -277,8 +279,9 @@ public class EventLogWatcherService {
             try {
                 // Gold
                 long t2 = System.currentTimeMillis();
-                updateStatus(appId, "AGGREGATING_GOLD", 10.0, "Aggregating to Gold layer...");
-                goldAggregationService.aggregate(appId);
+                goldAggregationService.aggregate(appId, (p, msg) -> {
+                    updateStatus(appId, "AGGREGATING_GOLD", p, msg);
+                });
                 logService.logEvent(appId, "AGGREGATE", "Gold Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t2) / 1000.0));
                 
                 finalizeSuccess(appId, files);

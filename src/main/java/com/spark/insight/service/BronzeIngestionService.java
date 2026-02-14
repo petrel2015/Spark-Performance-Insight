@@ -56,41 +56,60 @@ public class BronzeIngestionService {
         jdbcTemplate.update("DELETE FROM bronze_event_unknown WHERE app_id = ?", appId);
 
         for (File file : files) {
-            String fileName = file.getName();
-            progressReporter.accept(
-                calculateProgress(processedBytes, totalBytes), 
-                String.format("Bronze: Reading %s...", fileName)
-            );
+            long fileStartBytes = processedBytes;
+            long fileLength = file.length();
             
-            ingestFileOptimized(appId, file);
+            ingestFileChunked(appId, file, (p, m) -> {
+                // Map file-internal progress to overall Bronze progress
+                double overallProgress = calculateProgress(fileStartBytes + (long)(p / 100.0 * fileLength), totalBytes);
+                progressReporter.accept(overallProgress, m);
+            });
             
-            processedBytes += file.length();
-            progressReporter.accept(
-                calculateProgress(processedBytes, totalBytes),
-                String.format("Bronze: Processed %s", fileName)
-            );
+            processedBytes += fileLength;
         }
         
         log.info("Finished Bronze ingestion for app: {}", appId);
     }
 
-    // Retaining legacy signature for compatibility if needed, but updated to delegate
-    public void ingest(String appId, List<File> files) {
-        ingest(appId, files, (p, m) -> {});
-    }
-
-    private void ingestFileOptimized(String appId, File file) {
+    private void ingestFileChunked(String appId, File file, BiConsumer<Double, String> fileProgressReporter) {
         String filePath = file.getAbsolutePath();
         String fileName = file.getName();
-        
-        // 1. Load file into temporary table (IO bound, done once)
-        jdbcTemplate.execute("CREATE TEMPORARY TABLE IF NOT EXISTS temp_raw_lines (line VARCHAR)");
-        jdbcTemplate.execute("DELETE FROM temp_raw_lines"); // Clear previous file content
-        
-        String loadSql = String.format("INSERT INTO temp_raw_lines SELECT * FROM read_csv('%s', delim='\u0001', header=false, quote='', escape='', columns={'line': 'VARCHAR'})", filePath.replace("'", "''"));
-        jdbcTemplate.execute(loadSql);
+        String escapedPath = filePath.replace("'", "''");
 
-        // 2. Distribute to target tables (CPU/Memory bound, fast)
+        // 1. Count total lines (fast in DuckDB)
+        String countSql = String.format("SELECT count(*) FROM read_csv('%s', delim='\u0001', header=false, quote='', escape='', columns={'line': 'VARCHAR'})", escapedPath);
+        Long totalLines = jdbcTemplate.queryForObject(countSql, Long.class);
+        if (totalLines == null || totalLines == 0) return;
+
+        log.info("Ingesting {} ({} lines) in chunks", fileName, totalLines);
+
+        int chunkSize = 50000;
+        jdbcTemplate.execute("CREATE TEMPORARY TABLE IF NOT EXISTS temp_raw_lines (line VARCHAR)");
+
+        for (long offset = 0; offset < totalLines; offset += chunkSize) {
+            long currentLimit = Math.min(chunkSize, totalLines - offset);
+            
+            // 2. Load chunk into temporary table
+            jdbcTemplate.execute("DELETE FROM temp_raw_lines");
+            String loadSql = String.format(
+                "INSERT INTO temp_raw_lines SELECT * FROM read_csv('%s', delim='\u0001', header=false, quote='', escape='', columns={'line': 'VARCHAR'}) LIMIT %d OFFSET %d", 
+                escapedPath, currentLimit, offset
+            );
+            jdbcTemplate.execute(loadSql);
+
+            // 3. Distribute to target tables
+            distributeFromTempTable(appId, fileName);
+
+            // 4. Report progress
+            double progress = (double) (offset + currentLimit) / totalLines * 100.0;
+            fileProgressReporter.accept(progress, String.format("Bronze: Processing %s (%.1f%%)", fileName, progress));
+        }
+        
+        jdbcTemplate.execute("DROP TABLE temp_raw_lines");
+    }
+
+    private void distributeFromTempTable(String appId, String fileName) {
+        // Distribute to target tables (CPU/Memory bound, fast)
         for (Map.Entry<String, String> entry : EVENT_TABLE_MAP.entrySet()) {
             String eventName = entry.getKey();
             String tableName = entry.getValue();
@@ -105,7 +124,7 @@ public class BronzeIngestionService {
             jdbcTemplate.update(insertSql, appId, fileName, eventName);
         }
 
-        // 3. Handle unknown events
+        // Handle unknown events
         StringBuilder knownEventsPart = new StringBuilder();
         for (String event : EVENT_TABLE_MAP.keySet()) {
             if (knownEventsPart.length() > 0) knownEventsPart.append(", ");
@@ -120,9 +139,6 @@ public class BronzeIngestionService {
             """.formatted(knownEventsPart.toString());
         
         jdbcTemplate.update(unknownSql, appId, fileName);
-        
-        // 4. Cleanup
-        jdbcTemplate.execute("DELETE FROM temp_raw_lines");
     }
 
     private double calculateProgress(long processed, long total) {

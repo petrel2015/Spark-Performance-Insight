@@ -14,19 +14,34 @@ public class GoldAggregationService {
     private final JdbcTemplate jdbcTemplate;
 
     @Transactional
-    public void aggregate(String appId) {
+    public void aggregate(String appId, java.util.function.BiConsumer<Double, String> progressReporter) {
         log.info("Starting Gold aggregation and Sync (SQL Recovery Mode) for app: {}", appId);
+        progressReporter.accept(0.0, "Gold: Initializing...");
 
         cleanGoldData(appId);
 
+        progressReporter.accept(10.0, "Gold: Aggregating Stages & Tasks (Heavy)...");
         aggregateStages(appId);
+        
+        progressReporter.accept(60.0, "Gold: Aggregating Jobs...");
         aggregateJobs(appId);
+        
+        progressReporter.accept(80.0, "Gold: Aggregating Executors...");
         aggregateExecutors(appId);
+        
+        progressReporter.accept(90.0, "Gold: Aggregating SQL...");
         aggregateSql(appId);
+        
+        progressReporter.accept(95.0, "Gold: Finalizing Application Metrics...");
         aggregateEnvironment(appId);
         aggregateApp(appId);
 
+        progressReporter.accept(100.0, "Gold: Completed");
         log.info("Finished Gold aggregation and Sync for app: {}", appId);
+    }
+
+    public void aggregate(String appId) {
+        aggregate(appId, (p, m) -> {});
     }
 
     private void cleanGoldData(String appId) {

@@ -63,6 +63,7 @@ public class SilverTransformationService {
                 launch_time TIMESTAMP, finish_time TIMESTAMP, duration_ms BIGINT, 
                 status VARCHAR, locality VARCHAR, speculative BOOLEAN, 
                 executor_run_time BIGINT, executor_cpu_time BIGINT, gc_time BIGINT, 
+                executor_deserialize_time BIGINT, result_serialization_time BIGINT, getting_result_time BIGINT, scheduler_delay BIGINT,
                 input_bytes BIGINT, output_bytes BIGINT, shuffle_read_bytes BIGINT, 
                 shuffle_write_bytes BIGINT, memory_bytes_spilled BIGINT, 
                 disk_bytes_spilled BIGINT, peak_execution_memory BIGINT
@@ -197,7 +198,7 @@ public class SilverTransformationService {
                 FROM bronze_event_task_end WHERE app_id = ?
                 ORDER BY app_id, (json_extract(raw_json, '$."Task Info"."Task ID"'))::BIGINT, ingested_at DESC
             )
-            INSERT INTO silver_tasks (app_id, task_id, stage_id, stage_attempt_id, executor_id, host, index, attempt_number, launch_time, finish_time, duration_ms, status, locality, speculative, executor_run_time, executor_cpu_time, gc_time, input_bytes, output_bytes, shuffle_read_bytes, shuffle_write_bytes, memory_bytes_spilled, disk_bytes_spilled, peak_execution_memory)
+            INSERT INTO silver_tasks (app_id, task_id, stage_id, stage_attempt_id, executor_id, host, index, attempt_number, launch_time, finish_time, duration_ms, status, locality, speculative, executor_run_time, executor_cpu_time, gc_time, executor_deserialize_time, result_serialization_time, getting_result_time, scheduler_delay, input_bytes, output_bytes, shuffle_read_bytes, shuffle_write_bytes, memory_bytes_spilled, disk_bytes_spilled, peak_execution_memory)
             SELECT DISTINCT ON (app_id, task_id)
                 app_id, task_id,
                 (json_extract(raw_json, '$."Stage ID"'))::INT,
@@ -215,6 +216,15 @@ public class SilverTransformationService {
                 (json_extract(raw_json, '$."Task Metrics"."Executor Run Time"'))::BIGINT,
                 (json_extract(raw_json, '$."Task Metrics"."Executor CPU Time"'))::BIGINT,
                 (json_extract(raw_json, '$."Task Metrics"."JVM GC Time"'))::BIGINT,
+                (json_extract(raw_json, '$."Task Metrics"."Executor Deserialize Time"'))::BIGINT,
+                (json_extract(raw_json, '$."Task Metrics"."Result Serialization Time"'))::BIGINT,
+                (json_extract(raw_json, '$."Task Info"."Getting Result Time"'))::BIGINT,
+                -- Scheduler Delay = Duration - RunTime - Deser - Ser - GettingResult
+                ((json_extract(raw_json, '$."Task Info"."Finish Time"'))::BIGINT - (json_extract(raw_json, '$."Task Info"."Launch Time"'))::BIGINT) - 
+                COALESCE((json_extract(raw_json, '$."Task Metrics"."Executor Run Time"'))::BIGINT, 0) - 
+                COALESCE((json_extract(raw_json, '$."Task Metrics"."Executor Deserialize Time"'))::BIGINT, 0) - 
+                COALESCE((json_extract(raw_json, '$."Task Metrics"."Result Serialization Time"'))::BIGINT, 0) - 
+                COALESCE((json_extract(raw_json, '$."Task Info"."Getting Result Time"'))::BIGINT, 0),
                 (json_extract(raw_json, '$."Task Metrics"."Input Metrics"."Bytes Read"'))::BIGINT,
                 (json_extract(raw_json, '$."Task Metrics"."Output Metrics"."Bytes Written"'))::BIGINT,
                 (json_extract(raw_json, '$."Task Metrics"."Shuffle Read Metrics"."Total Bytes Read"'))::BIGINT,

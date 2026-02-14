@@ -208,9 +208,13 @@ public class GoldAggregationService {
 
         // 4. Tasks
         jdbcTemplate.update("""
-            INSERT INTO tasks (id, app_id, stage_id, attempt_id, task_id, task_index, executor_id, host, launch_time, finish_time, duration, status)
+            INSERT INTO tasks (id, app_id, stage_id, attempt_id, task_id, task_index, executor_id, host, launch_time, finish_time, duration, status,
+                               gc_time, scheduler_delay, getting_result_time, executor_deserialize_time, executor_run_time, result_serialization_time, executor_cpu_time, peak_execution_memory,
+                               input_bytes, output_bytes, shuffle_read_bytes, shuffle_write_bytes, memory_bytes_spilled, disk_bytes_spilled, speculative, locality)
             SELECT uuid(), app_id, stage_id, stage_attempt_id, task_id, index, executor_id, host, 
-                   epoch(launch_time) * 1000, epoch(finish_time) * 1000, duration_ms, status
+                   epoch(launch_time) * 1000, epoch(finish_time) * 1000, duration_ms, status,
+                   gc_time, scheduler_delay, getting_result_time, executor_deserialize_time, executor_run_time, result_serialization_time, executor_cpu_time, peak_execution_memory,
+                   input_bytes, output_bytes, shuffle_read_bytes, shuffle_write_bytes, memory_bytes_spilled, disk_bytes_spilled, speculative, locality
             FROM silver_tasks
             WHERE app_id = ?
             """, appId);

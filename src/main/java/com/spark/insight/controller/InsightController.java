@@ -33,8 +33,12 @@ public class InsightController {
 
     private void checkAppReady(String appId) {
         ApplicationModel app = applicationService.getById(appId);
-        if (app != null && "PARSING".equals(app.getParsingStatus())) {
-            String msg = app.getParsingProgress() != null ? app.getParsingProgress() : "Processing...";
+        if (app == null) return;
+        
+        String status = app.getParsingStatus();
+        // 如果状态不是 SUCCESS 或 FAILED，说明数据尚不完整，禁止进入详情
+        if (!"SUCCESS".equals(status) && !"FAILED".equals(status)) {
+            String msg = app.getParsingProgress() != null ? app.getParsingProgress() : "Application data is not ready (Status: " + (status != null ? status : "DETECTED") + ")";
             throw new AppParsingException(msg);
         }
     }

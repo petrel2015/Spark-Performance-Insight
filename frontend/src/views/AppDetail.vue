@@ -415,9 +415,11 @@ const forceRegenerateAIReport = async () => {
 const checkAppStatus = async () => {
   if (!app.value) return;
   const status = app.value.parsingStatus;
-  if (status && status !== 'SUCCESS' && status !== 'FAILED') {
+  // If status is not SUCCESS or FAILED, it's not ready
+  if (!status || (status !== 'SUCCESS' && status !== 'FAILED')) {
     showRestrictedModal.value = true;
     redirectCountdown.value = 5;
+    if (redirectTimer) clearInterval(redirectTimer);
     redirectTimer = setInterval(() => {
       redirectCountdown.value--;
       if (redirectCountdown.value <= 0) {

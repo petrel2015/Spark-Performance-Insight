@@ -44,7 +44,7 @@ insight:
   event-log-path: ./workspace/eventlog
   duckdb:
     threads: ${DUCKDB_THREADS:4}
-    memory-limit: ${DUCKDB_MEMORY_LIMIT:2GB}
+    memory-limit: ${DUCKDB_MEMORY_LIMIT:8GB}
     temp-directory: ${DUCKDB_TEMP_DIR:./spark-performance-insight-duckdb.tmp}
   scheduler:
     scan-interval-seconds: 3600

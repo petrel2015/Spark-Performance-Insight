@@ -107,7 +107,7 @@
             <td v-if="compareStore.isCompareMode" style="width: 60px; min-width: 60px; text-align: center;">
               <button class="select-btn" 
                       style="margin: 0 auto;"
-                      :disabled="isProcessing(app.parsingStatus)"
+                      :disabled="!isReady(app.parsingStatus)"
                       :class="{ selected: compareStore.isInWorkspace(app.appId, 'app') }"
                       @click="toggleCompare(app)">
                 <span class="material-symbols-outlined">
@@ -120,7 +120,7 @@
               <div class="name-cell-wrapper">
                 <router-link :to="'/app/' + app.appId" 
                              class="app-link"
-                             :class="{ 'disabled-link': isProcessing(app.parsingStatus) }">
+                             :class="{ 'disabled-link': !isReady(app.parsingStatus) }">
                   {{ app.appName || 'Unknown Application' }}
                 </router-link>
                 <div v-if="app.parsingStatus === 'PENDING_OVERWRITE'" class="overwrite-prompt">
@@ -146,15 +146,15 @@
             <!-- PROGRESS Column -->
             <td>
               <div class="progress-cell">
-                <div class="progress-track">
+                <div class="progress-track" :title="getProgressTooltip(app)">
                   <div class="progress-fill" 
                        :style="{ 
-                         width: (app.parsingStatus === 'SUCCESS' || !app.parsingStatus ? 100 : (app.progressValue || 0)) + '%', 
-                         backgroundColor: getProgressColor(app.parsingStatus || 'SUCCESS') 
+                         width: (app.parsingStatus === 'SUCCESS' ? 100 : (app.progressValue || 0)) + '%', 
+                         backgroundColor: getProgressColor(app.parsingStatus || 'PENDING_LOAD') 
                        }">
                   </div>
                   <div class="progress-text-overlay">
-                    {{ app.parsingStatus === 'SUCCESS' || !app.parsingStatus ? '100%' : Math.round(app.progressValue || 0) + '%' }}
+                    {{ app.parsingStatus === 'SUCCESS' ? '100%' : Math.round(app.progressValue || 0) + '%' }}
                   </div>
                 </div>
               </div>
@@ -163,7 +163,8 @@
             <!-- STATUS Column -->
             <td>
               <div class="status-cell">
-                <span :class="'status-badge status-' + (app.parsingStatus || 'SUCCESS')">
+                <span :class="'status-badge status-' + (app.parsingStatus || 'PENDING_LOAD')" 
+                      :title="getStatusTooltip(app)">
                   {{ formatStatus(app.parsingStatus) }}
                 </span>
               </div>
@@ -173,7 +174,7 @@
             <td>
               <div class="action-cell">
                 <!-- PENDING_LOAD: Import -->
-                <button v-if="app.parsingStatus === 'PENDING_LOAD'" 
+                <button v-if="app.parsingStatus === 'PENDING_LOAD' || !app.parsingStatus || app.parsingStatus === 'READY'" 
                         class="action-btn bronze" 
                         @click="openConfirmation('full', app.appId)" 
                         title="Start Medallion Pipeline">
@@ -191,7 +192,7 @@
                 </button>
 
                 <!-- SUCCESS/FAILED: Granular Re-run Options -->
-                <template v-if="['SUCCESS', 'FAILED'].includes(app.parsingStatus) || !app.parsingStatus">
+                <template v-if="['SUCCESS', 'FAILED'].includes(app.parsingStatus)">
                   
                   <!-- Using class 'dropdown-container' mainly for click-outside reference if needed, 
                        but with Teleport we might handle closing differently or rely on global click listener -->
@@ -358,21 +359,30 @@ const updateAppProgress = (data) => {
   const index = apps.value.findIndex(a => a.appId === data.appId);
   if (index !== -1) {
     const app = apps.value[index];
+    
+    // Core property updates from WebSocket - NEVER call fetchApps here during processing
     app.parsingStatus = data.status;
     app.parsingProgress = data.progressText;
     app.progressValue = data.progressValue;
+    app.parsingStartTime = data.startTime;
     
-    if (app.appName === 'Initializing...' || !app.appName || app.appName === 'New Application') {
-      fetchApps();
+    // Update name locally if it's the first time we're seeing it
+    if (data.appName && (app.appName === 'Initializing...' || !app.appName || app.appName === 'New Application' || app.appName === 'Pending Analysis' || app.appName === 'Unparsed Application')) {
+      app.appName = data.appName;
     }
     
+    // Only refresh the full list when the application reaches a terminal state
     if (data.status === 'SUCCESS' || data.status === 'FAILED') {
-      setTimeout(fetchApps, 1500);
+      // Small delay to ensure DB is fully flushed
+      setTimeout(fetchApps, 2000);
     }
   } else {
-    // Refresh list if new app enters processing or pending state
-    if (['PENDING_LOAD', 'INGESTING_BRONZE', 'QUEUED'].includes(data.status)) {
-      fetchApps();
+    // If a completely new app is detected (that wasn't in the initial list)
+    // and we are on page 1, we do one refresh to show it.
+    if (currentPage.value === 1 && ['QUEUED', 'INGESTING_BRONZE'].includes(data.status)) {
+       // Debounce or just check if we already have it in a separate logic?
+       // For now, only refresh if it's definitely not in our apps array.
+       fetchApps();
     }
   }
 };
@@ -504,7 +514,9 @@ const getProgressColor = (status) => {
 };
 
 const formatStatus = (status) => {
-  if (!status) return 'SUCCESS';
+  if (!status || status === 'READY') return 'Detected';
+  if (status === 'SUCCESS') return 'Success';
+  
   // Custom mapping for specific statuses
   const map = {
     'INGESTING_BRONZE': 'Bronze Ingestion',
@@ -512,7 +524,8 @@ const formatStatus = (status) => {
     'AGGREGATING_GOLD': 'Gold Aggregation',
     'PENDING_LOAD': 'Ready to Load',
     'PENDING_REIMPORT': 'Log Changed',
-    'QUEUED': 'Queued'
+    'QUEUED': 'Queued',
+    'FAILED': 'Failed'
   };
   if (map[status]) return map[status];
   
@@ -521,8 +534,55 @@ const formatStatus = (status) => {
     .join(' ');
 };
 
+const STAGE_DESCRIPTIONS = {
+  'INGESTING_BRONZE': 'Bronze (Ingestion): Raw event logs are loaded into the database without modification. It is the Source of Truth.',
+  'TRANSFORMING_SILVER': 'Silver (Transformation): Data is parsed, structured, and normalized. Business logic and initial metrics are applied.',
+  'AGGREGATING_GOLD': 'Gold (Aggregation): High-level metrics, P95/Median values, and performance scores are pre-calculated for the UI.',
+  'QUEUED': 'Job is waiting in the processing queue.',
+  'PENDING_LOAD': 'New log discovered. Waiting for user to start import.',
+  'FAILED': 'Pipeline failed. Check tooltip for error details.'
+};
+
+const getStatusTooltip = (app) => {
+  let tip = app.parsingProgress || formatStatus(app.parsingStatus);
+  const desc = STAGE_DESCRIPTIONS[app.parsingStatus];
+  if (desc) tip += `\n\n${desc}`;
+  return tip;
+};
+
+const getProgressTooltip = (app) => {
+  if (!app.parsingStartTime || !app.progressValue || app.progressValue <= 0 || app.progressValue >= 100) {
+    return app.parsingProgress || 'No timing info available';
+  }
+
+  const start = new Date(app.parsingStartTime).getTime();
+  const now = Date.now();
+  const elapsedMs = now - start;
+  
+  if (elapsedMs <= 0) return 'Calculating timing...';
+
+  const totalEstimatedMs = (elapsedMs / app.progressValue) * 100;
+  const remainingMs = totalEstimatedMs - elapsedMs;
+
+  const formatMs = (ms) => {
+    const totalSecs = Math.floor(ms / 1000);
+    const mins = Math.floor(totalSecs / 60);
+    const secs = totalSecs % 60;
+    return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+  };
+
+  return `Elapsed: ${formatMs(elapsedMs)}\nEstimated Remaining: ${formatMs(remainingMs)}`;
+};
+
 const isProcessing = (status) => {
-  return ['INGESTING_BRONZE', 'TRANSFORMING_SILVER', 'AGGREGATING_GOLD', 'LOADING', 'PENDING_LOAD', 'PENDING_REIMPORT', 'READY', 'QUEUED'].includes(status);
+  if (!status || status === 'READY' || status === 'PENDING_LOAD' || status === 'PENDING_REIMPORT') return false; 
+  return ['INGESTING_BRONZE', 'TRANSFORMING_SILVER', 'AGGREGATING_GOLD', 'LOADING', 'QUEUED'].includes(status);
+};
+
+const isReady = (status) => {
+  // Only SUCCESS or PENDING_REIMPORT (if it was previously success) should allow entry
+  // For simplicity, let's strictly allow only SUCCESS and PENDING_REIMPORT
+  return ['SUCCESS', 'PENDING_REIMPORT'].includes(status);
 };
 
 const isActivePipeline = (status) => {
@@ -554,13 +614,8 @@ const fetchApps = async () => {
     const res = await getApps(currentPage.value, pageSize.value, sortStr, searchQuery.value);
     if (res.data && res.data.items) {
       apps.value = res.data.items.map(app => {
-        if (isProcessing(app.parsingStatus) && app.parsingProgress) {
-          const match = app.parsingProgress.match(/([\d.]+)%/);
-          if (match) {
-            const rawPct = parseFloat(match[1]);
-            app.progressValue = app.parsingStatus === 'LOADING' ? rawPct * 0.8 : 80;
-          }
-        }
+        // Use the numeric progress value from DB if available
+        app.progressValue = app.parsingProgressValue || 0;
         return app;
       });
       totalApps.value = res.data.total;

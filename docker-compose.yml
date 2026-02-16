@@ -3,7 +3,7 @@ version: '3.8'
 services:
   spark:
     image: apache/spark:4.0.2-java21
-    container_name: spark
+    container_name: spark-history-server
     hostname: spark
     user: root
     entrypoint: [""]

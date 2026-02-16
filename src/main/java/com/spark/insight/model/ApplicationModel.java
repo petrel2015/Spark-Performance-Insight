@@ -34,9 +34,17 @@ public class ApplicationModel {
 
     private String dataQualityNote;
 
+    @com.baomidou.mybatisplus.annotation.TableField("parsing_status")
     private String parsingStatus;
 
+    @com.baomidou.mybatisplus.annotation.TableField("parsing_progress")
     private String parsingProgress;
+
+    @com.baomidou.mybatisplus.annotation.TableField("parsing_progress_value")
+    private Double parsingProgressValue;
+
+    @com.baomidou.mybatisplus.annotation.TableField("parsing_start_time")
+    private LocalDateTime parsingStartTime;
 
     private String sourceFileMetadata;
 

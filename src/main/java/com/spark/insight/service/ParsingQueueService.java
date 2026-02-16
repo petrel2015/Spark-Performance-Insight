@@ -24,7 +24,6 @@ public class ParsingQueueService {
     @Lazy // Break circular dependency if any
     private final EventLogWatcherService eventLogWatcherService;
 
-    @Transactional
     public void submit(String appId, String type) {
         log.info("Submitting app {} to parsing queue (Type: {})", appId, type);
         
@@ -34,9 +33,10 @@ public class ParsingQueueService {
         jdbcTemplate.update("INSERT INTO parsing_queue (id, app_id, type, status) VALUES (?, ?, ?, ?)",
                 UUID.randomUUID(), appId, type, "QUEUED");
         
-        broadcaster.broadcastStatus(appId, "QUEUED", 0.0, "Waiting in queue...");
+        broadcaster.broadcastStatus(appId, "QUEUED", 0.0, "Waiting in queue...", getAppName(appId), getStartTime(appId));
         
-        processQueue();
+        // Use virtual thread to trigger processQueue outside of current execution flow
+        Thread.ofVirtual().start(this::processQueue);
     }
 
     @Transactional
@@ -44,7 +44,23 @@ public class ParsingQueueService {
         log.info("Cancelling app {} from parsing queue", appId);
         int rows = jdbcTemplate.update("DELETE FROM parsing_queue WHERE app_id = ? AND status = 'QUEUED'", appId);
         if (rows > 0) {
-            broadcaster.broadcastStatus(appId, "CANCELLED", 0.0, "Cancelled by user");
+            broadcaster.broadcastStatus(appId, "CANCELLED", 0.0, "Cancelled by user", getAppName(appId), getStartTime(appId));
+        }
+    }
+
+    private String getAppName(String appId) {
+        try {
+            return jdbcTemplate.queryForObject("SELECT app_name FROM gold_applications WHERE app_id = ?", String.class, appId);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private java.time.LocalDateTime getStartTime(String appId) {
+        try {
+            return jdbcTemplate.queryForObject("SELECT parsing_start_time FROM gold_applications WHERE app_id = ?", java.time.LocalDateTime.class, appId);
+        } catch (Exception e) {
+            return null;
         }
     }
 
@@ -54,11 +70,14 @@ public class ParsingQueueService {
     }
 
     public synchronized void processQueue() {
-        // Check if anything is running
-        Integer runningCount = jdbcTemplate.queryForObject(
-                "SELECT count(*) FROM parsing_queue WHERE status = 'RUNNING'", Integer.class);
+        // Check if anything is running - Fetch names for better logging
+        List<String> runningApps = jdbcTemplate.queryForList(
+                "SELECT COALESCE(ga.app_name, q.app_id) FROM parsing_queue q " +
+                "LEFT JOIN gold_applications ga ON q.app_id = ga.app_id " +
+                "WHERE q.status = 'RUNNING'", String.class);
         
-        if (runningCount != null && runningCount > 0) {
+        if (!runningApps.isEmpty()) {
+            log.debug("Parsing queue busy: {} jobs running ({}).", runningApps.size(), String.join(", ", runningApps));
             return; // Busy
         }
 
@@ -77,19 +96,27 @@ public class ParsingQueueService {
 
         log.info("Picking app {} from queue to process (Job ID: {})", appId, id);
 
-        // Mark Running (Workaround: DELETE + INSERT)
-        // jdbcTemplate.update("UPDATE parsing_queue SET status = 'RUNNING', start_time = CURRENT_TIMESTAMP WHERE id = ?", id);
-        Map<String, Object> currentJob = jdbcTemplate.queryForMap("SELECT * FROM parsing_queue WHERE id = ?", id);
-        jdbcTemplate.update("DELETE FROM parsing_queue WHERE id = ?", id);
-        jdbcTemplate.update("INSERT INTO parsing_queue (id, app_id, type, status, submit_time, start_time) VALUES (?, ?, ?, 'RUNNING', ?, CURRENT_TIMESTAMP)",
-                id, appId, type, currentJob.get("submit_time"));
-        
-        // Execute (Async)
-        eventLogWatcherService.executePipeline(appId, type, (success) -> {
-            markFinished(id, success);
-            // Trigger next
-            processQueue();
-        });
+        try {
+            // Mark Running (Workaround: DELETE + INSERT)
+            Map<String, Object> currentJob = jdbcTemplate.queryForMap("SELECT * FROM parsing_queue WHERE id = ?", id);
+            jdbcTemplate.update("DELETE FROM parsing_queue WHERE id = ?", id);
+            jdbcTemplate.update("INSERT INTO parsing_queue (id, app_id, type, status, submit_time, start_time) VALUES (?, ?, ?, 'RUNNING', ?, CURRENT_TIMESTAMP)",
+                    id, appId, type, currentJob.get("submit_time"));
+            
+            log.info("Job {} marked as RUNNING, starting pipeline executor...", id);
+            
+            // Execute (Async)
+            eventLogWatcherService.executePipeline(appId, type, (success) -> {
+                log.info("Pipeline execution finished for Job {}, success: {}. Marking as COMPLETED/FAILED.", id, success);
+                markFinished(id, success);
+                // Trigger next
+                processQueue();
+            });
+        } catch (Exception e) {
+            log.error("Failed to start job from queue: " + id, e);
+            // Revert status to FAILED in queue to avoid blocking
+            jdbcTemplate.update("UPDATE parsing_queue SET status = 'FAILED' WHERE id = ?", id);
+        }
     }
 
     public Map<String, String> getQueueStatuses(List<String> appIds) {

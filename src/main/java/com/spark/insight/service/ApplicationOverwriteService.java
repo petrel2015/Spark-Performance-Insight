@@ -67,7 +67,7 @@ public class ApplicationOverwriteService {
             // But we keep the logic to delete scans
             scanMapper.deleteBatchIds(scans.stream().map(EventLogScanModel::getId).toList());
             
-            broadcaster.broadcastStatus(appId, "PENDING_TO_LOADING", 0.0, "Queueing re-import.");
+            broadcaster.broadcastStatus(appId, "PENDING_TO_LOADING", 0.0, "Queueing re-import.", app.getAppName(), app.getParsingStartTime());
             
             parsingQueueService.submit(appId, "FULL");
         } catch (Exception e) {
@@ -92,7 +92,7 @@ public class ApplicationOverwriteService {
             if (app != null) {
                 app.setParsingStatus(lastScan.getPreviousStatus());
                 applicationMapper.updateById(app);
-                broadcaster.broadcastStatus(appId, app.getParsingStatus(), 100.0, "Overwrite cancelled.");
+                broadcaster.broadcastStatus(appId, app.getParsingStatus(), 100.0, "Overwrite cancelled.", app.getAppName(), app.getParsingStartTime());
             }
             scanMapper.deleteBatchIds(scans.stream().map(EventLogScanModel::getId).toList());
         }
@@ -101,10 +101,14 @@ public class ApplicationOverwriteService {
     @Transactional
     public void deleteApp(String appId) {
         log.info("Deleting App: {}", appId);
+        ApplicationModel app = applicationMapper.selectById(appId);
+        String appName = app != null ? app.getAppName() : null;
+        java.time.LocalDateTime startTime = app != null ? app.getParsingStartTime() : null;
+        
         clearAppData(appId);
         parsedLogMapper.delete(new LambdaQueryWrapper<ParsedEventLogModel>().eq(ParsedEventLogModel::getAppId, appId));
         applicationMapper.deleteById(appId);
-        broadcaster.broadcastStatus(appId, "DELETED", 0.0, "Application data cleared.");
+        broadcaster.broadcastStatus(appId, "DELETED", 0.0, "Application data cleared.", appName, startTime);
     }
 
     @Transactional
@@ -134,7 +138,7 @@ public class ApplicationOverwriteService {
         app.setParsingProgress("Queueing re-import...");
         applicationMapper.updateById(app);
 
-        broadcaster.broadcastStatus(appId, "PENDING_TO_LOADING", 0.0, "Queueing re-import...");
+        broadcaster.broadcastStatus(appId, "PENDING_TO_LOADING", 0.0, "Queueing re-import...", app.getAppName(), app.getParsingStartTime());
         parsingQueueService.submit(appId, "FULL");
     }
 

@@ -102,14 +102,34 @@ public class BronzeIngestionService {
 
             // 4. Report progress
             double progress = (double) (offset + currentLimit) / totalLines * 100.0;
-            fileProgressReporter.accept(progress, String.format("Bronze: Processing %s (%.1f%%)", fileName, progress));
+            String msg = String.format("Bronze: Processing %s (%.1f%%)", fileName, progress);
+            log.info("appID:{}, msg:{}", appId, msg);
+            fileProgressReporter.accept(progress, msg);
         }
         
         jdbcTemplate.execute("DROP TABLE temp_raw_lines");
     }
 
     private void distributeFromTempTable(String appId, String fileName) {
-        // Distribute to target tables (CPU/Memory bound, fast)
+        // 1. Create a second temp table to hold ONLY valid lines and their event names
+        // This physically separates valid data from malformed data to prevent evaluation errors
+        jdbcTemplate.execute("CREATE TEMPORARY TABLE IF NOT EXISTS temp_valid_events (line VARCHAR, event_type VARCHAR)");
+        jdbcTemplate.execute("DELETE FROM temp_valid_events");
+
+        // 2. Safely extract event names using CASE to avoid calling json_extract_string on invalid rows
+        String extractSql = """
+            INSERT INTO temp_valid_events
+            SELECT line, event_type
+            FROM (
+                SELECT line, 
+                       CASE WHEN json_valid(line) THEN json_extract_string(line, '$.Event') ELSE NULL END as event_type
+                FROM temp_raw_lines
+            ) t
+            WHERE event_type IS NOT NULL
+            """;
+        jdbcTemplate.update(extractSql);
+
+        // 3. Distribute to target tables from the safe temp table
         for (Map.Entry<String, String> entry : EVENT_TABLE_MAP.entrySet()) {
             String eventName = entry.getKey();
             String tableName = entry.getValue();
@@ -117,14 +137,14 @@ public class BronzeIngestionService {
             String insertSql = """
                 INSERT INTO %s (app_id, file_name, raw_json)
                 SELECT ?, ?, line
-                FROM temp_raw_lines
-                WHERE json_extract_string(line, '$.Event') = ?
+                FROM temp_valid_events
+                WHERE event_type = ?
                 """.formatted(tableName);
             
             jdbcTemplate.update(insertSql, appId, fileName, eventName);
         }
 
-        // Handle unknown events
+        // 4. Handle unknown events
         StringBuilder knownEventsPart = new StringBuilder();
         for (String event : EVENT_TABLE_MAP.keySet()) {
             if (knownEventsPart.length() > 0) knownEventsPart.append(", ");
@@ -133,12 +153,15 @@ public class BronzeIngestionService {
 
         String unknownSql = """
             INSERT INTO bronze_event_unknown (app_id, file_name, event_name, raw_json)
-            SELECT ?, ?, json_extract_string(line, '$.Event'), line
-            FROM temp_raw_lines
-            WHERE json_extract_string(line, '$.Event') NOT IN (%s)
+            SELECT ?, ?, event_type, line
+            FROM temp_valid_events
+            WHERE event_type NOT IN (%s)
             """.formatted(knownEventsPart.toString());
         
         jdbcTemplate.update(unknownSql, appId, fileName);
+        
+        // Cleanup this chunk's valid lines
+        jdbcTemplate.execute("DROP TABLE temp_valid_events");
     }
 
     private double calculateProgress(long processed, long total) {

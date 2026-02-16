@@ -103,7 +103,7 @@ public class EventLogWatcherService {
         
         ApplicationModel app = new ApplicationModel();
         app.setAppId(appId);
-        app.setAppName("New Application"); // Will be updated during processing
+        app.setAppName("Unparsed Application"); // Will be updated during processing
         app.setParsingStatus("PENDING_LOAD");
         app.setTotalLogSize(totalSize);
         
@@ -115,7 +115,7 @@ public class EventLogWatcherService {
         }
 
         applicationService.save(app);
-        broadcaster.broadcastStatus(appId, "PENDING_LOAD", 0.0, "Ready to import");
+        broadcaster.broadcastStatus(appId, "PENDING_LOAD", 0.0, "Ready to import", app.getAppName(), app.getParsingStartTime());
     }
 
     private void handleExistingApp(ApplicationModel app, List<File> files, long totalSize) {
@@ -157,7 +157,7 @@ public class EventLogWatcherService {
                 // we don't need to keep updating it. 
                 
                 applicationService.updateById(app);
-                broadcaster.broadcastStatus(app.getAppId(), "PENDING_REIMPORT", 0.0, "Log files changed");
+                broadcaster.broadcastStatus(app.getAppId(), "PENDING_REIMPORT", 0.0, "Log files changed", app.getAppName(), app.getParsingStartTime());
             }
 
         } catch (Exception e) {
@@ -173,6 +173,10 @@ public class EventLogWatcherService {
             onComplete.accept(false);
             return;
         }
+
+        // Initialize start time for UI duration calculations
+        app.setParsingStartTime(LocalDateTime.now());
+        applicationService.updateById(app);
         
         // Find files again (as paths might have changed or we just need them)
         // Ideally we should use the paths from metadata, but scanning dir is safer for now
@@ -209,26 +213,26 @@ public class EventLogWatcherService {
         
         pipelineExecutor.submit(() -> {
             try {
-                // Bronze (0-30%)
+                // Bronze (0-100%)
                 long t0 = System.currentTimeMillis();
                 bronzeIngestionService.ingest(appId, files, (p, msg) -> {
-                    updateStatus(appId, "INGESTING_BRONZE", p * 0.3, msg);
+                    updateStatus(appId, "INGESTING_BRONZE", p, msg);
                 });
                 logService.logEvent(appId, "IMPORT", "Bronze Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t0) / 1000.0));
 
-                // Silver (30-70%)
+                // Silver (0-100%)
                 long t1 = System.currentTimeMillis();
                 logService.logEvent(appId, "TRANSFORM", "Silver Start", "Structuring data");
                 silverTransformationService.transform(appId, (p, msg) -> {
-                    updateStatus(appId, "TRANSFORMING_SILVER", 30.0 + (p * 0.4), msg);
+                    updateStatus(appId, "TRANSFORMING_SILVER", p, msg);
                 });
                 logService.logEvent(appId, "TRANSFORM", "Silver Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t1) / 1000.0));
 
-                // Gold (70-100%)
+                // Gold (0-100%)
                 long t2 = System.currentTimeMillis();
                 logService.logEvent(appId, "AGGREGATE", "Gold Start", "Aggregating metrics");
                 goldAggregationService.aggregate(appId, (p, msg) -> {
-                    updateStatus(appId, "AGGREGATING_GOLD", 70.0 + (p * 0.3), msg);
+                    updateStatus(appId, "AGGREGATING_GOLD", p, msg);
                 });
                 logService.logEvent(appId, "AGGREGATE", "Gold Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t2) / 1000.0));
                 
@@ -248,18 +252,18 @@ public class EventLogWatcherService {
         
         pipelineExecutor.submit(() -> {
             try {
-                // Silver
+                // Silver (0-100%)
                 long t1 = System.currentTimeMillis();
                 silverTransformationService.transform(appId, (p, msg) -> {
-                    updateStatus(appId, "TRANSFORMING_SILVER", p * 0.6, msg);
+                    updateStatus(appId, "TRANSFORMING_SILVER", p, msg);
                 });
                 logService.logEvent(appId, "TRANSFORM", "Silver Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t1) / 1000.0));
 
-                // Gold
+                // Gold (0-100%)
                 long t2 = System.currentTimeMillis();
                 logService.logEvent(appId, "AGGREGATE", "Gold Start", "Aggregating metrics");
                 goldAggregationService.aggregate(appId, (p, msg) -> {
-                    updateStatus(appId, "AGGREGATING_GOLD", 60.0 + (p * 0.4), msg);
+                    updateStatus(appId, "AGGREGATING_GOLD", p, msg);
                 });
                 logService.logEvent(appId, "AGGREGATE", "Gold Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t2) / 1000.0));
                 
@@ -295,33 +299,46 @@ public class EventLogWatcherService {
 
     private void finalizeSuccess(String appId, List<File> files) throws Exception {
         ApplicationModel app = applicationService.getById(appId);
-        app.setParsingStatus("SUCCESS");
-        
+        if (app == null) return;
+
         // Update metadata to reflect the files we just successfully processed
         List<FileMetadata> metadata = generateMetadata(files);
-        app.setSourceFileMetadata(objectMapper.writeValueAsString(metadata));
+        String metadataJson = objectMapper.writeValueAsString(metadata);
         
+        // 1. Update the local object fields to match final state
+        app.setParsingStatus("SUCCESS");
+        app.setParsingProgressValue(100.0);
+        app.setParsingProgress("Pipeline completed successfully.");
+        app.setSourceFileMetadata(metadataJson);
+        
+        // 2. Use updateById to save everything (including metadata and final status) in one go
         applicationService.updateById(app);
         
-        broadcaster.broadcastStatus(appId, "SUCCESS", 100.0, "Pipeline completed successfully.");
+        // 3. Broadcast final status via WebSocket
+        // Use the latest app name which might have been updated during pipeline
+        broadcaster.broadcastStatus(appId, "SUCCESS", 100.0, "Pipeline completed successfully.", app.getAppName(), app.getParsingStartTime());
         logService.logEvent(appId, "SUCCESS", "Pipeline Finished", "App data fully processed.");
     }
 
     private void handleFailure(String appId, Exception e) {
         log.error("Medallion pipeline failed for app: {}", appId, e);
-        updateStatus(appId, "FAILED", 0.0, "Error: " + e.getMessage());
-        logService.logEvent(appId, "FAILED", "Pipeline Error", e.getMessage());
+        String errorMsg = e.getMessage();
+        if (e.getCause() != null) {
+            errorMsg += " (Cause: " + e.getCause().getMessage() + ")";
+        }
+        updateStatus(appId, "FAILED", 0.0, "Error: " + errorMsg);
+        logService.logEvent(appId, "FAILED", "Pipeline Error", errorMsg);
     }
 
     private void updateStatus(String appId, String status, double progress, String msg) {
+        String progressText = String.format("%.0f%% %s", progress, msg);
+        
+        // Persist to DB immediately in a new transaction
+        applicationService.updateStatusAtomic(appId, status, progress, progressText);
+        
+        // Broadcast via WebSocket
         ApplicationModel app = applicationService.getById(appId);
-        if (app != null) {
-            app.setParsingStatus(status);
-            // We use 'msg' as parsingProgress text, or format it with percentage
-            app.setParsingProgress(String.format("%.0f%% %s", progress, msg));
-            applicationService.updateById(app);
-        }
-        broadcaster.broadcastStatus(appId, status, progress, msg);
+        broadcaster.broadcastStatus(appId, status, progress, msg, app != null ? app.getAppName() : null, app != null ? app.getParsingStartTime() : null);
     }
 
     private List<FileMetadata> generateMetadata(List<File> files) {

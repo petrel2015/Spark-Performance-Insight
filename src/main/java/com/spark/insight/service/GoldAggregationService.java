@@ -263,6 +263,7 @@ public class GoldAggregationService {
         String sql = """
             UPDATE gold_applications
             SET 
+                status = 'FINISHED',
                 duration = (SELECT sum(duration) FROM gold_jobs WHERE app_id = ?),
                 performance_score = (SELECT CAST(avg(performance_score) AS INTEGER) FROM gold_jobs WHERE app_id = ?),
                 total_tasks = (SELECT count(*) FROM gold_tasks WHERE app_id = ?),

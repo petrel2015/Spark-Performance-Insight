@@ -57,6 +57,16 @@ While the native Spark Web UI provides basic monitoring, users often face signif
 - **Timing Accuracy:** Synchronized epoch milliseconds and monotonic progress tracking for reliable estimates.
 - **Broad Log Support:** Native support for **ZSTD** compression and Spark **V2 log directories**.
 
+## 📖 Documentation & Architecture
+
+For deep dives into the system design and technical specifications, please refer to our structured documentation:
+
+*   **[Documentation Index](./docs/en/index.md)**
+    *   [System Architecture](./docs/en/Architecture.md)
+    *   [Database Schema](./docs/en/Database_Design.md)
+    *   [Import State Machine](./docs/en/Application_Import_State_Machine.md)
+    *   [EventLog Reference](./docs/en/EventLog_Reference.md)
+
 ## Technical Stack
 
 - **Frontend:** Vue 3 + Vite + ECharts + Material Design.

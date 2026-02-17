@@ -57,6 +57,16 @@
 - **精准时间同步：** 统一毫秒级时间戳与单调递增的进度汇报，消除了跨时区环境下的导入时间估算偏差。
 - **广泛兼容：** 原生支持 **ZSTD** 压缩和 Spark **V2 目录式日志**。
 
+## 📖 文档与架构
+
+如需深入了解系统设计与技术规格，请参阅我们的结构化文档：
+
+*   **[技术文档索引](./docs/zh/index.md)**
+    *   [系统架构设计](./docs/zh/Architecture.md)
+    *   [数据库存储设计](./docs/zh/Database_Design.md)
+    *   [Application 导入状态机](./docs/zh/Application_Import_State_Machine.md)
+    *   [EventLog 技术参考](./docs/zh/EventLog_Reference.md)
+
 ## 技术栈
 
 - **前端：** Vue 3 + Vite + ECharts + Material Design。

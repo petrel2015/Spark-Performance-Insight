@@ -186,7 +186,7 @@ const pageSize = ref(20);
 const jumpPageInput = ref(1);
 const searchJobId = ref(null);
 const sorts = ref([{field: 'executionId', dir: 'desc'}]);
-const isLoading = ref(false);
+const isLoading = ref(true);
 
 const columns = [
   {field: 'executionId', label: 'ID', width: '80px', sortable: true},

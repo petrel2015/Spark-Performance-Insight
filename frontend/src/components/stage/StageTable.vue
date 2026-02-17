@@ -236,7 +236,7 @@ const jumpPageInput = ref(1);
 const searchStageId = ref(null);
 const searchJobId = ref(null);
 const sorts = ref([{field: 'stageId', dir: 'desc'}]); // Default sort by Stage Id DESC
-const internalLoading = ref(false);
+const internalLoading = ref(true);
 
 const combinedLoading = computed(() => props.isLoading || internalLoading.value);
 

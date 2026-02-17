@@ -40,314 +40,320 @@
     </div>
 
     <div class="table-card">
-      <div class="table-header-toolbar">
-        <div class="header-left">
-          <span>Total: {{ totalApps }}</span>
-        </div>
-
-        <div class="modern-pagination">
-          <div class="page-size-picker">
-            <span>Rows per page:</span>
-            <select v-model="pageSize" @change="handleSizeChange" class="modern-select">
-              <option :value="20">20</option>
-              <option :value="50">50</option>
-              <option :value="100">100</option>
-            </select>
+      <div v-if="isLoading" class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading applications...</p>
+      </div>
+      <template v-else>
+        <div class="table-header-toolbar">
+          <div class="header-left">
+            <span>Total: {{ totalApps }}</span>
           </div>
 
-          <div class="pager-actions">
-            <button class="pager-btn" @click="jumpToPage(1)" :disabled="currentPage === 1" title="First Page">
-              <span class="material-symbols-outlined">first_page</span>
-            </button>
-            <button class="pager-btn" @click="changePage(-1)" :disabled="currentPage === 1" title="Previous Page">
-              <span class="material-symbols-outlined">chevron_left</span>
-            </button>
-
-            <div class="pager-info">
-              <input type="number"
-                     v-model.number="jumpPageInput"
-                     @keyup.enter="handleJump"
-                     class="pager-input"
-                     min="1"
-                     :max="totalPages"/>
-              <span class="pager-total">/ {{ totalPages }}</span>
+          <div class="modern-pagination">
+            <div class="page-size-picker">
+              <span>Rows per page:</span>
+              <select v-model="pageSize" @change="handleSizeChange" class="modern-select">
+                <option :value="20">20</option>
+                <option :value="50">50</option>
+                <option :value="100">100</option>
+              </select>
             </div>
 
-            <button class="pager-btn" @click="changePage(1)" :disabled="currentPage === totalPages" title="Next Page">
-              <span class="material-symbols-outlined">chevron_right</span>
-            </button>
-            <button class="pager-btn" @click="jumpToPage(totalPages)" :disabled="currentPage === totalPages" title="Last Page">
-              <span class="material-symbols-outlined">last_page</span>
-            </button>
+            <div class="pager-actions">
+              <button class="pager-btn" @click="jumpToPage(1)" :disabled="currentPage === 1" title="First Page">
+                <span class="material-symbols-outlined">first_page</span>
+              </button>
+              <button class="pager-btn" @click="changePage(-1)" :disabled="currentPage === 1" title="Previous Page">
+                <span class="material-symbols-outlined">chevron_left</span>
+              </button>
+
+              <div class="pager-info">
+                <input type="number"
+                       v-model.number="jumpPageInput"
+                       @keyup.enter="handleJump"
+                       class="pager-input"
+                       min="1"
+                       :max="totalPages"/>
+                <span class="pager-total">/ {{ totalPages }}</span>
+              </div>
+
+              <button class="pager-btn" @click="changePage(1)" :disabled="currentPage === totalPages" title="Next Page">
+                <span class="material-symbols-outlined">chevron_right</span>
+              </button>
+              <button class="pager-btn" @click="jumpToPage(totalPages)" :disabled="currentPage === totalPages" title="Last Page">
+                <span class="material-symbols-outlined">last_page</span>
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Active Sorts Display -->
-      <div v-if="sorts.length > 0" class="active-sorts-bar">
-        <span class="sort-label">Sort by:</span>
-        <div class="sort-tags">
-          <span v-for="(sort, index) in sorts" :key="sort.field" class="sort-tag">
-            {{ getColumnLabel(sort.field) }} 
-            <span class="sort-dir">{{ sort.dir === 'asc' ? 'ASC' : 'DESC' }}</span>
-            <span @click="removeSort(index)" class="remove-sort" title="Remove sort">
-              <span class="material-symbols-outlined" style="font-size: 14px;">close</span>
+        <!-- Active Sorts Display -->
+        <div v-if="sorts.length > 0" class="active-sorts-bar">
+          <span class="sort-label">Sort by:</span>
+          <div class="sort-tags">
+            <span v-for="(sort, index) in sorts" :key="sort.field" class="sort-tag">
+              {{ getColumnLabel(sort.field) }} 
+              <span class="sort-dir">{{ sort.dir === 'asc' ? 'ASC' : 'DESC' }}</span>
+              <span @click="removeSort(index)" class="remove-sort" title="Remove sort">
+                <span class="material-symbols-outlined" style="font-size: 14px;">close</span>
+              </span>
             </span>
-          </span>
+          </div>
+          <button @click="clearSorts" class="clear-sort-btn">Clear All</button>
+          <small class="sort-hint">(Hold <b>Shift</b> + Click headers to sort by multiple columns)</small>
         </div>
-        <button @click="clearSorts" class="clear-sort-btn">Clear All</button>
-        <small class="sort-hint">(Hold <b>Shift</b> + Click headers to sort by multiple columns)</small>
-      </div>
 
-      <div class="table-wrapper">
-        <table class="styled-table">
-          <thead>
-          <tr>
-            <!-- Comparison Selection Column -->
-            <th v-if="compareStore.isCompareMode" style="width: 60px; min-width: 60px; text-align: center;">
-              <div class="header-container" style="justify-content: center;">
-                <span class="material-symbols-outlined" style="font-size: 20px; color: #666;">compare_arrows</span>
-              </div>
-            </th>
-            <th v-for="col in columns"
-                :key="col.field"
-                @click="col.sortable !== false && handleSort(col.field, $event)"
-                :class="{ 'sortable': col.sortable !== false }"
-                :style="{ width: col.width }">
-              <div class="header-container">
-                {{ col.label }}
-                <div v-if="col.sortable !== false" class="sort-indicator">
-                  <span class="material-symbols-outlined sort-icon" :class="{ active: isFieldSorted(col.field) }">
-                    {{ getSortIcon(col.field) }}
+        <div class="table-wrapper">
+          <table class="styled-table">
+            <thead>
+            <tr>
+              <!-- Comparison Selection Column -->
+              <th v-if="compareStore.isCompareMode" style="width: 60px; min-width: 60px; text-align: center;">
+                <div class="header-container" style="justify-content: center;">
+                  <span class="material-symbols-outlined" style="font-size: 20px; color: #666;">compare_arrows</span>
+                </div>
+              </th>
+              <th v-for="col in columns"
+                  :key="col.field"
+                  @click="col.sortable !== false && handleSort(col.field, $event)"
+                  :class="{ 'sortable': col.sortable !== false }"
+                  :style="{ width: col.width }">
+                <div class="header-container">
+                  {{ col.label }}
+                  <div v-if="col.sortable !== false" class="sort-indicator">
+                    <span class="material-symbols-outlined sort-icon" :class="{ active: isFieldSorted(col.field) }">
+                      {{ getSortIcon(col.field) }}
+                    </span>
+                    <span v-if="getSortOrder(col.field)" class="sort-order">{{ getSortOrder(col.field) }}</span>
+                  </div>
+                </div>
+              </th>
+              <th style="width: 220px;">Action</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr v-for="app in apps" :key="app.appId" :class="{ 'processing-row': isProcessing(app.parsingStatus) }">
+              <!-- Comparison Selection -->
+              <td v-if="compareStore.isCompareMode" style="width: 60px; min-width: 60px; text-align: center;">
+                <button class="select-btn" 
+                        style="margin: 0 auto;"
+                        :disabled="!isReady(app.parsingStatus)"
+                        :class="{ selected: compareStore.isInWorkspace(app.appId, 'app') }"
+                        @click="toggleCompare(app)">
+                  <span class="material-symbols-outlined">
+                    {{ compareStore.isInWorkspace(app.appId, 'app') ? 'check_box' : 'check_box_outline_blank' }}
                   </span>
-                  <span v-if="getSortOrder(col.field)" class="sort-order">{{ getSortOrder(col.field) }}</span>
-                </div>
-              </div>
-            </th>
-            <th style="width: 220px;">Action</th>
-          </tr>
-          </thead>
-          <tbody>
-          <tr v-for="app in apps" :key="app.appId" :class="{ 'processing-row': isProcessing(app.parsingStatus) }">
-            <!-- Comparison Selection -->
-            <td v-if="compareStore.isCompareMode" style="width: 60px; min-width: 60px; text-align: center;">
-              <button class="select-btn" 
-                      style="margin: 0 auto;"
-                      :disabled="!isReady(app.parsingStatus)"
-                      :class="{ selected: compareStore.isInWorkspace(app.appId, 'app') }"
-                      @click="toggleCompare(app)">
-                <span class="material-symbols-outlined">
-                  {{ compareStore.isInWorkspace(app.appId, 'app') ? 'check_box' : 'check_box_outline_blank' }}
-                </span>
-              </button>
-            </td>
-
-            <td v-for="col in columns" :key="col.field">
-              <!-- 1. App Name -->
-              <template v-if="col.field === 'appName'">
-                <div class="name-cell-wrapper" :title="app.parsingProgress || 'Click to view details'">
-                  <router-link :to="'/app/' + app.appId" 
-                               class="app-link"
-                               :class="{ 'disabled-link': !isReady(app.parsingStatus) }">
-                    {{ app.appName || 'Unknown Application' }}
-                  </router-link>
-                  <div v-if="app.parsingStatus === 'PENDING_OVERWRITE'" class="overwrite-prompt">
-                    <span class="prompt-text">New logs found. Re-import?</span>
-                    <div class="prompt-actions">
-                      <button class="mini-btn confirm" @click="handleOverwrite(app.appId, true)" title="Yes, clear data and re-import">Confirm</button>
-                      <button class="mini-btn cancel" @click="handleOverwrite(app.appId, false)" title="No, keep current data">Cancel</button>
-                    </div>
-                  </div>
-                </div>
-              </template>
-
-              <!-- 2. Spark Version -->
-              <template v-else-if="col.field === 'sparkVersion'">
-                <span v-if="app.sparkVersion && app.sparkVersion !== 'unknown'" class="spark-version-badge">
-                  {{ app.sparkVersion }}
-                </span>
-              </template>
-
-              <!-- 3. App ID -->
-              <template v-else-if="col.field === 'appId'">
-                <code class="app-id-code">{{ app.appId }}</code>
-              </template>
-
-              <!-- 4. User -->
-              <template v-else-if="col.field === 'userName'">
-                {{ app.userName }}
-              </template>
-
-              <!-- 5. Submitted (Start Time) -->
-              <template v-else-if="col.field === 'startTime'">
-                {{ formatDateTime(app.startTime) }}
-              </template>
-
-              <!-- 6. Duration -->
-              <template v-else-if="col.field === 'duration'">
-                {{ formatTime(app.duration) }}
-              </template>
-
-              <!-- 6.5 Total Size -->
-              <template v-else-if="col.field === 'totalLogSize'">
-                <div class="size-cell">
-                  <span class="raw-size">{{ formatBytes(app.totalLogSize) }}</span>
-                  <small v-if="estimateUncompressedSize(app.totalLogSize, app.compressionFormat)" 
-                         class="est-size" 
-                         title="Estimated Uncompressed Size">
-                    (Est. {{ formatBytes(estimateUncompressedSize(app.totalLogSize, app.compressionFormat)) }})
-                  </small>
-                </div>
-              </template>
-
-              <!-- 6.6 Compression -->
-              <template v-else-if="col.field === 'compressionFormat'">
-                <span class="compression-badge" :class="app.compressionFormat?.toLowerCase()">
-                  {{ app.compressionFormat || 'None' }}
-                </span>
-              </template>
-
-              <!-- 7. Notes -->
-              <template v-else-if="col.field === 'notes'">
-                <div class="notes-cell" @click="startEditing(app)">
-                  <div v-if="editingAppId !== app.appId" class="notes-text" :class="{ 'empty-notes': !app.notes }">
-                    {{ app.notes || 'Click to add note...' }}
-                  </div>
-                  <input v-else
-                         ref="notesInput"
-                         v-model="editingNotes"
-                         class="notes-input"
-                         @blur="saveNotes(app)"
-                         @keyup.enter="saveNotes(app)"
-                         placeholder="Enter note..."/>
-                </div>
-              </template>
-
-              <!-- 8. Parsing Start -->
-              <template v-else-if="col.field === 'parsingStartTime'">
-                {{ formatDateTime(app.parsingStartTime) }}
-              </template>
-
-              <!-- 9. Parsing End -->
-              <template v-else-if="col.field === 'parsingEndTime'">
-                {{ formatDateTime(app.parsingEndTime) }}
-              </template>
-
-              <!-- 10. Detected At (Scan Time) -->
-              <template v-else-if="col.field === 'createdAt'">
-                {{ formatDateTime(app.createdAt) }}
-              </template>
-
-              <!-- 11. Progress -->
-              <template v-else-if="col.field === 'progress'">
-                <div class="progress-cell">
-                  <div v-if="shouldShowProgress(app.parsingStatus)" class="progress-track" :title="getProgressTooltip(app)">
-                    <div class="progress-fill" 
-                         :style="{ 
-                           width: (app.parsingStatus === 'SUCCESS' ? 100 : (app.progressValue || 0)) + '%', 
-                           backgroundColor: getProgressColor(app.parsingStatus || 'PENDING_LOAD') 
-                         }">
-                    </div>
-                    <div class="progress-text-overlay">
-                      {{ app.parsingStatus === 'SUCCESS' ? '100%' : Math.round(app.progressValue || 0) + '%' }}
-                    </div>
-                  </div>
-                  <div v-else class="na-progress">-</div>
-                </div>
-              </template>
-
-              <!-- 12. Status -->
-              <template v-else-if="col.field === 'status'">
-                <div class="status-cell">
-                  <span :class="'status-badge status-' + (app.parsingStatus || 'PENDING_LOAD')" 
-                        :title="getStatusTooltip(app)">
-                    {{ formatStatus(app.parsingStatus) }}
-                  </span>
-                </div>
-              </template>
-            </td>
-
-            <!-- ACTION Column -->
-            <td>
-              <div class="action-cell">
-                <!-- PENDING_LOAD: Import -->
-                <button v-if="app.parsingStatus === 'PENDING_LOAD' || !app.parsingStatus || app.parsingStatus === 'READY'" 
-                        class="action-btn bronze" 
-                        @click="openConfirmation('full', app.appId)" 
-                        title="Start Medallion Pipeline">
-                  <span class="material-symbols-outlined">play_arrow</span>
-                  Import
                 </button>
+              </td>
 
-                <!-- PENDING_REIMPORT: Re-import -->
-                <button v-if="app.parsingStatus === 'PENDING_REIMPORT'" 
-                        class="action-btn reimport" 
-                        @click="openConfirmation('full', app.appId)" 
-                        title="Files changed. Click to re-run pipeline.">
-                  <span class="material-symbols-outlined">sync_problem</span>
-                  Update
-                </button>
-
-                <!-- SUCCESS/FAILED: Granular Re-run Options -->
-                <template v-if="['SUCCESS', 'FAILED'].includes(app.parsingStatus)">
-                  
-                  <!-- Using class 'dropdown-container' mainly for click-outside reference if needed, 
-                       but with Teleport we might handle closing differently or rely on global click listener -->
-                  <div class="dropdown-trigger-wrapper">
-                    <button class="action-btn" @click.stop="toggleDropdown(app.appId, $event)" title="Re-run Pipeline Options">
-                      <span class="material-symbols-outlined">refresh</span>
-                      Re-run
-                      <span class="material-symbols-outlined" style="font-size: 14px">arrow_drop_down</span>
-                    </button>
-                    
-                    <Teleport to="body">
-                      <div v-if="activeDropdown === app.appId" 
-                           class="dropdown-menu-fixed"
-                           :style="{ top: dropdownStyle.top, right: dropdownStyle.right }"
-                           v-click-outside="() => activeDropdown = null">
-                         <button class="dropdown-item" @click="openConfirmation('full', app.appId)">
-                           <span class="material-symbols-outlined">database</span>
-                           Full (Raw &rarr; Gold)
-                         </button>
-                         <button v-if="canStartFromSilver(app)" class="dropdown-item" @click="openConfirmation('bronze-to-gold', app.appId)">
-                           <span class="material-symbols-outlined">step</span>
-                           From Bronze (Bronze &rarr; Gold)
-                         </button>
-                         <button v-if="canStartFromGold(app)" class="dropdown-item" @click="openConfirmation('silver-to-gold', app.appId)">
-                           <span class="material-symbols-outlined">analytics</span>
-                           From Silver (Silver &rarr; Gold)
-                         </button>
+              <td v-for="col in columns" :key="col.field">
+                <!-- 1. App Name -->
+                <template v-if="col.field === 'appName'">
+                  <div class="name-cell-wrapper" :title="app.parsingProgress || 'Click to view details'">
+                    <router-link :to="'/app/' + app.appId" 
+                                 class="app-link"
+                                 :class="{ 'disabled-link': !isReady(app.parsingStatus) }">
+                      {{ app.appName || 'Unknown Application' }}
+                    </router-link>
+                    <div v-if="app.parsingStatus === 'PENDING_OVERWRITE'" class="overwrite-prompt">
+                      <span class="prompt-text">New logs found. Re-import?</span>
+                      <div class="prompt-actions">
+                        <button class="mini-btn confirm" @click="handleOverwrite(app.appId, true)" title="Yes, clear data and re-import">Confirm</button>
+                        <button class="mini-btn cancel" @click="handleOverwrite(app.appId, false)" title="No, keep current data">Cancel</button>
                       </div>
-                    </Teleport>
+                    </div>
                   </div>
                 </template>
-                
-                <!-- Processing: Cancel Option -->
-                <button v-if="app.parsingStatus === 'QUEUED'" 
-                        class="action-btn cancel" 
-                        @click="handleCancel(app.appId)" 
-                        title="Cancel Queued Job">
-                  <span class="material-symbols-outlined">cancel</span>
-                  Cancel
-                </button>
 
-                <!-- Processing: No Actions (except Cancel for Queued) -->
-                <span v-if="isActivePipeline(app.parsingStatus)" class="processing-label">
-                  {{ formatStatus(app.parsingStatus) }}
-                  <span v-if="getRemainingTime(app)" class="eta-text">ETA: {{ getRemainingTime(app) }}</span>
-                  <span v-else class="percent-text">
-                    ({{ (app.progressValue && app.progressValue < 1) ? app.progressValue.toFixed(1) : Math.round(app.progressValue || 0) }}%)
+                <!-- 2. Spark Version -->
+                <template v-else-if="col.field === 'sparkVersion'">
+                  <span v-if="app.sparkVersion && app.sparkVersion !== 'unknown'" class="spark-version-badge">
+                    {{ app.sparkVersion }}
                   </span>
-                </span>
-              </div>
-            </td>
-          </tr>
-          <tr v-if="apps.length === 0">
-            <td :colspan="columns.length + (compareStore.isCompareMode ? 1 : 0)" style="text-align: center; padding: 40px;">No applications found.</td>
-          </tr>
-          </tbody>
-        </table>
-      </div>
+                </template>
+
+                <!-- 3. App ID -->
+                <template v-else-if="col.field === 'appId'">
+                  <code class="app-id-code">{{ app.appId }}</code>
+                </template>
+
+                <!-- 4. User -->
+                <template v-else-if="col.field === 'userName'">
+                  {{ app.userName }}
+                </template>
+
+                <!-- 5. Submitted (Start Time) -->
+                <template v-else-if="col.field === 'startTime'">
+                  {{ formatDateTime(app.startTime) }}
+                </template>
+
+                <!-- 6. Duration -->
+                <template v-else-if="col.field === 'duration'">
+                  {{ formatTime(app.duration) }}
+                </template>
+
+                <!-- 6.5 Total Size -->
+                <template v-else-if="col.field === 'totalLogSize'">
+                  <div class="size-cell">
+                    <span class="raw-size">{{ formatBytes(app.totalLogSize) }}</span>
+                    <small v-if="estimateUncompressedSize(app.totalLogSize, app.compressionFormat)" 
+                           class="est-size" 
+                           title="Estimated Uncompressed Size">
+                      (Est. {{ formatBytes(estimateUncompressedSize(app.totalLogSize, app.compressionFormat)) }})
+                    </small>
+                  </div>
+                </template>
+
+                <!-- 6.6 Compression -->
+                <template v-else-if="col.field === 'compressionFormat'">
+                  <span class="compression-badge" :class="app.compressionFormat?.toLowerCase()">
+                    {{ app.compressionFormat || 'None' }}
+                  </span>
+                </template>
+
+                <!-- 7. Notes -->
+                <template v-else-if="col.field === 'notes'">
+                  <div class="notes-cell" @click="startEditing(app)">
+                    <div v-if="editingAppId !== app.appId" class="notes-text" :class="{ 'empty-notes': !app.notes }">
+                      {{ app.notes || 'Click to add note...' }}
+                    </div>
+                    <input v-else
+                           ref="notesInput"
+                           v-model="editingNotes"
+                           class="notes-input"
+                           @blur="saveNotes(app)"
+                           @keyup.enter="saveNotes(app)"
+                           placeholder="Enter note..."/>
+                  </div>
+                </template>
+
+                <!-- 8. Parsing Start -->
+                <template v-else-if="col.field === 'parsingStartTime'">
+                  {{ formatDateTime(app.parsingStartTime) }}
+                </template>
+
+                <!-- 9. Parsing End -->
+                <template v-else-if="col.field === 'parsingEndTime'">
+                  {{ formatDateTime(app.parsingEndTime) }}
+                </template>
+
+                <!-- 10. Detected At (Scan Time) -->
+                <template v-else-if="col.field === 'createdAt'">
+                  {{ formatDateTime(app.createdAt) }}
+                </template>
+
+                <!-- 11. Progress -->
+                <template v-else-if="col.field === 'progress'">
+                  <div class="progress-cell">
+                    <div v-if="shouldShowProgress(app.parsingStatus)" class="progress-track" :title="getProgressTooltip(app)">
+                      <div class="progress-fill" 
+                           :style="{ 
+                             width: (app.parsingStatus === 'SUCCESS' ? 100 : (app.progressValue || 0)) + '%', 
+                           backgroundColor: getProgressColor(app.parsingStatus || 'PENDING_LOAD') 
+                         }">
+                      </div>
+                      <div class="progress-text-overlay">
+                        {{ app.parsingStatus === 'SUCCESS' ? '100%' : Math.round(app.progressValue || 0) + '%' }}
+                      </div>
+                    </div>
+                    <div v-else class="na-progress">-</div>
+                  </div>
+                </template>
+
+                <!-- 12. Status -->
+                <template v-else-if="col.field === 'status'">
+                  <div class="status-cell">
+                    <span :class="'status-badge status-' + (app.parsingStatus || 'PENDING_LOAD')" 
+                          :title="getStatusTooltip(app)">
+                      {{ formatStatus(app.parsingStatus) }}
+                    </span>
+                  </div>
+                </template>
+              </td>
+
+              <!-- ACTION Column -->
+              <td>
+                <div class="action-cell">
+                  <!-- PENDING_LOAD: Import -->
+                  <button v-if="app.parsingStatus === 'PENDING_LOAD' || !app.parsingStatus || app.parsingStatus === 'READY'" 
+                          class="action-btn bronze" 
+                          @click="openConfirmation('full', app.appId)" 
+                          title="Start Medallion Pipeline">
+                    <span class="material-symbols-outlined">play_arrow</span>
+                    Import
+                  </button>
+
+                  <!-- PENDING_REIMPORT: Re-import -->
+                  <button v-if="app.parsingStatus === 'PENDING_REIMPORT'" 
+                          class="action-btn reimport" 
+                          @click="openConfirmation('full', app.appId)" 
+                          title="Files changed. Click to re-run pipeline.">
+                    <span class="material-symbols-outlined">sync_problem</span>
+                    Update
+                  </button>
+
+                  <!-- SUCCESS/FAILED: Granular Re-run Options -->
+                  <template v-if="['SUCCESS', 'FAILED'].includes(app.parsingStatus)">
+                    
+                    <!-- Using class 'dropdown-container' mainly for click-outside reference if needed, 
+                         but with Teleport we might handle closing differently or rely on global click listener -->
+                    <div class="dropdown-trigger-wrapper">
+                      <button class="action-btn" @click.stop="toggleDropdown(app.appId, $event)" title="Re-run Pipeline Options">
+                        <span class="material-symbols-outlined">refresh</span>
+                        Re-run
+                        <span class="material-symbols-outlined" style="font-size: 14px">arrow_drop_down</span>
+                      </button>
+                      
+                      <Teleport to="body">
+                        <div v-if="activeDropdown === app.appId" 
+                             class="dropdown-menu-fixed"
+                             :style="{ top: dropdownStyle.top, right: dropdownStyle.right }"
+                             v-click-outside="() => activeDropdown = null">
+                           <button class="dropdown-item" @click="openConfirmation('full', app.appId)">
+                             <span class="material-symbols-outlined">database</span>
+                             Full (Raw &rarr; Gold)
+                           </button>
+                           <button v-if="canStartFromSilver(app)" class="dropdown-item" @click="openConfirmation('bronze-to-gold', app.appId)">
+                             <span class="material-symbols-outlined">step</span>
+                             From Bronze (Bronze &rarr; Gold)
+                           </button>
+                           <button v-if="canStartFromGold(app)" class="dropdown-item" @click="openConfirmation('silver-to-gold', app.appId)">
+                             <span class="material-symbols-outlined">analytics</span>
+                             From Silver (Silver &rarr; Gold)
+                           </button>
+                        </div>
+                      </Teleport>
+                    </div>
+                  </template>
+                  
+                  <!-- Processing: Cancel Option -->
+                  <button v-if="app.parsingStatus === 'QUEUED'" 
+                          class="action-btn cancel" 
+                          @click="handleCancel(app.appId)" 
+                          title="Cancel Queued Job">
+                    <span class="material-symbols-outlined">cancel</span>
+                    Cancel
+                  </button>
+
+                  <!-- Processing: No Actions (except Cancel for Queued) -->
+                  <span v-if="isActivePipeline(app.parsingStatus)" class="processing-label">
+                    {{ formatStatus(app.parsingStatus) }}
+                    <span v-if="getRemainingTime(app)" class="eta-text">ETA: {{ getRemainingTime(app) }}</span>
+                    <span v-else class="percent-text">
+                      ({{ (app.progressValue && app.progressValue < 1) ? app.progressValue.toFixed(1) : Math.round(app.progressValue || 0) }}%)
+                    </span>
+                  </span>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="apps.length === 0">
+              <td :colspan="columns.length + (compareStore.isCompareMode ? 1 : 0)" style="text-align: center; padding: 40px;">No applications found.</td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
+      </template>
     </div>
 
     <ConfirmationModal 
@@ -403,6 +409,7 @@ const apps = ref([]);
 const totalApps = ref(0);
 const totalPages = ref(0);
 const currentPage = ref(1);
+const isLoading = ref(true);
 const pageSize = ref(parseInt(localStorage.getItem('appList_pageSize') || '20'));
 const jumpPageInput = ref(1);
 const searchQuery = ref('');
@@ -765,10 +772,7 @@ const getRemainingTime = (app) => {
 
   if (remainingMs <= 500) return null; // Too close to finish
 
-  const totalSecs = Math.floor(remainingMs / 1000);
-  const mins = Math.floor(totalSecs / 60);
-  const secs = totalSecs % 60;
-  return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+  return formatTime(remainingMs);
 };
 
 const getProgressTooltip = (app) => {
@@ -785,15 +789,8 @@ const getProgressTooltip = (app) => {
   
   if (elapsedMs < 0) elapsedMs = 0;
 
-  const formatMs = (ms) => {
-    const totalSecs = Math.floor(ms / 1000);
-    const mins = Math.floor(totalSecs / 60);
-    const secs = totalSecs % 60;
-    return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-  };
-
   const remaining = getRemainingTime(app);
-  let tip = `Elapsed: ${formatMs(elapsedMs)}`;
+  let tip = `Elapsed: ${formatTime(elapsedMs)}`;
   if (remaining) {
     tip += `\nEstimated Remaining: ${remaining}`;
   }
@@ -839,6 +836,7 @@ const toggleCompare = (app) => {
 };
 
 const fetchApps = async () => {
+  isLoading.value = true;
   try {
     const sortStr = sorts.value.map(s => `${s.field},${s.dir}`).join(';');
     const res = await getApps(currentPage.value, pageSize.value, sortStr, searchQuery.value);
@@ -858,6 +856,8 @@ const fetchApps = async () => {
     jumpPageInput.value = currentPage.value;
   } catch (err) {
     console.error("Failed to fetch apps", err);
+  } finally {
+    isLoading.value = false;
   }
 };
 
@@ -1522,6 +1522,30 @@ onUnmounted(() => {
 .select-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .select-btn .material-symbols-outlined { font-size: 20px; }
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #3498db;
+  gap: 15px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
 
 .action-cell {
   display: flex;

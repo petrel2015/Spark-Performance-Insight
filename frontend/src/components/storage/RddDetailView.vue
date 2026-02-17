@@ -1,77 +1,90 @@
 <template>
-  <div class="rdd-detail-view" v-if="rdd">
-    <div class="detail-header">
-      <button @click="$emit('back')" class="back-btn">← Back to Storage List</button>
-      <h3 class="rdd-title">Details for RDD {{ rdd.name }} (ID {{ rdd.rddId }})</h3>
+  <div class="rdd-detail-view">
+    <div v-if="loading && !rdd" class="loading-placeholder">
+      <div class="spinner"></div>
+      <p>Loading RDD details...</p>
     </div>
+    <template v-else-if="rdd">
+      <div class="detail-header">
+        <button @click="$emit('back')" class="back-btn">← Back to Storage List</button>
+        <h3 class="rdd-title">Details for RDD {{ rdd.name }} (ID {{ rdd.rddId }})</h3>
+      </div>
 
-    <div class="summary-cards">
-      <div class="mini-card storage-level-card">
-        <label>Storage Level</label>
-        <div class="storage-grid" v-if="parseStorageLevelObject(rdd.storageLevel)">
-          <div class="grid-item" :class="{ active: parseStorageLevelObject(rdd.storageLevel).useDisk }">
-            <span class="dot"></span> Disk
+      <div class="summary-cards">
+        <div class="mini-card storage-level-card">
+          <label>Storage Level</label>
+          <div class="storage-grid" v-if="parseStorageLevelObject(rdd.storageLevel)">
+            <div class="grid-item" :class="{ active: parseStorageLevelObject(rdd.storageLevel).useDisk }">
+              <span class="dot"></span> Disk
+            </div>
+            <div class="grid-item" :class="{ active: parseStorageLevelObject(rdd.storageLevel).useMemory }">
+              <span class="dot"></span> Memory
+            </div>
+            <div class="grid-item" :class="{ active: parseStorageLevelObject(rdd.storageLevel).deserialized }">
+              <span class="dot"></span> Deserialized
+            </div>
+            <div class="grid-item" :class="{ active: parseStorageLevelObject(rdd.storageLevel).replication > 1 }">
+              <span class="dot"></span> {{ parseStorageLevelObject(rdd.storageLevel).replication }}x Repl
+            </div>
           </div>
-          <div class="grid-item" :class="{ active: parseStorageLevelObject(rdd.storageLevel).useMemory }">
-            <span class="dot"></span> Memory
-          </div>
-          <div class="grid-item" :class="{ active: parseStorageLevelObject(rdd.storageLevel).deserialized }">
-            <span class="dot"></span> Deserialized
-          </div>
-          <div class="grid-item" :class="{ active: parseStorageLevelObject(rdd.storageLevel).replication > 1 }">
-            <span class="dot"></span> {{ parseStorageLevelObject(rdd.storageLevel).replication }}x Repl
-          </div>
+          <div v-else class="value">{{ rdd.storageLevel }}</div>
         </div>
-        <div v-else class="value">{{ rdd.storageLevel }}</div>
+        <div class="mini-card">
+          <label>Partitions</label>
+          <div class="value">{{ rdd.numPartitions }}</div>
+        </div>
+        <div class="mini-card">
+          <label>Memory Size</label>
+          <div class="value">{{ formatBytes(rdd.memorySize) }}</div>
+        </div>
+        <div class="mini-card">
+          <label>Disk Size</label>
+          <div class="value">{{ formatBytes(rdd.diskSize) }}</div>
+        </div>
       </div>
-      <div class="mini-card">
-        <label>Partitions</label>
-        <div class="value">{{ rdd.numPartitions }}</div>
-      </div>
-      <div class="mini-card">
-        <label>Memory Size</label>
-        <div class="value">{{ formatBytes(rdd.memorySize) }}</div>
-      </div>
-      <div class="mini-card">
-        <label>Disk Size</label>
-        <div class="value">{{ formatBytes(rdd.diskSize) }}</div>
-      </div>
-    </div>
 
-    <CollapsibleCard title="Data Distribution on Executors">
-      <div v-if="loading" class="loading-state">Loading block distribution...</div>
-      <div v-else-if="rddBlocks.length > 0" class="table-wrapper">
-        <table class="styled-table">
-          <thead>
-          <tr>
-            <th>Host</th>
-            <th>Executor ID</th>
-            <th>Storage Level</th>
-            <th>Memory Size</th>
-            <th>Disk Size</th>
-          </tr>
-          </thead>
-          <tbody>
-          <tr v-for="block in rddBlocks" :key="block.id">
-            <td>{{ block.host }}</td>
-            <td>{{ block.executorId }}</td>
-            <td>
-              <div class="storage-level-tags">
-                <span v-for="tag in formatStorageLevel(block.storageLevel)" :key="tag" :class="['storage-tag', tag.toLowerCase()]">
-                  {{ tag }}
-                </span>
-              </div>
-            </td>
-            <td>{{ formatBytes(block.memorySize) }}</td>
-            <td>{{ formatBytes(block.diskSize) }}</td>
-          </tr>
-          </tbody>
-        </table>
-      </div>
-      <div v-else class="empty-blocks">
-        No block distribution data available for this RDD.
-      </div>
-    </CollapsibleCard>
+      <CollapsibleCard title="Data Distribution on Executors">
+        <div v-if="loading" class="loading-state">
+          <div class="spinner-small"></div>
+          <span>Loading block distribution...</span>
+        </div>
+        <div v-else-if="rddBlocks.length > 0" class="table-wrapper">
+          <table class="styled-table">
+            <thead>
+            <tr>
+              <th>Host</th>
+              <th>Executor ID</th>
+              <th>Storage Level</th>
+              <th>Memory Size</th>
+              <th>Disk Size</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr v-for="block in rddBlocks" :key="block.id">
+              <td>{{ block.host }}</td>
+              <td>{{ block.executorId }}</td>
+              <td>
+                <div class="storage-level-tags">
+                  <span v-for="tag in formatStorageLevel(block.storageLevel)" :key="tag" :class="['storage-tag', tag.toLowerCase()]">
+                    {{ tag }}
+                  </span>
+                </div>
+              </td>
+              <td>{{ formatBytes(block.memorySize) }}</td>
+              <td>{{ formatBytes(block.diskSize) }}</td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-else class="empty-blocks">
+          No block distribution data available for this RDD.
+        </div>
+      </CollapsibleCard>
+    </template>
+    <div v-else class="empty-storage">
+      <span class="material-symbols-outlined">inventory_2</span>
+      <p>RDD not found or no longer persisted.</p>
+    </div>
   </div>
 </template>
 
@@ -91,7 +104,7 @@ const emit = defineEmits(['back']);
 
 const rdd = ref(null);
 const rddBlocks = ref([]);
-const loading = ref(false);
+const loading = ref(true);
 
 const fetchData = async () => {
   loading.value = true;
@@ -104,8 +117,10 @@ const fetchData = async () => {
     rdd.value = rdds.find(r => r.rddId === props.rddId);
 
     // 2. Fetch block details
-    const res = await getRddStorage(props.appId, props.rddId);
-    rddBlocks.value = res.data || [];
+    if (rdd.value) {
+      const res = await getRddStorage(props.appId, props.rddId);
+      rddBlocks.value = res.data || [];
+    }
   } catch (err) {
     console.error("Failed to fetch RDD detail", err);
   } finally {
@@ -122,6 +137,42 @@ watch(() => props.rddId, fetchData);
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+
+.loading-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100px 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  color: #3498db;
+  gap: 15px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.spinner-small {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .detail-header {

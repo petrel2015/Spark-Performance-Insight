@@ -1,104 +1,110 @@
 <template>
   <div class="job-detail-container">
-    <div class="breadcrumb-nav">
-      <button @click="$emit('back')" class="back-btn">← Back to Jobs</button>
-      <div class="job-title">
-        <div class="job-header-row">
-          <h3>Details for Job {{ jobId }}</h3>
-          <button v-if="compareStore.isCompareMode && currentJob" 
-                  class="select-btn-large" 
-                  :class="{ selected: compareStore.hasItem('job', appId, jobId) }"
-                  @click="toggleSelection">
-            <span class="material-symbols-outlined">
-              {{ compareStore.hasItem('job', appId, jobId) ? 'check_box' : 'add_box' }}
+    <div v-if="isLoading" class="loading-placeholder">
+      <div class="spinner"></div>
+      <p>Loading job details...</p>
+    </div>
+    <template v-else>
+      <div class="breadcrumb-nav">
+        <button @click="$emit('back')" class="back-btn">← Back to Jobs</button>
+        <div class="job-title">
+          <div class="job-header-row">
+            <h3>Details for Job {{ jobId }}</h3>
+            <button v-if="compareStore.isCompareMode && currentJob" 
+                    class="select-btn-large" 
+                    :class="{ selected: compareStore.hasItem('job', appId, jobId) }"
+                    @click="toggleSelection">
+              <span class="material-symbols-outlined">
+                {{ compareStore.hasItem('job', appId, jobId) ? 'check_box' : 'add_box' }}
+              </span>
+              {{ compareStore.hasItem('stage', appId, stageId) ? 'In Candidate Queue' : 'Add to Candidate' }}
+            </button>
+          </div>
+          <span v-if="currentJob" class="job-description-subtitle">{{ currentJob.description }}</span>
+        </div>
+      </div>
+
+      <!-- 0. Performance Diagnosis -->
+      <CollapsibleCard v-if="currentJob" title="Performance Diagnosis" :initial-collapsed="false">
+        <JobDiagnosisCard 
+          :performance-score="currentJob.performanceScore || currentJob.performance_score || 0" 
+          :stages="currentJob.stageList || []"
+          @view-stage="onViewStage"
+        />
+      </CollapsibleCard>
+
+      <!-- 0. Job DAG Visualization -->
+      <CollapsibleCard v-if="currentJob" title="Job DAG Visualization" :initial-collapsed="true">
+        <template #actions>
+          <button class="lock-btn"
+                  v-if="dagRef"
+                  @click="dagRef.toggleZoomLock()"
+                  :title="dagRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
+            <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle; margin-right: 4px;">
+              {{ dagRef.isZoomLocked ? 'lock' : 'lock_open' }}
             </span>
-            {{ compareStore.hasItem('job', appId, jobId) ? 'In Candidate Queue' : 'Add to Candidate' }}
+            {{ dagRef.isZoomLocked ? 'Locked' : 'Unlocked' }}
           </button>
+        </template>
+        <div class="dag-wrapper">
+          <JobDAG ref="dagRef" :app-id="appId" :job-id="jobId"/>
         </div>
-        <span v-if="currentJob" class="job-description-subtitle">{{ currentJob.description }}</span>
-      </div>
-    </div>
+      </CollapsibleCard>
 
-    <!-- 0. Performance Diagnosis -->
-    <CollapsibleCard v-if="currentJob" title="Performance Diagnosis" :initial-collapsed="false">
-      <JobDiagnosisCard 
-        :performance-score="currentJob.performanceScore || currentJob.performance_score || 0" 
-        :stages="currentJob.stageList || []"
-        @view-stage="onViewStage"
-      />
-    </CollapsibleCard>
+      <!-- 0.5. Job Event Timeline -->
+      <CollapsibleCard v-if="currentJob" title="Event Timeline (Executors & Stages)" :initial-collapsed="true">
+        <template #actions>
+          <button class="lock-btn"
+                  v-if="timelineRef"
+                  @click="timelineRef.toggleZoomLock()"
+                  :title="timelineRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
+            <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle; margin-right: 4px;">
+              {{ timelineRef.isZoomLocked ? 'lock' : 'lock_open' }}
+            </span>
+            {{ timelineRef.isZoomLocked ? 'Locked' : 'Unlocked' }}
+          </button>
+        </template>
+        <JobTimeline ref="timelineRef" :app-id="appId" :job-id="jobId"/>
+      </CollapsibleCard>
 
-    <!-- 0. Job DAG Visualization -->
-    <CollapsibleCard v-if="currentJob" title="Job DAG Visualization" :initial-collapsed="true">
-      <template #actions>
-        <button class="lock-btn"
-                v-if="dagRef"
-                @click="dagRef.toggleZoomLock()"
-                :title="dagRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
-          <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle; margin-right: 4px;">
-            {{ dagRef.isZoomLocked ? 'lock' : 'lock_open' }}
-          </span>
-          {{ dagRef.isZoomLocked ? 'Locked' : 'Unlocked' }}
-        </button>
-      </template>
-      <div class="dag-wrapper">
-        <JobDAG ref="dagRef" :app-id="appId" :job-id="jobId"/>
-      </div>
-    </CollapsibleCard>
+      <!-- 1. Aggregated Metrics by Executor -->
+      <CollapsibleCard v-if="executorSummary && executorSummary.length > 0"
+                       title="Aggregated Metrics by Executor (Job Level)">
+        <ExecutorSummary
+            :summary="executorSummary"
+            :visible-metrics="selectedMetrics"
+        />
+      </CollapsibleCard>
 
-    <!-- 0.5. Job Event Timeline -->
-    <CollapsibleCard v-if="currentJob" title="Event Timeline (Executors & Stages)" :initial-collapsed="true">
-      <template #actions>
-        <button class="lock-btn"
-                v-if="timelineRef"
-                @click="timelineRef.toggleZoomLock()"
-                :title="timelineRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
-          <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle; margin-right: 4px;">
-            {{ timelineRef.isZoomLocked ? 'lock' : 'lock_open' }}
-          </span>
-          {{ timelineRef.isZoomLocked ? 'Locked' : 'Unlocked' }}
-        </button>
-      </template>
-      <JobTimeline ref="timelineRef" :app-id="appId" :job-id="jobId"/>
-    </CollapsibleCard>
-
-    <!-- 1. Aggregated Metrics by Executor -->
-    <CollapsibleCard v-if="executorSummary && executorSummary.length > 0"
-                     title="Aggregated Metrics by Executor (Job Level)">
-      <ExecutorSummary
-          :summary="executorSummary"
-          :visible-metrics="selectedMetrics"
-      />
-    </CollapsibleCard>
-
-    <!-- 1.5. Metric Visibility Selector -->
-    <div class="metric-selector-card">
-      <div class="selector-header">
-        <strong>Select Metrics to Display:</strong>
-        <div class="selector-actions">
-          <button @click="selectAllMetrics">Select All</button>
-          <button @click="clearAllMetrics">Clear All</button>
+      <!-- 1.5. Metric Visibility Selector -->
+      <div class="metric-selector-card">
+        <div class="selector-header">
+          <strong>Select Metrics to Display:</strong>
+          <div class="selector-actions">
+            <button @click="selectAllMetrics">Select All</button>
+            <button @click="clearAllMetrics">Clear All</button>
+          </div>
+        </div>
+        <div class="checkbox-group">
+          <label v-for="m in AVAILABLE_METRICS" :key="m.key" class="checkbox-item">
+            <input type="checkbox" :value="m.key" v-model="selectedMetrics">
+            {{ m.label }}
+          </label>
         </div>
       </div>
-      <div class="checkbox-group">
-        <label v-for="m in AVAILABLE_METRICS" :key="m.key" class="checkbox-item">
-          <input type="checkbox" :value="m.key" v-model="selectedMetrics">
-          {{ m.label }}
-        </label>
-      </div>
-    </div>
 
-    <!-- 2. Job Stages List -->
-    <CollapsibleCard title="Stages">
-      <StageTable
-          :app-id="appId"
-          :job-id="jobId"
-          :hide-title="true"
-          :plain="true"
-          :visible-metrics="selectedMetrics"
-          @view-stage-detail="onViewStage"
-      />
-    </CollapsibleCard>
+      <!-- 2. Job Stages List -->
+      <CollapsibleCard title="Stages">
+        <StageTable
+            :app-id="appId"
+            :job-id="jobId"
+            :hide-title="true"
+            :plain="true"
+            :visible-metrics="selectedMetrics"
+            @view-stage-detail="onViewStage"
+        />
+      </CollapsibleCard>
+    </template>
   </div>
 </template>
 
@@ -126,6 +132,7 @@ const executorSummary = ref([]);
 const dagRef = ref(null);
 const timelineRef = ref(null);
 const selectedMetrics = ref([...DEFAULT_METRICS]);
+const isLoading = ref(true);
 
 const toggleSelection = () => {
   if (!currentJob.value) return;
@@ -157,6 +164,7 @@ const clearAllMetrics = () => {
 };
 
 const fetchJobDetails = async () => {
+  isLoading.value = true;
   try {
     const [jobRes, execRes] = await Promise.all([
       getJob(props.appId, props.jobId),
@@ -167,6 +175,8 @@ const fetchJobDetails = async () => {
     console.log("Fetched Job Details:", currentJob.value);
   } catch (err) {
     console.error("Failed to fetch job details", err);
+  } finally {
+    isLoading.value = false;
   }
 };
 
@@ -183,6 +193,33 @@ watch(() => props.jobId, fetchJobDetails);
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+
+.loading-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100px 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  color: #3498db;
+  gap: 15px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .breadcrumb-nav {

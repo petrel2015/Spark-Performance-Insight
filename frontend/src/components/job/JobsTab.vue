@@ -267,7 +267,7 @@ const jumpPageInput = ref(1);
 const searchJobId = ref(null);
 const searchJobGroup = ref('');
 const sorts = ref([{field: 'jobId', dir: 'desc'}]); // Default sort by Job ID DESC
-const isLoading = ref(false);
+const isLoading = ref(true);
 
 const toggleSelection = (job) => {
   const key = `${props.appId}:job:${job.jobId}`;

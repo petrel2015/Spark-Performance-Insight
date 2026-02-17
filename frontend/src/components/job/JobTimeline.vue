@@ -12,7 +12,7 @@
 import {ref, onMounted, watch, onBeforeUnmount, nextTick} from 'vue';
 import * as echarts from 'echarts';
 import {getAppExecutors, getJobStages} from '../../api';
-import {formatTime} from '../../utils/format';
+import {formatTime, formatDateTime} from '../../utils/format';
 
 const props = defineProps({
   appId: {type: String, required: true},
@@ -165,7 +165,7 @@ const renderChart = (executors, stages, minTime, maxTime) => {
           return `<div style="padding:3px;">
                     <b>Executor ${e.executorId} ${type}</b><br/>
                     Host: ${e.host}<br/>
-                    Time: ${formatTime(v[1])}<br/>
+                    Time: ${formatDateTime(v[1])}<br/>
                     ${e.execLossReason ? 'Reason: ' + e.execLossReason : ''}
                   </div>`;
         } else {
@@ -174,9 +174,9 @@ const renderChart = (executors, stages, minTime, maxTime) => {
           return `<div style="padding:3px;">
                     <b>Stage ${s.stageId}</b> (${s.attemptId})<br/>
                     Name: ${s.stageName}<br/>
-                    Start: ${formatTime(v[1])}<br/>
-                    End: ${s.completionTime ? formatTime(v[2]) : 'Running'}<br/>
-                    Duration: ${s.duration ? (s.duration / 1000).toFixed(1) + 's' : '-'}
+                    Start: ${formatDateTime(v[1])}<br/>
+                    End: ${s.completionTime ? formatDateTime(v[2]) : 'Running'}<br/>
+                    Duration: ${formatTime(s.duration || (s.completionTime ? (new Date(s.completionTime).getTime() - new Date(s.submissionTime).getTime()) : null))}
                   </div>`;
         }
       }

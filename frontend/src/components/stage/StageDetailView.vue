@@ -1,140 +1,146 @@
 <template>
   <div class="stage-detail-container">
-    <div class="breadcrumb-nav">
-      <button @click="$emit('back')" class="back-btn">← Back to Stages</button>
-      <div class="stage-title">
-        <div class="stage-header-row">
-          <h3>
-            Details for Stage {{ stageId }}
-            <span v-if="currentStage?.attemptId > 0" class="attempt-badge">(Attempt {{ currentStage.attemptId }})</span>
-            <small v-if="currentStage?.jobId">
-              of Job <router-link :to="'/app/' + appId + '/job/' + currentStage.jobId" class="job-link">{{ currentStage.jobId }}</router-link>
-            </small>
-          </h3>
-          <button v-if="compareStore.isCompareMode && currentStage" 
-                  class="select-btn-large" 
-                  :class="{ selected: compareStore.hasItem('stage', appId, stageId) }"
-                  @click="toggleSelection">
-            <span class="material-symbols-outlined">
-              {{ compareStore.hasItem('stage', appId, stageId) ? 'check_box' : 'add_box' }}
+    <div v-if="isLoading" class="loading-placeholder">
+      <div class="spinner"></div>
+      <p>Loading stage details...</p>
+    </div>
+    <template v-else>
+      <div class="breadcrumb-nav">
+        <button @click="$emit('back')" class="back-btn">← Back to Stages</button>
+        <div class="stage-title">
+          <div class="stage-header-row">
+            <h3>
+              Details for Stage {{ stageId }}
+              <span v-if="currentStage?.attemptId > 0" class="attempt-badge">(Attempt {{ currentStage.attemptId }})</span>
+              <small v-if="currentStage?.jobId">
+                of Job <router-link :to="'/app/' + appId + '/job/' + currentStage.jobId" class="job-link">{{ currentStage.jobId }}</router-link>
+              </small>
+            </h3>
+            <button v-if="compareStore.isCompareMode && currentStage" 
+                    class="select-btn-large" 
+                    :class="{ selected: compareStore.hasItem('stage', appId, stageId) }"
+                    @click="toggleSelection">
+              <span class="material-symbols-outlined">
+                {{ compareStore.hasItem('stage', appId, stageId) ? 'check_box' : 'add_box' }}
+              </span>
+              {{ compareStore.hasItem('stage', appId, stageId) ? 'In Candidate Queue' : 'Add to Candidate' }}
+            </button>
+          </div>
+          <span v-if="currentStage" class="stage-name-subtitle">{{ currentStage.stageName }}</span>
+          <div v-if="currentStage?.localitySummary" class="locality-summary">
+            <span class="locality-label">Locality Level:</span>
+            <span class="locality-value">{{ currentStage.localitySummary }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Performance Diagnosis Card -->
+      <CollapsibleCard v-if="currentStage" 
+                       title="Performance Diagnosis" :initial-collapsed="false">
+        <StageDiagnosisCard :diagnosis-info="currentStage.diagnosisInfo" :performance-score="currentStage.performanceScore" />
+      </CollapsibleCard>
+
+      <!-- RDD Lineage Visualization -->
+      <CollapsibleCard v-if="currentStage && currentStage.rddInfo" title="DAG Visualization (RDD Lineage)"
+                       :initial-collapsed="true">
+        <template #actions>
+          <button class="lock-btn"
+                  v-if="dagRef"
+                  @click="dagRef.toggleZoomLock()"
+                  :title="dagRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
+            <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle; margin-right: 4px;">
+              {{ dagRef.isZoomLocked ? 'lock' : 'lock_open' }}
             </span>
-            {{ compareStore.hasItem('stage', appId, stageId) ? 'In Candidate Queue' : 'Add to Candidate' }}
+            {{ dagRef.isZoomLocked ? 'Locked' : 'Unlocked' }}
           </button>
+        </template>
+        <div class="dag-wrapper">
+          <StageDAG ref="dagRef" :stage="currentStage"/>
         </div>
-        <span v-if="currentStage" class="stage-name-subtitle">{{ currentStage.stageName }}</span>
-        <div v-if="currentStage?.localitySummary" class="locality-summary">
-          <span class="locality-label">Locality Level:</span>
-          <span class="locality-value">{{ currentStage.localitySummary }}</span>
+      </CollapsibleCard>
+
+      <!-- Event Timeline Chart (Gantt/Waterfall) -->
+      <CollapsibleCard v-if="currentStage" title="Event Timeline" :initial-collapsed="true">
+        <template #actions>
+          <button class="lock-btn"
+                  v-if="taskTimelineRef"
+                  @click="taskTimelineRef.toggleZoomLock()"
+                  :title="taskTimelineRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
+            <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle; margin-right: 4px;">
+              {{ taskTimelineRef.isZoomLocked ? 'lock' : 'lock_open' }}
+            </span>
+            {{ taskTimelineRef.isZoomLocked ? 'Locked' : 'Unlocked' }}
+          </button>
+        </template>
+        <StageTaskTimeline ref="taskTimelineRef" :app-id="appId" :stage-id="stageId" :attempt-id="currentStage?.attemptId"/>
+      </CollapsibleCard>
+
+      <!-- Active Tasks Trend Chart -->
+      <CollapsibleCard v-if="currentStage" title="Active Tasks Trend" :initial-collapsed="true">
+        <template #actions>
+          <button class="lock-btn"
+                  v-if="trendRef"
+                  @click="trendRef.toggleZoomLock()"
+                  :title="trendRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
+            <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle; margin-right: 4px;">
+              {{ trendRef.isZoomLocked ? 'lock' : 'lock_open' }}
+            </span>
+            {{ trendRef.isZoomLocked ? 'Locked' : 'Unlocked' }}
+          </button>
+        </template>
+        <StageTrendChart ref="trendRef" :app-id="appId" :stage-id="stageId" :attempt-id="currentStage?.attemptId"/>
+      </CollapsibleCard>
+
+      <!-- Metric Visibility Selector -->
+      <div class="metric-selector-card">
+        <div class="selector-header">
+          <strong>Select Metrics to Display:</strong>
+          <div class="selector-actions">
+            <button @click="selectAllMetrics">Select All</button>
+            <button @click="clearAllMetrics">Clear All</button>
+          </div>
         </div>
-      </div>
-    </div>
-
-    <!-- Performance Diagnosis Card -->
-    <CollapsibleCard v-if="currentStage" 
-                     title="Performance Diagnosis" :initial-collapsed="false">
-      <StageDiagnosisCard :diagnosis-info="currentStage.diagnosisInfo" :performance-score="currentStage.performanceScore" />
-    </CollapsibleCard>
-
-    <!-- RDD Lineage Visualization -->
-    <CollapsibleCard v-if="currentStage && currentStage.rddInfo" title="DAG Visualization (RDD Lineage)"
-                     :initial-collapsed="true">
-      <template #actions>
-        <button class="lock-btn"
-                v-if="dagRef"
-                @click="dagRef.toggleZoomLock()"
-                :title="dagRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
-          <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle; margin-right: 4px;">
-            {{ dagRef.isZoomLocked ? 'lock' : 'lock_open' }}
-          </span>
-          {{ dagRef.isZoomLocked ? 'Locked' : 'Unlocked' }}
-        </button>
-      </template>
-      <div class="dag-wrapper">
-        <StageDAG ref="dagRef" :stage="currentStage"/>
-      </div>
-    </CollapsibleCard>
-
-    <!-- Event Timeline Chart (Gantt/Waterfall) -->
-    <CollapsibleCard v-if="currentStage" title="Event Timeline" :initial-collapsed="true">
-      <template #actions>
-        <button class="lock-btn"
-                v-if="taskTimelineRef"
-                @click="taskTimelineRef.toggleZoomLock()"
-                :title="taskTimelineRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
-          <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle; margin-right: 4px;">
-            {{ taskTimelineRef.isZoomLocked ? 'lock' : 'lock_open' }}
-          </span>
-          {{ taskTimelineRef.isZoomLocked ? 'Locked' : 'Unlocked' }}
-        </button>
-      </template>
-      <StageTaskTimeline ref="taskTimelineRef" :app-id="appId" :stage-id="stageId" :attempt-id="currentStage?.attemptId"/>
-    </CollapsibleCard>
-
-    <!-- Active Tasks Trend Chart -->
-    <CollapsibleCard v-if="currentStage" title="Active Tasks Trend" :initial-collapsed="true">
-      <template #actions>
-        <button class="lock-btn"
-                v-if="trendRef"
-                @click="trendRef.toggleZoomLock()"
-                :title="trendRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
-          <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle; margin-right: 4px;">
-            {{ trendRef.isZoomLocked ? 'lock' : 'lock_open' }}
-          </span>
-          {{ trendRef.isZoomLocked ? 'Locked' : 'Unlocked' }}
-        </button>
-      </template>
-      <StageTrendChart ref="trendRef" :app-id="appId" :stage-id="stageId" :attempt-id="currentStage?.attemptId"/>
-    </CollapsibleCard>
-
-    <!-- Metric Visibility Selector -->
-    <div class="metric-selector-card">
-      <div class="selector-header">
-        <strong>Select Metrics to Display:</strong>
-        <div class="selector-actions">
-          <button @click="selectAllMetrics">Select All</button>
-          <button @click="clearAllMetrics">Clear All</button>
+        <div class="checkbox-group">
+          <label v-for="m in AVAILABLE_METRICS" :key="m.key" class="checkbox-item">
+            <input type="checkbox" :value="m.key" v-model="selectedMetrics">
+            {{ m.label }}
+          </label>
         </div>
       </div>
-      <div class="checkbox-group">
-        <label v-for="m in AVAILABLE_METRICS" :key="m.key" class="checkbox-item">
-          <input type="checkbox" :value="m.key" v-model="selectedMetrics">
-          {{ m.label }}
-        </label>
+
+      <!-- Summary Metrics Cards -->
+      <CollapsibleCard v-if="stageStats && stageStats.length > 0"
+                       :title="`Summary Metrics for Stage ${stageId} (${currentStage?.numCompletedTasks || 0} completed tasks)`">
+        <StageSummary
+            :stats="stageStats"
+            :stage-id="stageId"
+            :visible-metrics="selectedMetrics"
+            :stage="currentStage"
+        />
+      </CollapsibleCard>
+
+      <div v-else-if="currentStage" style="color: #999; padding: 10px;">
+        No detailed statistics available.
       </div>
-    </div>
 
-    <!-- Summary Metrics Cards -->
-    <CollapsibleCard v-if="stageStats && stageStats.length > 0"
-                     :title="`Summary Metrics for Stage ${stageId} (${currentStage?.numCompletedTasks || 0} completed tasks)`">
-      <StageSummary
-          :stats="stageStats"
-          :stage-id="stageId"
-          :visible-metrics="selectedMetrics"
-          :stage="currentStage"
-      />
-    </CollapsibleCard>
+      <!-- Executor Summary Card -->
+      <CollapsibleCard v-if="executorSummary && executorSummary.length > 0" title="Aggregated Metrics by Executor">
+        <ExecutorSummary
+            :summary="executorSummary"
+            :visible-metrics="selectedMetrics"
+        />
+      </CollapsibleCard>
 
-    <div v-else-if="currentStage" style="color: #999; padding: 10px;">
-      No detailed statistics available.
-    </div>
-
-    <!-- Executor Summary Card -->
-    <CollapsibleCard v-if="executorSummary && executorSummary.length > 0" title="Aggregated Metrics by Executor">
-      <ExecutorSummary
-          :summary="executorSummary"
-          :visible-metrics="selectedMetrics"
-      />
-    </CollapsibleCard>
-
-    <!-- Task Details Section -->
-    <CollapsibleCard v-if="currentStage" title="Tasks List">
-      <TaskTable
-          :app-id="appId"
-          :stage-id="stageId"
-          :attempt-id="currentStage?.attemptId"
-          :visible-metrics="selectedMetrics"
-      />
-    </CollapsibleCard>
+      <!-- Task Details Section -->
+      <CollapsibleCard v-if="currentStage" title="Tasks List">
+        <TaskTable
+            :app-id="appId"
+            :stage-id="stageId"
+            :attempt-id="currentStage?.attemptId"
+            :visible-metrics="selectedMetrics"
+        />
+      </CollapsibleCard>
+    </template>
   </div>
 </template>
 
@@ -173,6 +179,7 @@ const currentStage = ref(null);
 const stageStats = ref([]);
 const executorSummary = ref([]);
 const selectedMetrics = ref([...DEFAULT_METRICS]);
+const isLoading = ref(true);
 
 const taskTimelineRef = ref(null);
 const trendRef = ref(null);
@@ -209,6 +216,7 @@ const clearAllMetrics = () => {
 
 const fetchStageDetails = async () => {
   if (!props.stageId || !props.appId) return;
+  isLoading.value = true;
   try {
     // 1. Get Stage info first to determine attemptId if not provided
     const stageRes = await getStage(props.appId, props.stageId, props.attemptId);
@@ -231,6 +239,8 @@ const fetchStageDetails = async () => {
     console.error("AppID:", props.appId, "StageID:", props.stageId);
     currentStage.value = null;
     stageStats.value = [];
+  } finally {
+    isLoading.value = false;
   }
 };
 
@@ -244,6 +254,33 @@ watch(() => props.stageId, fetchStageDetails);
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.loading-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100px 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  color: #3498db;
+  gap: 15px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .breadcrumb-nav {

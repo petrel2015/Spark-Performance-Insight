@@ -1,18 +1,22 @@
 export const formatTime = (ms: number | null | undefined) => {
-    if (ms === null || ms === undefined) return '-';
-    if (ms < 1) return '0 ms';
-    if (ms < 1000) return `${Math.round(ms)} ms`;
-    const s = Math.round(ms / 1000);
-    if (s < 60) return `${s} s`;
-    if (s < 3600) {
-        const m = Math.floor(s / 60);
-        const rs = s % 60;
-        return `${m} min ${rs} s`;
-    }
-    const h = Math.floor(s / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    const rs = s % 60;
-    return `${h} h ${m} min ${rs} s`;
+    if (ms === null || ms === undefined || ms < 0) return '-';
+    if (ms === 0) return '0ms';
+    if (ms < 1000) return `${Math.round(ms)}ms`;
+    
+    const s = ms / 1000;
+    if (s < 60) return `${s.toFixed(1)}s`;
+    
+    const m = Math.floor(s / 60);
+    const rs = Math.round(s % 60);
+    if (m < 60) return `${m}m ${rs}s`;
+    
+    const h = Math.floor(m / 60);
+    const rm = m % 60;
+    if (h < 24) return `${h}h ${rm}m ${rs}s`;
+    
+    const d = Math.floor(h / 24);
+    const rh = h % 24;
+    return `${d}d ${rh}h ${rm}m`;
 };
 
 export const formatBytes = (bytes: number | null | undefined) => {

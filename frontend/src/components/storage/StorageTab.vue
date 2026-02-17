@@ -66,7 +66,7 @@ const props = defineProps({
 defineEmits(['view-rdd-detail']);
 
 const rdds = ref([]);
-const isLoading = ref(false);
+const isLoading = ref(true);
 
 const fetchStorageData = async () => {
   isLoading.value = true;

@@ -1,3 +1,26 @@
+## 1.0.1 - 2026-02-17
+
+### Features
+- Show a countdown modal and redirect when an application ID is not found.
+
+### Fixes
+- Robustly handle non-existent application IDs with 404 status and redirection.
+- Resolve stage validation failure in Compare Workspace by handling null attemptId.
+- Standardize comparison item keys in AppList to ensure workspace consistency.
+- Correct 404 redirection logic in API interceptor.
+
+### Documentation
+- Major documentation reorganization into English and Chinese subdirectories.
+- Add comprehensive System Architecture diagrams (Mermaid).
+- Add Database ER diagrams and Log Ingestion flowcharts.
+- Add detailed UI documentation for all major views with screenshots.
+- Add User Interface Gallery to READMEs.
+- Add "Rule-Based Diagnosis Engine" section to READMEs.
+
+### Maintenance
+- Remove obsolete Dockerfile and sample Scala application.
+- Cleanup temporary Medallion planning documents.
+
 ## 1.0.0 - 2026-02-17
 
 ### Features

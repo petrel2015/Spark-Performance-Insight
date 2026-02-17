@@ -2,104 +2,86 @@
 
 English | [中文](./README.zh.md)
 
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](./CHANGELOG.md)
 [![AI Powered](https://img.shields.io/badge/Powered%20by-Gemini%20AI-blue.svg)](https://deepmind.google/technologies/gemini/)
+[![Java 21](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/technologies/javase/jdk21-archive-downloads.html)
+[![Spring Boot 3](https://img.shields.io/badge/Spring%20Boot-3.x-green.svg)](https://spring.io/projects/spring-boot)
 
 ---
 
-An advanced Spark performance analysis system designed to address the core pain points of the native Spark Web UI/History Server. It aims to completely solve the "slow replay" and "no comparison" issues in Spark performance diagnosis through structured storage and multi-dimensional comparison technologies.
+An advanced Spark performance analysis system designed to address the core pain points of the native Spark Web UI/History Server. It eliminates "slow replay" and "lack of comparison" issues through **Medallion Architecture**, **Structured OLAP Storage**, and **Multi-dimensional Benchmarking**.
 
-## Why do we need it? (The Pain Points)
+## Why Spark-Performance-Insight?
 
-While the native Spark Web UI provides basic monitoring, it suffers from the following core pain points during deep performance analysis and production operations:
+While the native Spark Web UI provides basic monitoring, it suffers from critical limitations during deep performance analysis and production operations:
 
 ### 1. History Server Architectural Bottlenecks
-- **Event Replay Overhead:** The native History Server relies on replaying raw EventLogs to reconstruct job state. For massive jobs, replaying TB-sized logs results in extremely high CPU and memory overhead, leading to very slow response times.
-- **Memory Starvation & Scalability:** Lacking pre-aggregated structured storage, all metrics must be cached in memory. This easily triggers SHS process OOM or UI crashes when handling ultra-large jobs with millions of tasks.
-- **No Query Indexing:** The linear storage format does not support efficient indexing, searching, or pagination. Browsing, filtering, or sorting through tens of thousands of Stages or millions of Tasks provides an extremely poor user experience.
+- **Event Replay Overhead:** Relies on replaying raw JSON EventLogs to reconstruct state. For massive jobs, TB-sized logs result in extreme CPU/Memory overhead and minute-long wait times.
+- **Scalability Issues:** Without structured storage, all metrics must be cached in memory, often triggering OOM or UI crashes when handling jobs with millions of tasks.
+- **No Query Indexing:** Linear storage lacks efficient indexing. Browsing through tens of thousands of stages or millions of tasks provides a poor user experience.
 
-### 2. Lack of Deep Horizontal Comparison (No Job/Stage Comparison)
-- **Unquantifiable Differences:** When job performance degrades, the native UI cannot directly compare metrics across Jobs or Stages. Users find it difficult to intuitively see which specific Stage has slowed down and how the Task distribution has changed.
-- **Environment Blind Spots:** It is hard for users to quickly identify if performance degradation is due to changes in `spark.conf` parameters, Executor resource configuration differences, or underlying hardware environment issues.
+### 2. Lack of Deep Comparison
+- **Unquantifiable Differences:** When a job slows down, it is nearly impossible to compare metrics directly across different runs or stages to identify the root cause.
+- **Environment Blind Spots:** Hard to quickly identify if performance changes are due to `spark.conf` tweaks, resource allocation differences, or hardware discrepancies.
 
 ## Core Features
 
-### 1. Classic UI Parity & Beyond
-- **Jobs & Stages Explorer:** Deep replication of the native lists, including **Job Descriptions**, progress bars, and millisecond-level sorting/filtering.
-- **Summary Metrics:** Full parity with Spark UI Stage details. Provides statistical distributions (Min, 25%, Median, 75%, 95%, Max) for Duration, GC Time, Spills, and Shuffle metrics.
-- **Advanced Task List:** Supports server-side pagination for millions of Tasks, custom page sizes, and **Multi-column Sorting** (Shift+Click).
-- **SPA Stability:** Full support for page refreshes and deep linking. Share specific Stage views via URL.
+### 1. Medallion Data Pipeline
+- **Bronze (Raw Ingestion):** High-speed streaming ingestion using Jackson, handling TB-sized logs with ease.
+- **Silver (Transformation):** Structured parsing and normalization, recovering logical relationships and identifying long-tail tasks.
+- **Gold (Aggregation):** Pre-calculated analytical tables for instant UI response times, even for massive datasets.
 
-### 2. Smart Diagnosis Engine
-- **Markdown Report Generation:** Automatically analyzes data skew, GC pressure, disk spills, etc., generating LLM-friendly diagnostic reports.
-- **Visual Risk Indicators:** Automatically marks high-risk stages with colors in the Stages list.
+### 2. Advanced Storage Analysis
+- **Persistence Tracking:** Comprehensive view of cached RDDs and DataFrames.
+- **Structural UI:** Detailed storage levels (Memory/Disk/Deserialized) with status indicators.
+- **Deep Linking:** Every RDD has its own unique URL for easy sharing and direct access.
 
-### 3. Multi-dimensional Deep Comparison (Job/Stage Comparison)
-- **Cross-App Job Comparison:** Supports selecting two Jobs (can belong to different Application instances). The system automatically identifies and correlates the performance metrics of corresponding Stages.
-- **Stage Specific Analysis:** Supports direct selection of two Stages for deep benchmarking. Includes:
-    - **Statistical Distribution Comparison:** Differences in Min, Median, Max, P95 distributions for metrics like Duration, GC Time, Shuffle Read/Write, etc.
-    - **Task Detail Comparison:** Automatically identifies long-tail Tasks and compares subtle differences in Task execution traces between two Stages.
+### 3. Smart Diagnosis Engine
+- **AI-Powered Analysis:** Integrates **Zhipu AI (GLM-4.7)** and **OpenAI** to generate expert-level diagnostic reports.
+- **Rule-Based Insights:** Automatically identifies data skew, GC pressure, disk spills, and scheduler delays with visual risk indicators.
 
-### 4. Broad Log Compatibility
-- **Zstd Compression Support:** Native support for reading `.zstd` and `.zst` compressed logs without manual decompression.
-- **Spark V2 Log Structure:** Supports recursive directory scanning, perfectly compatible with Spark V2's directory-based EventLog storage structure.
-- **Robust Parsing:** Automatically handles missing fields for different log versions to ensure a stable, crash-free parsing process.
+### 4. Multi-dimensional Benchmarking
+- **Cross-App Comparison:** Compare two different application instances side-by-side.
+- **Stage Benchmarking:** Deep dive into two stages to compare statistical distributions (P95, Median) and task execution traces.
+
+### 5. Enterprise-Grade Robustness
+- **OOM Recovery:** Automatic DuckDB memory management with `CHECKPOINT` and retry logic.
+- **Timing Accuracy:** Synchronized epoch milliseconds and monotonic progress tracking for reliable time-to-completion estimates.
+- **Broad Compatibility:** Native support for **ZSTD** compression and Spark **V2 log directories**.
 
 ## Technical Stack
 
-- **Frontend:** Vue 3 + Vite + ECharts (for full-link latency and resource distribution visualization).
-- **Backend:** Java 21 + Spring Boot 3.x (utilizing Virtual Threads to improve log parsing efficiency).
-- **Database:** DuckDB (In-process embedded OLAP database for high-performance analytical queries).
-- **Persistence (ORM):** MyBatis Plus (Using XML for SQL to facilitate future database extensions and SQL optimization).
-- **Run Mode:** Standalone JAR execution, supporting offline analysis.
-
-## Workflow
-
-1.  **Scan:** Scans the `eventlog` path specified in the configuration file upon startup.
-2.  **Import:** Adopts a **"Dual-Track" Parsing Strategy**:
-    -   **Current: FastEventParser** - Based on Jackson/Fastjson for asynchronous parsing of raw JSON, extracting core metrics into the database. Lightweight, no Spark dependency.
-    -   **Reserved: SparkNativeParser** - Defines a unified interface, reserving the ability to integrate the `spark-core` ReplayListenerBus in the future to support native parsing for different versions.
-3.  **Pre-Calculate:**
-    -   Automatically calculates key metrics at the Stage/Task level during the ingestion phase.
-    -   Pre-aggregates: GC time ratio, Average, Median (P50), P90/P95/P99 duration, etc.
-4.  **Analyze:** Provides single-task deep analysis and multi-task horizontal comparison via the Web UI.
-
-## Roadmap
-
-- [ ] **Structured Storage Engine:** Implement streaming parsing and structured ingestion of EventLog, completely saying goodbye to raw log replay.
-- [ ] **Multi-Version Event Parser:**
-    - [x] Fast parser implementation based on Jackson.
-    - [ ] Plugin-based parsing interface design (supporting custom Event mapping).
-    - [ ] Reserve native Spark Jar replay adapter.
-- [ ] **Stage Summary Metrics:**
-    - [ ] Implement Task statistics panel similar to Spark UI.
-    - [ ] Provide Min, 25%, Median, 75%, 95%, Max statistical distribution for metrics like Duration, GC Time, Shuffle Read/Write, Input Bytes.
-- [ ] **Deep Comparator:** Support full comparison at Job and Stage dimensions.
-    -   **Cross-App Benchmarking:** Automatically match Job logic relationships between different run instances.
-    -   **Metric Drill-down:** One-click drill-down from Stage overview to specific Task difference comparison.
-    -   **Parameter Deviation:** Automatically highlight differences in Environment and SparkConf.
+- **Frontend:** Vue 3 + Vite + ECharts + Material Design.
+- **Backend:** Java 21 (Virtual Threads) + Spring Boot 3.x.
+- **OLAP Engine:** [DuckDB](https://duckdb.org/) (Embedded analytical database for high-performance SQL queries).
+- **ORM:** MyBatis Plus (XML-based for optimized analytical SQL).
 
 ## Quick Start
 
 ### Build and Run
 
 1.  **Build the Project:**
-    This will automatically build the frontend (installing Node.js/NPM locally) and package it into the JAR.
+    Builds both frontend and backend into a single executable JAR.
     ```bash
     mvn clean install
     ```
 
 2.  **Run the Application:**
     ```bash
-    java -jar target/spark-performance-insight-0.0.1-SNAPSHOT.jar
+    java -jar target/spark-performance-insight-1.0.0.jar
     ```
 
 3.  **Access the UI:**
-    Open your browser and visit:
-    ```
-    http://localhost:18081
-    ```
+    Visit `http://localhost:18081` in your browser.
+
+## Roadmap
+
+- [x] **Medallion Architecture:** Fully implemented Bronze/Silver/Gold storage engine.
+- [x] **LLM Diagnosis:** Integrated deep analysis with AI.
+- [x] **Storage Overhaul:** Structural tags and deep-link support.
+- [ ] **DAG Visualization Enhancement:** Richer interactive graphs for Job/Stage relationships.
+- [ ] **Streaming Ingestion:** Real-time processing of in-progress application logs.
 
 ## Acknowledgments
 
-- Special thanks to [JimLiu/baoyu-skills](https://github.com/JimLiu/baoyu-skills.git) for the **release-skills** that streamlines our release workflow.
-
+- Special thanks to the authors of the **smart-commit** and **release-skills** tools for streamlining our development and release workflows.

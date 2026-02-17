@@ -2,106 +2,86 @@
 
 [English](./README.md) | 中文
 
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](./CHANGELOG.zh.md)
 [![AI Powered](https://img.shields.io/badge/Powered%20by-Gemini%20AI-blue.svg)](https://deepmind.google/technologies/gemini/)
+[![Java 21](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/technologies/javase/jdk21-archive-downloads.html)
+[![Spring Boot 3](https://img.shields.io/badge/Spring%20Boot-3.x-green.svg)](https://spring.io/projects/spring-boot)
 
---- 
+---
 
-一个专为解决原生 Spark Web UI/History Server 核心痛点而生的深度性能分析系统。它旨在通过结构化存储与多维对比技术，彻底解决 Spark 性能诊断中的“重放慢”与“无对比”问题。
+一个专为解决原生 Spark Web UI/History Server 核心痛点而生的深度性能分析系统。通过 **奖章架构 (Medallion Architecture)**、**结构化 OLAP 存储** 以及 **多维深度对标** 技术，彻底告别“重放慢”与“无对比”的性能诊断困境。
 
-## 为什么需要它？ (The Pain Points)
+## 为什么需要它？
 
-虽然 Spark 原生 Web UI 提供了基础监控，但在深度性能分析和生产运维中存在以下核心痛点：
+虽然 Spark 原生 Web UI 提供了基础监控，但在生产环境的深度分析中存在以下关键局限：
 
-### 1. History Server 的架构性能瓶颈
-- **重放负担 (Event Replay Overhead)：** 原生 History Server 依赖回放原始 EventLog 来重建作业状态。对于大型作业，TB 级的日志回放会导致极高的 CPU 与内存开销，访问响应极慢。
-- **内存饥饿与扩展性：** 缺乏预聚合的结构化存储，所有指标都需缓存在内存中，在处理海量 Task 的超大型作业时极易引发 SHS 进程 OOM 或 UI 崩溃。
-- **查询无索引：** 线性存储格式不支持高效的索引、搜索和分页。在数万个 Stage 或百万级 Task 中进行翻页、过滤或排序时，体验极其糟糕。
+### 1. History Server 的架构瓶颈
+- **重放开销大：** 依赖顺序回放原始 JSON EventLog。对于大型作业，TB 级日志会导致极高的 CPU/内存开销和长达数分钟的等待。
+- **扩展性挑战：** 缺乏结构化存储，所有指标必须缓存于内存，处理海量 Task 时极易引发 OOM 或 UI 崩溃。
+- **查询效率低：** 线性存储不支持索引。在数万个 Stage 或百万级 Task 中进行搜索、排序和分页时体验极差。
 
-### 2. 缺乏深度的横向对比能力 (No Job/Stage Comparison)
-- **无法量化差异：** 当作业性能出现退化时，原生 UI 无法直接跨作业对比 Job 或 Stage 的指标差异。用户难以直观看到是哪个特定的 Stage 变慢了，以及 Task 分布发生了什么变化。
-- **环境变动盲区：** 用户难以快速识别性能下降是因为 `spark.conf` 参数的变动、Executor 资源配置差异，还是由于底层硬件环境导致的。
+### 2. 缺乏量化的横向对比
+- **差异难以量化：** 当作业变慢时，很难直接对比不同运行实例或 Stage 间的指标，难以精准定位性能退化的根源。
+- **环境变动盲区：** 难以快速识别性能波动是由 `spark.conf` 参数微调、资源分配差异还是硬件环境变化引起的。
 
-## 核心功能模块 (Features)
+## 核心功能
 
-### 1. 经典视图复刻与增强 (Classic UI Parity & Beyond)
-- **Jobs & Stages Explorer:** 深度复刻原生列表，包含 **Job 描述**、进度条展示，支持毫秒级排序与过滤。
-- **Summary Metrics:** 完美复刻 Spark UI 的 Stage 统计面板。提供 Duration, GC Time, Spill, Shuffle 等指标的五分位数（Min, 25%, Median, 75%, 95%, Max）统计分布。
-- **高性能 Task 列表:** 支持百万级 Task 的后端分页、自定义每页条数、以及 **多列同时排序**（按住 Shift 多选）。
-- **SPA 路由持久化:** 全面支持页面刷新与 URL 直接访问。可直接分享特定的 Stage 详情链接。
+### 1. 奖章架构数据管道 (Medallion Pipeline)
+- **Bronze (原始入库)：** 基于 Jackson 的超高速流式解析，轻松应对 TB 级原始日志。
+- **Silver (结构化转换)：** 数据规范化处理，自动恢复逻辑关联，精准识别长尾 Task。
+- **Gold (指标聚合)：** 预计算分析宽表，即使面对海量数据也能实现秒级 UI 响应。
 
-### 2. 智能化诊断引擎 (Smart Diagnosis)
-- **Markdown 报告生成:** 自动分析数据倾斜、GC 压力、磁盘溢写等，生成 LLM 友好的诊断报告。
-- **直观风险标识:** 在 Stages 列表中自动通过颜色标记高风险阶段。
+### 2. 深度存储分析 (Storage Overhaul)
+- **持久化追踪：** 全方位展示缓存 RDD 和 DataFrame 的分布情况。
+- **结构化 UI：** 通过状态指示灯直观展示存储级别（Memory/Disk/Deserialized）。
+- **深层链接：** 每个 RDD 拥有独立 URL，支持直接访问和快速分享。
 
-### 3. 多维度深度对比 (Job/Stage Comparison)
-- **跨应用 Job 对比：** 支持选择两个 Job（可属于不同的 Application 实例），系统会自动识别并关联对比对应的各 Stage 性能指标。
-- **Stage 专项分析：** 支持直接选择两个 Stage 进行深度对标。包括：
-    - **统计分布对比：** Duration, GC Time, Shuffle Read/Write 等指标的 Min, Median, Max, P95 分布差异。
-    - **Task 细节对比：** 自动识别长尾 Task，对比两个 Stage 间 Task 执行轨迹的细微差别。
+### 3. 智能化诊断引擎 (Smart Diagnosis)
+- **AI 深度分析：** 集成 **智谱 AI (GLM-4.7)** 与 **OpenAI**，一键生成专家级诊断报告。
+- **规则引擎：** 自动识别数据倾斜、GC 压力、磁盘溢写和调度延迟，并提供视觉风险预警。
 
-### 4. 广泛的日志兼容性 (Broad Log Compatibility)
-- **Zstd 压缩支持:** 原生支持读取 `.zstd` 和 `.zst` 格式的压缩日志，无需手动解压。
-- **Spark V2 日志结构:** 支持递归扫描目录，完美兼容 Spark V2 的目录式 EventLog 存储结构。
-- **鲁棒性解析:** 针对不同版本的日志格式缺失字段进行自动兼容，确保解析过程稳定不崩溃。
+### 4. 多维度深度对比 (Benchmarking)
+- **跨应用对比：** 支持两个不同 Application 实例间的全指标对标。
+- **Stage 专项对标：** 深入对比两个 Stage 的五分位数（P95, Median）分布及 Task 执行轨迹。
 
-## 技术栈 (Technical Stack)
+### 5. 企业级稳定性
+- **OOM 自动恢复：** 引入 DuckDB `CHECKPOINT` 机制与自动重试逻辑，确保内存瓶颈下的任务可靠性。
+- **精准时间预估：** 统一使用毫秒级时间戳，配合单调递增的进度追踪，提供准确的导入剩余时间预估。
+- **广泛兼容：** 原生支持 **ZSTD** 压缩和 Spark **V2 目录式日志**。
 
-## 技术栈 (Technical Stack)
+## 技术栈
 
-- **前端 (Frontend):** Vue 3 + Vite + ECharts (用于全链路耗时与资源分布可视化)。
-- **后端 (Backend):** Java 21 + Spring Boot 3.x (利用虚拟线程提高日志解析效率)。
-- **数据库 (Database):** DuckDB (进程内嵌入式 OLAP 数据库，高性能处理分析型查询)。
-- **持久层 (ORM):** MyBatis Plus (采用 XML 编写 SQL，便于后续数据库扩展与 SQL 优化)。
-- **运行模式:** 独立 JAR 包运行，支持离线分析。
-
-## 工作流程 (Workflow)
-
-1.  **扫描 (Scan):** 启动时扫描配置文件指定的 `eventlog` 路径。
-2.  **导入 (Import):** 采用**“双轨制”解析策略**：
-    - **当前：FastEventParser** - 基于 Jackson/Fastjson 异步解析原始 JSON，提取核心指标入库。轻量级、无 Spark 依赖。
-    - **预留：SparkNativeParser** - 定义统一接口，预留未来集成 `spark-core` 回放总线（ReplayListenerBus）的能力，以支持不同版本的原生解析。
-3.  **初始化预计算 (Pre-Calculate):**
-    - 在入库阶段自动计算 Stage/Task 级别的关键指标。
-    - 提前聚合：GC 时间占比、平均数、中位数 (P50)、P90/P95/P99 耗时等。
-4.  **展示与对比 (Analyze):** 通过 Web UI 提供单任务深度分析与多任务横向对比。
-
-## 主要功能规划 (Roadmap)
-
-- [ ] **Structured Storage Engine:** 实现 EventLog 的流式解析与结构化入库，彻底告别原始日志重放。
-- [ ] **Multi-Version Event Parser:**
-    - [x] 基于 Jackson 的快速解析器实现。
-    - [ ] 插件化解析接口设计（支持自定义 Event 映射）。
-    - [ ] 预留原生 Spark Jar 回放适配器。
-- [ ] **Stage Summary Metrics:**
-    - [ ] 实现类似 Spark UI 的 Task 统计面板。
-    - [ ] 提供 Duration, GC Time, Shuffle Read/Write, Input Bytes 等指标的 Min, 25%, Median, 75%, 95%, Max 统计分布。
-- [ ] **Deep Comparator:** 支持 Job 和 Stage 维度的全量对比。
-    - **跨 App 对标：** 自动匹配不同运行实例间的 Job 逻辑关系。
-    - **指标下钻：** 从 Stage 概览一键下钻至具体的 Task 差异对比。
-    - **参数偏差：** 自动高亮显示 Environment 与 SparkConf 的差异。
+- **前端：** Vue 3 + Vite + ECharts + Material Design。
+- **后端：** Java 21 (虚拟线程) + Spring Boot 3.x。
+- **OLAP 引擎：** [DuckDB](https://duckdb.org/) (进程内嵌入式分析型数据库)。
+- **ORM：** MyBatis Plus (基于 XML 优化分析型 SQL)。
 
 ## 快速开始
 
 ### 构建与运行
 
-1.  **构建项目:**
-    该命令会自动构建前端（在本地安装 Node.js/NPM）并将其打包到 JAR 文件中。
+1.  **构建项目：**
+    该命令会自动构建前端并将其打包至可执行 JAR。
     ```bash
     mvn clean install
     ```
 
-2.  **启动应用:**
+2.  **启动应用：**
     ```bash
-    java -jar target/spark-performance-insight-0.0.1-SNAPSHOT.jar
+    java -jar target/spark-performance-insight-1.0.0.jar
     ```
 
-3.  **访问界面:**
-    打开浏览器访问:
-    ```
-        http://localhost:18081
-        ```
-    
-    ## 致谢
-    
-    - 特别感谢 [JimLiu/baoyu-skills](https://github.com/JimLiu/baoyu-skills.git) 项目及作者，为本项目提供自动化的 **release-skills** 发布流程支持。
-    
+3.  **访问界面：**
+    在浏览器中打开 `http://localhost:18081`。
+
+## 功能规划 (Roadmap)
+
+- [x] **奖章架构：** 已完成 Bronze/Silver/Gold 存储引擎实现。
+- [x] **LLM 诊断：** 已集成 AI 深度分析。
+- [x] **存储模块升级：** 已支持结构化标签与深层链接。
+- [ ] **DAG 视图增强：** 提供更丰富的 Job/Stage 关联交互图谱。
+- [ ] **实时流式解析：** 支持对运行中任务的近实时监控。
+
+## 致谢
+
+- 特别感谢 **smart-commit** 和 **release-skills** 工具的作者，显著提升了本项目的开发与发布效率。

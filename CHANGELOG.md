@@ -1,3 +1,17 @@
+## 0.36.0 - 2026-02-17
+
+### Features
+- **Medallion Architecture**: Fully transitioned to Medallion Architecture (Bronze/Silver/Gold) for high-speed log ingestion and analysis.
+- **Storage Analysis**: Complete overhaul of the Storage tab with support for RDD/DataFrame persistence analysis, structural storage level display, and deep-link support for individual RDDs.
+- **Robust Ingestion**: Improved handling of large logs with chunked ingestion, real-time progress tracking based on file stream position, and automated OOM recovery using DuckDB `CHECKPOINT`.
+- **UI Enhancements**: Added support for column filtering, multi-column sorting, inline notes editing, and persistent list settings in the Application List.
+- **Log Support**: Robust AppId extraction and support for ZSTD compression and V2 log directories.
+
+### Fixes
+- **Timing Accuracy**: Resolved timezone-related timing errors and inaccurate remaining time estimation using synchronized epoch milliseconds and monotonic progress reporting.
+- **Stability**: Fixed DuckDB primary key constraint errors and implemented automatic memory release on OOM.
+- **Layout**: Fixed layout distortions caused by long RDD names and overlapping tooltips in performance diagnosis cards.
+
 ## 0.35.0 - 2026-02-13
 
 ### Features

@@ -817,12 +817,11 @@ const shouldShowProgress = (status) => {
 };
 
 const toggleCompare = (app) => {
-  const key = `app:${app.appId}`;
+  const key = `${app.appId}:app:${app.appId}`;
   if (compareStore.isInWorkspace(app.appId, 'app')) {
     compareStore.removeItem(key);
   } else {
     compareStore.addItem({
-      id: key,
       type: 'app',
       itemId: app.appId,
       appId: app.appId,

@@ -727,16 +727,19 @@ const getRemainingTime = (app) => {
     return null;
   }
 
-  const start = new Date(app.parsingStartTime).getTime();
+  // Handle both ISO string and epoch milliseconds
+  const startTime = typeof app.parsingStartTime === 'number' 
+    ? app.parsingStartTime 
+    : new Date(app.parsingStartTime).getTime();
+    
   const now = Date.now();
-  let elapsedMs = now - start;
+  let elapsedMs = now - startTime;
   
-  // Handle clock skew: if start time is in the future relative to client, assume just started
+  // Handle clock skew or timezone mismatch
   if (elapsedMs < 0) elapsedMs = 1000;
   
-  if (elapsedMs <= 3000) return null; // Wait for stable progress
+  if (elapsedMs <= 3000) return null;
 
-  // totalTime = elapsed / progress * 100
   const totalEstimatedMs = (elapsedMs / app.progressValue) * 100;
   const remainingMs = totalEstimatedMs - elapsedMs;
 
@@ -753,11 +756,14 @@ const getProgressTooltip = (app) => {
     return app.parsingProgress || 'No timing info available';
   }
 
-  const start = new Date(app.parsingStartTime).getTime();
+  const startTime = typeof app.parsingStartTime === 'number' 
+    ? app.parsingStartTime 
+    : new Date(app.parsingStartTime).getTime();
+    
   const now = Date.now();
-  const elapsedMs = now - start;
+  let elapsedMs = now - startTime;
   
-  if (elapsedMs <= 0) return 'Calculating timing...';
+  if (elapsedMs <= 0) elapsedMs = 1000;
 
   const formatMs = (ms) => {
     const totalSecs = Math.floor(ms / 1000);

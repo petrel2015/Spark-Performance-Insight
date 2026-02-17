@@ -1,3 +1,13 @@
+## 1.0.5 - 2026-02-18
+
+### Features
+- Optimized Action column display to show parsing phase and accurate ETA in a single line.
+- Improved ETA calculation threshold to show remaining time much earlier during log ingestion.
+- Added a new Maven profile 'dist' for non-fat JAR packaging with separate dependencies.
+
+### Fixes
+- Resolved timezone mismatch in backend status broadcasting, fixing the '1s remaining' display bug.
+
 ## 1.0.3 - 2026-02-17
 
 ### Maintenance

@@ -16,5 +16,5 @@ The Job List provides a structured overview of all Spark Jobs within a specific 
 - **Relationships**: Dynamically linked to `gold_stages` via `job_id` and `app_id`.
 - **Aggregation**: Scores and summaries are pre-calculated during the "Gold" processing phase.
 
-## 🖼 Screenshot Placeholder
-![Job List](../../img/ui_job_list.jpg)
+## 🖼 UI Preview
+![Job List](../../img/ui_job_list.png)

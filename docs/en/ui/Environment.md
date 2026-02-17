@@ -14,5 +14,5 @@ The Environment page lists all Spark configuration properties, system properties
 - **Primary Table**: `gold_environment_configs` (DuckDB).
 - **Source Event**: Parsed from `SparkListenerEnvironmentUpdate`.
 
-## 🖼 Screenshot Placeholder
-![Environment](../../img/ui_environment.jpg)
+## 🖼 UI Preview
+![Environment](../../img/ui_environment.png)

@@ -64,11 +64,11 @@
 
 | [应用列表 (首页)](./docs/zh/ui/Application_List.md) | [Job 列表概览](./docs/zh/ui/Job_List.md) |
 |:---:|:---:|
-| ![首页展示](docs/img/ui_app_list.jpg) | ![Job列表](docs/img/ui_job_list.jpg) |
+| ![首页展示](docs/img/ui_app_list.png) | ![Job列表](docs/img/ui_job_list.png) |
 | **[对比工作区](./docs/zh/ui/Compare_Workspace.md)** | **[SQL / DataFrame 详情](./docs/zh/ui/SQL_Detail.md)** |
-| ![对比功能](docs/img/ui_compare_workspace.jpg) | ![SQL详情](docs/img/ui_sql_detail.jpg) |
+| ![对比功能](docs/img/ui_compare_workspace.png) | ![SQL详情](docs/img/ui_sql_detail.png) |
 | **[环境配置](./docs/zh/ui/Environment.md)** | |
-| ![环境配置展示](docs/img/ui_environment.jpg) | |
+| ![环境配置展示](docs/img/ui_environment.png) | |
 
 ### 4. 奖章架构数据管道
 - **高效入库 (Bronze)：** 针对大数据量场景，采用基于 Jackson 的超高速流式解析，轻松处理 TB 级日志。

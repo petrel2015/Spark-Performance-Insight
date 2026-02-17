@@ -14,5 +14,5 @@
 - **核心表**：`gold_sql_executions` (DuckDB)。
 - **映射关系**：通过从 EventLog 中提取的 `sql_execution_id` 与 `gold_jobs` 相关联。
 
-## 🖼 截图预留
-![SQL 详情](../../img/ui_sql_detail.jpg)
+## 🖼 界面展示
+![SQL 详情](../../img/ui_sql_detail.png)

@@ -14,5 +14,5 @@ This page provides a deep dive into Spark SQL executions, including physical pla
 - **Primary Table**: `gold_sql_executions` (DuckDB).
 - **Mapping**: Correlated with `gold_jobs` via the `sql_execution_id` extracted from the EventLog.
 
-## 🖼 Screenshot Placeholder
-![SQL Detail](../../img/ui_sql_detail.jpg)
+## 🖼 UI Preview
+![SQL Detail](../../img/ui_sql_detail.png)

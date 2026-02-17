@@ -16,5 +16,5 @@ Job 列表提供了特定应用中所有 Spark Job 的结构化概览，提供�
 - **关联关系**：通过 `job_id` 和 `app_id` 动态关联到 `gold_stages`。
 - **预聚合**：评分和摘要在“黄金层 (Gold)”处理阶段预先计算。
 
-## 🖼 截图预留
-![Job 列表](../../img/ui_job_list.jpg)
+## 🖼 界面展示
+![Job 列表](../../img/ui_job_list.png)

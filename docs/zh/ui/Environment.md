@@ -14,5 +14,5 @@
 - **核心表**：`gold_environment_configs` (DuckDB)。
 - **来源事件**：解析自 `SparkListenerEnvironmentUpdate` 事件。
 
-## 🖼 截图预留
-![环境配置](../../img/ui_environment.jpg)
+## 🖼 界面展示
+![环境配置](../../img/ui_environment.png)

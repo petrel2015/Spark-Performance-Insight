@@ -14,5 +14,5 @@
 - **持久化**：通过浏览器 `localStorage` 管理，实现跨会话持久化。
 - **校验 API**：`/api/compare/validate` 接口根据当前数据库状态检查候选对象。
 
-## 🖼 截图预留
-![对比工作区](../../img/ui_compare_workspace.jpg)
+## 🖼 界面展示
+![对比工作区](../../img/ui_compare_workspace.png)

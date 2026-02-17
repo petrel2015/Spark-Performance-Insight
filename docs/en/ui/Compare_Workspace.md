@@ -14,5 +14,5 @@ The Compare Workspace acts as a "shopping cart" for performance analysis, allowi
 - **Persistence**: Managed via Browser `localStorage` for cross-session persistence.
 - **Validation API**: `/api/compare/validate` endpoint checks candidates against the current database state.
 
-## 🖼 Screenshot Placeholder
-![Compare Workspace](../../img/ui_compare_workspace.jpg)
+## 🖼 UI Preview
+![Compare Workspace](../../img/ui_compare_workspace.png)

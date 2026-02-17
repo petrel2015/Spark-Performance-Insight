@@ -64,11 +64,11 @@ While the native Spark Web UI provides basic monitoring, users often face signif
 
 | [Application List (Home)](./docs/en/ui/Application_List.md) | [Job List Overview](./docs/en/ui/Job_List.md) |
 |:---:|:---:|
-| ![Home Page](docs/img/ui_app_list.jpg) | ![Job List](docs/img/ui_job_list.jpg) |
+| ![Home Page](docs/img/ui_app_list.png) | ![Job List](docs/img/ui_job_list.png) |
 | **[Compare Workspace](./docs/en/ui/Compare_Workspace.md)** | **[SQL / DataFrame Detail](./docs/en/ui/SQL_Detail.md)** |
-| ![Compare](docs/img/ui_compare_workspace.jpg) | ![SQL Detail](docs/img/ui_sql_detail.jpg) |
+| ![Compare](docs/img/ui_compare_workspace.png) | ![SQL Detail](docs/img/ui_sql_detail.png) |
 | **[Environment Config](./docs/en/ui/Environment.md)** | |
-| ![Environment](docs/img/ui_environment.jpg) | |
+| ![Environment](docs/img/ui_environment.png) | |
 
 ### 4. Medallion Data Pipeline
 - **Bronze (Raw Ingestion):** High-speed streaming ingestion using Jackson, handling TB-sized logs effortlessly.

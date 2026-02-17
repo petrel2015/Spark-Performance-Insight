@@ -16,5 +16,5 @@
 - **队列信息**：来自 `sys_parsing_queue` 的实时状态。
 - **发现机制**：`EventLogWatcherService` 扫描配置的目录并更新 `sys_event_log_scans`。
 
-## 🖼 截图预留
-![应用列表](../../img/ui_app_list.jpg)
+## 🖼 界面展示
+![应用列表](../../img/ui_app_list.png)

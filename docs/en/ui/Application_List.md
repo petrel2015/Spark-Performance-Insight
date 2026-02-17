@@ -16,5 +16,5 @@ The Application List is the entry point of the system, providing a global view o
 - **Queue Info**: Real-time status from `sys_parsing_queue`.
 - **Discovery**: `EventLogWatcherService` scans the configured directory and updates `sys_event_log_scans`.
 
-## 🖼 Screenshot Placeholder
-![Application List](../../img/ui_app_list.jpg)
+## 🖼 UI Preview
+![Application List](../../img/ui_app_list.png)

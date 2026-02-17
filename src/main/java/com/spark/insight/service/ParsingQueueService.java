@@ -33,8 +33,9 @@ public class ParsingQueueService {
         // Clear parsing_start_time to avoid stale timing in UI
         jdbcTemplate.update("UPDATE gold_applications SET parsing_start_time = NULL WHERE app_id = ?", appId);
 
-        jdbcTemplate.update("INSERT INTO sys_parsing_queue (id, app_id, type, status) VALUES (?, ?, ?, ?)",
-                UUID.randomUUID(), appId, type, "QUEUED");
+        LocalDateTime now = LocalDateTime.now();
+        jdbcTemplate.update("INSERT INTO sys_parsing_queue (id, app_id, type, status, submit_time) VALUES (?, ?, ?, ?, ?)",
+                UUID.randomUUID(), appId, type, "QUEUED", now);
         
         broadcaster.broadcastStatus(appId, "QUEUED", 0.0, "Waiting in queue...", getAppName(appId), null);
         
@@ -86,7 +87,7 @@ public class ParsingQueueService {
 
         // Pick next
         List<Map<String, Object>> nextJobs = jdbcTemplate.queryForList(
-                "SELECT id, app_id, type FROM sys_parsing_queue WHERE status = 'QUEUED' ORDER BY submit_time ASC LIMIT 1");
+                "SELECT id, app_id, type FROM sys_parsing_queue WHERE status = 'QUEUED' ORDER BY submit_time ASC, id ASC LIMIT 1");
 
         if (nextJobs.isEmpty()) {
             return;
@@ -100,11 +101,8 @@ public class ParsingQueueService {
         log.info("Picking app {} from queue to process (Job ID: {})", appId, id);
 
         try {
-            // Mark Running (Workaround: DELETE + INSERT)
-            Map<String, Object> currentJob = jdbcTemplate.queryForMap("SELECT * FROM sys_parsing_queue WHERE id = ?", id);
-            jdbcTemplate.update("DELETE FROM sys_parsing_queue WHERE id = ?", id);
-            jdbcTemplate.update("INSERT INTO sys_parsing_queue (id, app_id, type, status, submit_time, start_time) VALUES (?, ?, ?, 'RUNNING', ?, CURRENT_TIMESTAMP)",
-                    id, appId, type, currentJob.get("submit_time"));
+            // Mark Running (Simplified from DELETE+INSERT)
+            jdbcTemplate.update("UPDATE sys_parsing_queue SET status = 'RUNNING', start_time = CURRENT_TIMESTAMP WHERE id = ?", id);
             
             log.info("Job {} marked as RUNNING, starting pipeline executor...", id);
             
@@ -140,12 +138,9 @@ public class ParsingQueueService {
 
     private void markFinished(String id, boolean success) {
         log.info("Job {} finished (Success: {})", id, success);
-        // Workaround: DELETE + INSERT
         try {
-            Map<String, Object> job = jdbcTemplate.queryForMap("SELECT * FROM sys_parsing_queue WHERE id = ?", id);
-            jdbcTemplate.update("DELETE FROM sys_parsing_queue WHERE id = ?", id);
-            jdbcTemplate.update("INSERT INTO sys_parsing_queue (id, app_id, type, status, submit_time, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-                    id, job.get("app_id"), job.get("type"), success ? "COMPLETED" : "FAILED", job.get("submit_time"), job.get("start_time"));
+            jdbcTemplate.update("UPDATE sys_parsing_queue SET status = ?, end_time = CURRENT_TIMESTAMP WHERE id = ?",
+                    success ? "COMPLETED" : "FAILED", id);
         } catch (Exception e) {
             log.error("Failed to mark job finished: " + id, e);
         }

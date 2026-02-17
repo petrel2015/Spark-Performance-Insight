@@ -1,3 +1,9 @@
+## 1.0.6 - 2026-02-18
+
+### Maintenance
+- Refactored project-wide naming conventions from 'Insight' to 'System' for better architectural clarity.
+- Updated sample event logs in the workspace for testing.
+
 ## 1.0.5 - 2026-02-18
 
 ### Features

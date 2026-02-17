@@ -9,7 +9,7 @@
         <Root level="INFO">
             <AppenderRef ref="Console"/>
         </Root>
-        <Logger name="com.spark.insight" level="DEBUG" additivity="false">
+        <Logger name="com.fluffyeti.spark.performance.insight" level="DEBUG" additivity="false">
             <AppenderRef ref="Console"/>
         </Logger>
         <Logger name="org.springframework" level="INFO" additivity="false">

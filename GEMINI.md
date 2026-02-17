@@ -24,7 +24,7 @@ An advanced Spark performance analysis system that replaces the slow "event repl
 - **Lazy Loading**: Tabs in `AppDetail.vue` (Diagnosis, Executors, Environment) are loaded on-demand to ensure fast initial page response.
 
 ## 📂 Key File Map
-- `src/main/java/com/spark/insight/parser/JacksonEventParser.java`: The heart of the log ingestion.
+- `src/main/java/com/fluffyeti/spark/performance/insight/parser/JacksonEventParser.java`: The heart of the log ingestion.
 - `src/main/resources/db/schema.sql`: DuckDB table definitions.
 - `src/main/resources/mapper/*.xml`: Analytical SQL queries.
 - `frontend/src/views/AppDetail.vue`: Main dashboard layout and tab management.

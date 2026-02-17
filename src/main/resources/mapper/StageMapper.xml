@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.spark.insight.mapper.StageMapper">
+<mapper namespace="com.fluffyeti.spark.performance.insight.mapper.StageMapper">
 
     <!-- 预计算 Stage 的聚合指标 -->
     <update id="updateStageMetrics">

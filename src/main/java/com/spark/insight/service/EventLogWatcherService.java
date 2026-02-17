@@ -380,7 +380,9 @@ public class EventLogWatcherService {
         
         // Broadcast via WebSocket
         GoldApplicationModel app = applicationService.getById(appId);
-        broadcaster.broadcastStatus(appId, status, progress, msg, app != null ? app.getAppName() : null, app != null ? app.getParsingStartTime() : null);
+        // If startTime is provided in this call, use it. Otherwise use the one already in the model.
+        LocalDateTime effectiveStart = (startTime != null) ? startTime : (app != null ? app.getParsingStartTime() : null);
+        broadcaster.broadcastStatus(appId, status, progress, msg, app != null ? app.getAppName() : null, effectiveStart);
     }
 
     private List<FileMetadata> generateMetadata(List<File> files) {

@@ -87,21 +87,17 @@ public class BronzeIngestionService {
         int batchSize = properties.getIngestion().getBatchSize();
         List<String> batch = new ArrayList<>(batchSize);
 
-        try (InputStream fis = new FileInputStream(file);
+        try (FileInputStream fis = new FileInputStream(file);
              InputStream is = isZstd ? new ZstdInputStream(fis) : fis;
              BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
             
             String line;
             long linesRead = 0;
-            long bytesRead = 0;
             long fileLength = file.length();
             long lastReportedLines = 0;
             
             while ((line = reader.readLine()) != null) {
                 if (line.trim().isEmpty()) continue;
-                
-                // Track approximate bytes read (line length + newline)
-                bytesRead += line.getBytes(StandardCharsets.UTF_8).length + 1;
                 batch.add(line);
                 linesRead++;
 
@@ -112,16 +108,11 @@ public class BronzeIngestionService {
                         batch.clear();
                     }
                     
-                    // For compressed files, bytesRead from reader is uncompressed, so it might exceed fileLength
-                    // We cap it at 99% during streaming to avoid 100% before actually finishing
-                    double filePercent = isZstd ? 
-                        Math.min(99.0, (linesRead % 100.0)) : // Fallback for compressed: just show activity
-                        Math.min(99.0, (double) bytesRead / fileLength * 100.0);
-                    
-                    // Better approach for both: use a combination or just lines if we don't know total lines
-                    // Since we know total bytes of the raw file, let's use a proxy if possible.
-                    // Actually, for simplicity and reliability, let's just use lines as a monotonic increase
-                    // but scaled to a reasonable range.
+                    // Use raw file position for percentage calculation
+                    // This is monotonic and accurate relative to the disk file
+                    long diskPos = fis.getChannel().position();
+                    double filePercent = fileLength > 0 ? 
+                        Math.min(99.9, (double) diskPos / fileLength * 100.0) : 0.0;
                     
                     fileProgressReporter.accept(filePercent, String.format("Bronze: Processing %s (%d lines)", fileName, linesRead));
                     lastReportedLines = linesRead;

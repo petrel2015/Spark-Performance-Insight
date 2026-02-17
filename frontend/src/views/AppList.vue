@@ -723,16 +723,20 @@ const getStatusTooltip = (app) => {
 };
 
 const getRemainingTime = (app) => {
-  if (!app.parsingStartTime || !app.progressValue || app.progressValue <= 0 || app.progressValue >= 100) {
+  if (!app.parsingStartTime || !app.progressValue || app.progressValue <= 0.5 || app.progressValue >= 100) {
     return null;
   }
 
   const start = new Date(app.parsingStartTime).getTime();
   const now = Date.now();
-  const elapsedMs = now - start;
+  let elapsedMs = now - start;
   
-  if (elapsedMs <= 5000) return null; // Wait for stable progress
+  // Handle clock skew: if start time is in the future relative to client, assume just started
+  if (elapsedMs < 0) elapsedMs = 1000;
+  
+  if (elapsedMs <= 3000) return null; // Wait for stable progress
 
+  // totalTime = elapsed / progress * 100
   const totalEstimatedMs = (elapsedMs / app.progressValue) * 100;
   const remainingMs = totalEstimatedMs - elapsedMs;
 

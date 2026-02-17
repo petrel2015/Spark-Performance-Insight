@@ -39,26 +39,36 @@
 - **深度瓶颈分析：** 集成 **智谱 AI (GLM-4.7)** 与 **OpenAI**，针对具体的性能瓶颈（如 Shuffle IO、GC 严重等）一键生成专家级诊断报告。
 - **针对性优化建议：** AI 根据应用实际运行指标，提供可落地的参数调优和代码重构建议。
 
-![智能化诊断](docs/img/pic1.jpg)
+![智能化诊断](docs/img/LLM_Diagnostic_Report.png)
 
 ### 2. 规则诊断引擎
 - **统计学精度：** 不同于大模型的概率性输出，规则引擎基于严谨的统计阈值，提供确定、稳定且极高准确性的分析结果。
 - **专家启发式规则：** 将多年的 Spark 性能调优经验沉淀为自动化规则，覆盖数据倾斜、Executor GC 压力、磁盘溢写（Spill）及本地化（Locality）等核心维度。
 - **秒级定位根因：** 为性能退化提供即时、可量化的证据，是生产环境排障中无可争议的“黄金标准”。
 
-![规则引擎](docs/img/pic4.jpg)
+![规则引擎](docs/img/Rule-Based_Diagnostic_Report.png)
 
 ### 3. 多维度深度对比
 - **跨应用实例对比：** 支持选择两个不同的 Application 实例进行全指标 side-by-side 对标，快速定位配置或环境带来的偏差。
 - **Stage 专项对标：** 深入对比两个 Stage 的指标分布（P95, Median, Min, Max）及 Task 执行轨迹，揪出隐藏的长尾任务。
 
-![多维度对比](docs/img/pic2.jpg)
+![多维度对比](docs/img/stage_compare.png)
 
 ### 3. 经典视图复刻与增强
 - **无缝迁移体验：** 深度复刻原生 Spark UI 的 Jobs, Stages, Tasks 列表展示及逻辑描述，让开发人员无需学习即可快速上手。
 - **增强统计面板：** 提供所有核心指标的详细五分位数分布，并为百万级 Task 提供极速的后端分页与多列组合排序。
 
-![经典视图复刻](docs/img/pic3.jpg)
+![经典视图复刻](docs/img/stage_detail.png)
+
+## 🖥 界面展示与说明
+
+| [应用列表 (首页)](./docs/zh/ui/Application_List.md) | [Job 列表概览](./docs/zh/ui/Job_List.md) |
+|:---:|:---:|
+| ![首页展示](docs/img/ui_app_list.jpg) | ![Job列表](docs/img/ui_job_list.jpg) |
+| **[对比工作区](./docs/zh/ui/Compare_Workspace.md)** | **[SQL / DataFrame 详情](./docs/zh/ui/SQL_Detail.md)** |
+| ![对比功能](docs/img/ui_compare_workspace.jpg) | ![SQL详情](docs/img/ui_sql_detail.jpg) |
+| **[环境配置](./docs/zh/ui/Environment.md)** | |
+| ![环境配置展示](docs/img/ui_environment.jpg) | |
 
 ### 4. 奖章架构数据管道
 - **高效入库 (Bronze)：** 针对大数据量场景，采用基于 Jackson 的超高速流式解析，轻松处理 TB 级日志。

@@ -11,6 +11,15 @@
 *   **[Application 导入状态机](./Application_Import_State_Machine.md)**：应用从发现到分析成功的详细生命周期。
 *   **[EventLog 技术参考](./EventLog_Reference.md)**：支持的日志格式、命名规范及压缩类型。
 
+## 🖥 界面展示与说明
+
+探索应用的主要视图及其提供的信息：
+*   **[应用列表 (首页)](./ui/Application_List.md)**
+*   **[Job 列表](./ui/Job_List.md)**
+*   **[SQL / DataFrame 详情](./ui/SQL_Detail.md)**
+*   **[对比工作区](./ui/Compare_Workspace.md)**
+*   **[环境配置](./ui/Environment.md)**
+
 ## 🛠 项目结构
 *   **后端**: Java 21 + Spring Boot 3.x + DuckDB。
 *   **前端**: Vue 3 + Vite + TypeScript + ECharts。

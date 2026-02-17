@@ -11,6 +11,15 @@ Welcome to the Spark-Performance-Insight documentation. Below you will find deta
 *   **[Application Import State Machine](./Application_Import_State_Machine.md)**: Detailed lifecycle of an application from discovery to successful analysis.
 *   **[EventLog Reference](./EventLog_Reference.md)**: Supported log formats, naming conventions, and compression types.
 
+## 🖥 User Interface Gallery
+
+Explore the main views of the application and the insights they provide:
+*   **[Application List (Home)](./ui/Application_List.md)**
+*   **[Job List](./ui/Job_List.md)**
+*   **[SQL / DataFrame Detail](./ui/SQL_Detail.md)**
+*   **[Compare Workspace](./ui/Compare_Workspace.md)**
+*   **[Environment Configuration](./ui/Environment.md)**
+
 ## 🛠 Project Structure
 *   **Backend**: Java 21 + Spring Boot 3.x + DuckDB.
 *   **Frontend**: Vue 3 + Vite + TypeScript + ECharts.

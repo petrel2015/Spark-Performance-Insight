@@ -39,26 +39,36 @@ While the native Spark Web UI provides basic monitoring, users often face signif
 - **Deep Bottleneck Analysis:** Integrates **Zhipu AI (GLM-4.7)** and **OpenAI** to analyze complex performance issues (e.g., Shuffle IO, GC pressure).
 - **Optimization Advice:** Generates expert-level Markdown reports with actionable tuning suggestions tailored to your specific application.
 
-![Smart Diagnosis](docs/img/pic1.jpg)
+![Smart Diagnosis](docs/img/LLM_Diagnostic_Report.png)
 
 ### 2. Rule-Based Expert System
 - **Statistical Precision:** Unlike the probabilistic nature of LLMs, the rule engine provides deterministic, stable, and highly accurate analysis based on rigorous statistical thresholds.
 - **Expert Heuristics:** Codifies years of Spark performance tuning expertise into automated rules for detecting Data Skew, Executor GC pressure, Disk Spilling, and Locality issues.
 - **Instant Root Cause:** Provides immediate, quantifiable evidence for performance regressions, serving as the "Gold Standard" for production troubleshooting.
 
-![Rule Engine](docs/img/pic4.jpg)
+![Rule Engine](docs/img/Rule-Based_Diagnostic_Report.png)
 
 ### 3. Multi-dimensional Benchmarking
 - **Cross-App Comparison:** Side-by-side comparison of different application instances to identify configuration or resource-induced regressions.
 - **Stage Benchmarking:** Deep dive into two stages to compare statistical distributions (P95, Median) and task execution traces.
 
-![Benchmarking](docs/img/pic2.jpg)
+![Benchmarking](docs/img/stage_compare.png)
 
 ### 3. Classic UI Parity & Beyond
 - **Familiar Interface:** Deeply replicates native Spark UI lists (Jobs, Stages, Tasks) and descriptions to ensure a zero-learning-curve transition for developers.
 - **Enhanced Summary:** Provides statistical distributions for all core metrics and high-performance server-side pagination for millions of tasks.
 
-![UI Parity](docs/img/pic3.jpg)
+![UI Parity](docs/img/stage_detail.png)
+
+## 🖥 User Interface Gallery
+
+| [Application List (Home)](./docs/en/ui/Application_List.md) | [Job List Overview](./docs/en/ui/Job_List.md) |
+|:---:|:---:|
+| ![Home Page](docs/img/ui_app_list.jpg) | ![Job List](docs/img/ui_job_list.jpg) |
+| **[Compare Workspace](./docs/en/ui/Compare_Workspace.md)** | **[SQL / DataFrame Detail](./docs/en/ui/SQL_Detail.md)** |
+| ![Compare](docs/img/ui_compare_workspace.jpg) | ![SQL Detail](docs/img/ui_sql_detail.jpg) |
+| **[Environment Config](./docs/en/ui/Environment.md)** | |
+| ![Environment](docs/img/ui_environment.jpg) | |
 
 ### 4. Medallion Data Pipeline
 - **Bronze (Raw Ingestion):** High-speed streaming ingestion using Jackson, handling TB-sized logs effortlessly.

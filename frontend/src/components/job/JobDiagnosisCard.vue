@@ -177,10 +177,12 @@ const getBarColor = (score) => {
   padding: 6px 10px;
   border-radius: 6px;
   transition: background 0.2s;
+  position: relative; /* Base for stacking */
 }
 
 .stage-item:hover {
   background: #f9f9f9;
+  z-index: 10;
 }
 
 .stage-header {

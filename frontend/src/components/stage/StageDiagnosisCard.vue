@@ -271,12 +271,14 @@ const getTooltip = (dimension) => tooltips[dimension] || 'Performance impact sco
   border-radius: 6px;
   border: 1px solid #f0f0f0;
   transition: transform 0.2s, box-shadow 0.2s;
+  position: relative; /* Ensure z-index works */
 }
 
 .dimension-item:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(0,0,0,0.05);
   background: #fff;
+  z-index: 100; /* Bring the whole item to front so tooltip is not covered */
 }
 
 .dim-header {

@@ -16,71 +16,76 @@ An advanced Spark performance analysis system designed to address the core pain 
 While the native Spark Web UI provides basic monitoring, it suffers from critical limitations during deep performance analysis and production operations:
 
 ### 1. History Server Architectural Bottlenecks
-- **Event Replay Overhead:** Relies on replaying raw JSON EventLogs to reconstruct state. For massive jobs, TB-sized logs result in extreme CPU/Memory overhead and minute-long wait times.
-- **Scalability Issues:** Without structured storage, all metrics must be cached in memory, often triggering OOM or UI crashes when handling jobs with millions of tasks.
-- **No Query Indexing:** Linear storage lacks efficient indexing. Browsing through tens of thousands of stages or millions of tasks provides a poor user experience.
+- **Event Replay Overhead:** TB-sized logs result in extreme CPU/Memory overhead and minute-long wait times due to replaying raw JSON.
+- **Scalability Issues:** Without structured storage, all metrics must be cached in memory, often triggering OOM when handling jobs with millions of tasks.
+- **No Query Indexing:** Linear storage lacks efficient indexing. Browsing through tens of thousands of stages provides a poor user experience.
 
 ### 2. Lack of Deep Comparison
-- **Unquantifiable Differences:** When a job slows down, it is nearly impossible to compare metrics directly across different runs or stages to identify the root cause.
-- **Environment Blind Spots:** Hard to quickly identify if performance changes are due to `spark.conf` tweaks, resource allocation differences, or hardware discrepancies.
+- **Unquantifiable Differences:** Impossible to compare metrics directly across different runs to identify root causes.
+- **Environment Blind Spots:** Hard to identify if performance changes are due to configuration tweaks or hardware discrepancies.
 
 ## Core Features
 
-### 1. Medallion Data Pipeline
-- **Bronze (Raw Ingestion):** High-speed streaming ingestion using Jackson, handling TB-sized logs with ease.
-- **Silver (Transformation):** Structured parsing and normalization, recovering logical relationships and identifying long-tail tasks.
-- **Gold (Aggregation):** Pre-calculated analytical tables for instant UI response times, even for massive datasets.
+### 1. Classic UI Parity & Beyond
+- **Familiar Interface:** Deeply replicates the native Spark UI lists (Jobs, Stages, Tasks), progress bars, and descriptions to ensure a seamless transition for developers.
+- **Enhanced Summary:** Provides statistical distributions (Min, 25%, Median, 75%, 95%, Max) for Duration, GC Time, Spill, and Shuffle metrics.
+- **Advanced Task View:** Supports server-side pagination for millions of tasks with multi-column sorting (Shift+Click).
 
-### 2. Advanced Storage Analysis
+### 2. Medallion Data Pipeline
+- **Bronze (Raw Ingestion):** High-speed streaming ingestion using Jackson.
+- **Silver (Transformation):** Structured parsing, recovering logical relationships and identifying long-tail tasks.
+- **Gold (Aggregation):** Pre-calculated analytical tables for instant UI response times.
+
+### 3. Advanced Storage Analysis
 - **Persistence Tracking:** Comprehensive view of cached RDDs and DataFrames.
 - **Structural UI:** Detailed storage levels (Memory/Disk/Deserialized) with status indicators.
-- **Deep Linking:** Every RDD has its own unique URL for easy sharing and direct access.
+- **Deep Linking:** Every RDD has its own unique URL for easy sharing.
 
-### 3. Smart Diagnosis Engine
-- **AI-Powered Analysis:** Integrates **Zhipu AI (GLM-4.7)** and **OpenAI** to generate expert-level diagnostic reports.
-- **Rule-Based Insights:** Automatically identifies data skew, GC pressure, disk spills, and scheduler delays with visual risk indicators.
+### 4. Smart Diagnosis Engine
+- **AI-Powered Analysis:** Integrates **Zhipu AI (GLM-4.7)** and **OpenAI** for expert-level diagnostic reports.
+- **Rule-Based Insights:** Automatically identifies data skew, GC pressure, disk spills, and scheduler delays.
 
-### 4. Multi-dimensional Benchmarking
-- **Cross-App Comparison:** Compare two different application instances side-by-side.
-- **Stage Benchmarking:** Deep dive into two stages to compare statistical distributions (P95, Median) and task execution traces.
+### 5. Multi-dimensional Benchmarking
+- **Cross-App Comparison:** Side-by-side comparison of different application instances.
+- **Stage Benchmarking:** Deep dive into two stages to compare distributions and task traces.
 
-### 5. Enterprise-Grade Robustness
+### 6. Enterprise-Grade Robustness
 - **OOM Recovery:** Automatic DuckDB memory management with `CHECKPOINT` and retry logic.
-- **Timing Accuracy:** Synchronized epoch milliseconds and monotonic progress tracking for reliable time-to-completion estimates.
-- **Broad Compatibility:** Native support for **ZSTD** compression and Spark **V2 log directories**.
+- **Timing Accuracy:** Synchronized epoch milliseconds and monotonic progress tracking.
+- **Broad Compatibility:** Native support for **ZSTD** and Spark **V2 log directories**.
 
 ## Technical Stack
 
 - **Frontend:** Vue 3 + Vite + ECharts + Material Design.
 - **Backend:** Java 21 (Virtual Threads) + Spring Boot 3.x.
-- **OLAP Engine:** [DuckDB](https://duckdb.org/) (Embedded analytical database for high-performance SQL queries).
-- **ORM:** MyBatis Plus (XML-based for optimized analytical SQL).
+- **OLAP Engine:** [DuckDB](https://duckdb.org/) (Embedded analytical database).
+- **ORM:** MyBatis Plus (XML-based for optimized SQL).
 
 ## Quick Start
 
-### Build and Run
+### Build and Run (Native)
 
 1.  **Build the Project:**
-    Builds both frontend and backend into a single executable JAR.
+    Includes frontend build and runs the application via Docker Compose.
     ```bash
-    mvn clean install
+    mvn clean install -Pbuild-frontend -Prun
     ```
 
-2.  **Run the Application:**
-    ```bash
-    java -jar target/spark-performance-insight-1.0.0.jar
-    ```
-
-3.  **Access the UI:**
+2.  **Access the UI:**
     Visit `http://localhost:18081` in your browser.
 
-## Roadmap
+### Build and Run (Docker Compose)
 
-- [x] **Medallion Architecture:** Fully implemented Bronze/Silver/Gold storage engine.
-- [x] **LLM Diagnosis:** Integrated deep analysis with AI.
-- [x] **Storage Overhaul:** Structural tags and deep-link support.
-- [ ] **DAG Visualization Enhancement:** Richer interactive graphs for Job/Stage relationships.
-- [ ] **Streaming Ingestion:** Real-time processing of in-progress application logs.
+This method starts both **Spark Performance Insight** and a native **Spark History Server** using the same log directory, allowing for side-by-side comparison.
+
+1.  **Start Services:**
+    ```bash
+    docker compose up -d
+    ```
+
+2.  **Access Points:**
+    -   **Insight UI:** `http://localhost:18081`
+    -   **Spark History Server:** `http://localhost:18080`
 
 ## Acknowledgments
 

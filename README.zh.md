@@ -2,7 +2,7 @@
 
 [English](./README.md) | 中文
 
-[![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)](./CHANGELOG.zh.md)
+[![Version](https://img.shields.io/badge/version-1.0.2-blue.svg)](./CHANGELOG.zh.md)
 [![AI Powered](https://img.shields.io/badge/Powered%20by-Gemini%20AI-blue.svg)](https://deepmind.google/technologies/gemini/)
 [![Java 21](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/technologies/javase/jdk21-archive-downloads.html)
 [![Spring Boot 3](https://img.shields.io/badge/Spring%20Boot-3.x-green.svg)](https://spring.io/projects/spring-boot)
@@ -14,6 +14,13 @@
 一个专为解决原生 Spark Web UI/History Server 核心痛点而生的深度性能分析系统。通过 **奖章架构**、**智能诊断** 以及 **多维深度对标** 技术，彻底告别“重放慢”、“信息过载”与“无对比”的性能诊断困境。
 
 > **💡 核心目标：将原始日志转化为“行动建议”，直接给出答案，而非堆砌数据。**
+
+---
+
+## 🚀 在线演示
+
+- **Spark Performance Insight:** [http://demo.fluffyeti.com:18081/](http://demo.fluffyeti.com:18081/)
+- **Spark History Server (原生):** [http://demo.fluffyeti.com:18080/](http://demo.fluffyeti.com:18080/)
 
 ---
 

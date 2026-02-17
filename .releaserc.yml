@@ -1,0 +1,29 @@
+# .releaserc.yml - Release configuration for Gemini CLI
+
+# Additional files to include in release commit and synchronize version
+include:
+  - pom.xml
+  - frontend/package.json
+  - frontend/package-lock.json
+  - frontend/src/constants/config.ts
+  - README.md
+  - README.zh.md
+
+# Custom version sync logic
+version:
+  files:
+    - path: pom.xml
+      type: pom
+    - path: frontend/package.json
+      type: json
+      path: $.version
+    - path: frontend/package-lock.json
+      type: json
+      path: $.version
+    - path: frontend/package-lock.json
+      type: json
+      path: $.packages[""].version
+    - path: frontend/src/constants/config.ts
+      type: regex
+      pattern: "export const SYSTEM_VERSION = '(.*)';"
+      replacement: "export const SYSTEM_VERSION = '{version}';"

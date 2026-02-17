@@ -2,7 +2,7 @@
 
 English | [中文](./README.zh.md)
 
-[![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.0.2-blue.svg)](./CHANGELOG.md)
 [![AI Powered](https://img.shields.io/badge/Powered%20by-Gemini%20AI-blue.svg)](https://deepmind.google/technologies/gemini/)
 [![Java 21](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/technologies/javase/jdk21-archive-downloads.html)
 [![Spring Boot 3](https://img.shields.io/badge/Spring%20Boot-3.x-green.svg)](https://spring.io/projects/spring-boot)
@@ -14,6 +14,13 @@ English | [中文](./README.zh.md)
 An advanced Spark performance analysis system designed to address the core pain points of the native Spark Web UI/History Server. It eliminates "slow replay", "information overload", and "lack of comparison" issues through **Medallion Architecture**, **Smart Diagnosis**, and **Multi-dimensional Benchmarking**.
 
 > **💡 Core Goal: Transform raw logs into actionable intelligence, providing instant answers instead of raw data.**
+
+---
+
+## 🚀 Live Demo
+
+- **Spark Performance Insight:** [http://demo.fluffyeti.com:18081/](http://demo.fluffyeti.com:18081/)
+- **Spark History Server (Native):** [http://demo.fluffyeti.com:18080/](http://demo.fluffyeti.com:18080/)
 
 ---
 

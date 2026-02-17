@@ -1,3 +1,11 @@
+## 1.0.2 - 2026-02-17
+
+### Features
+- Add online demo links for both Spark Performance Insight and native Spark History Server to README.
+
+### Fixes
+- Corrected outdated version number in frontend configuration (synced with project version).
+
 ## 1.0.1 - 2026-02-17
 
 ### Features

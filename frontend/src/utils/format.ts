@@ -2,16 +2,16 @@ export const formatTime = (ms: number | null | undefined) => {
     if (ms === null || ms === undefined) return '-';
     if (ms < 1) return '0 ms';
     if (ms < 1000) return `${Math.round(ms)} ms`;
-    const s = ms / 1000;
-    if (s < 60) return `${s.toFixed(2)} s`;
+    const s = Math.round(ms / 1000);
+    if (s < 60) return `${s} s`;
     if (s < 3600) {
         const m = Math.floor(s / 60);
-        const rs = (s % 60).toFixed(2);
+        const rs = s % 60;
         return `${m} min ${rs} s`;
     }
     const h = Math.floor(s / 3600);
     const m = Math.floor((s % 3600) / 60);
-    const rs = (s % 60).toFixed(1);
+    const rs = s % 60;
     return `${h} h ${m} min ${rs} s`;
 };
 

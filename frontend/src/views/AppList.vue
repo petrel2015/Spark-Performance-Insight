@@ -14,6 +14,23 @@
       </div>
     </div>
 
+    <!-- Column Selector -->
+    <div class="column-selector-card">
+      <div class="selector-header">
+        <strong>Select Columns to Display:</strong>
+        <div class="selector-actions">
+          <button @click="selectAllColumns">Select All</button>
+          <button @click="clearAllColumns">Clear All</button>
+        </div>
+      </div>
+      <div class="checkbox-group">
+        <label v-for="c in AVAILABLE_COLUMNS" :key="c.field" class="checkbox-item">
+          <input type="checkbox" :value="c.field" v-model="selectedColumnFields">
+          {{ c.label }}
+        </label>
+      </div>
+    </div>
+
     <div class="table-card">
       <div class="table-header-toolbar">
         <div class="header-left">
@@ -99,6 +116,7 @@
                 </div>
               </div>
             </th>
+            <th style="width: 220px;">Action</th>
           </tr>
           </thead>
           <tbody>
@@ -116,72 +134,109 @@
               </button>
             </td>
 
-            <td :title="app.parsingProgress || 'Click to view details'">
-              <div class="name-cell-wrapper">
-                <router-link :to="'/app/' + app.appId" 
-                             class="app-link"
-                             :class="{ 'disabled-link': !isReady(app.parsingStatus) }">
-                  {{ app.appName || 'Unknown Application' }}
-                </router-link>
-                <div v-if="app.parsingStatus === 'PENDING_OVERWRITE'" class="overwrite-prompt">
-                  <span class="prompt-text">New logs found. Re-import?</span>
-                  <div class="prompt-actions">
-                    <button class="mini-btn confirm" @click="handleOverwrite(app.appId, true)" title="Yes, clear data and re-import">Confirm</button>
-                    <button class="mini-btn cancel" @click="handleOverwrite(app.appId, false)" title="No, keep current data">Cancel</button>
+            <td v-for="col in columns" :key="col.field">
+              <!-- 1. App Name -->
+              <template v-if="col.field === 'appName'">
+                <div class="name-cell-wrapper" :title="app.parsingProgress || 'Click to view details'">
+                  <router-link :to="'/app/' + app.appId" 
+                               class="app-link"
+                               :class="{ 'disabled-link': !isReady(app.parsingStatus) }">
+                    {{ app.appName || 'Unknown Application' }}
+                  </router-link>
+                  <div v-if="app.parsingStatus === 'PENDING_OVERWRITE'" class="overwrite-prompt">
+                    <span class="prompt-text">New logs found. Re-import?</span>
+                    <div class="prompt-actions">
+                      <button class="mini-btn confirm" @click="handleOverwrite(app.appId, true)" title="Yes, clear data and re-import">Confirm</button>
+                      <button class="mini-btn cancel" @click="handleOverwrite(app.appId, false)" title="No, keep current data">Cancel</button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </td>
+              </template>
 
-            <td>
-              <span v-if="app.sparkVersion && app.sparkVersion !== 'unknown'" class="spark-version-badge">
-                {{ app.sparkVersion }}
-              </span>
-            </td>
-            <td><code class="app-id-code">{{ app.appId }}</code></td>
-            <td>{{ app.userName }}</td>
-            <td>{{ formatDateTime(app.startTime) }}</td>
-            <td>{{ (app.duration / 1000).toFixed(1) }} s</td>
-            
-            <!-- NOTES Column -->
-            <td class="notes-cell" @click="startEditing(app)">
-              <div v-if="editingAppId !== app.appId" class="notes-text" :class="{ 'empty-notes': !app.notes }">
-                {{ app.notes || 'Click to add note...' }}
-              </div>
-              <input v-else
-                     ref="notesInput"
-                     v-model="editingNotes"
-                     class="notes-input"
-                     @blur="saveNotes(app)"
-                     @keyup.enter="saveNotes(app)"
-                     placeholder="Enter note..."/>
-            </td>
-
-            <!-- PROGRESS Column -->
-            <td>
-              <div class="progress-cell">
-                <div class="progress-track" :title="getProgressTooltip(app)">
-                  <div class="progress-fill" 
-                       :style="{ 
-                         width: (app.parsingStatus === 'SUCCESS' ? 100 : (app.progressValue || 0)) + '%', 
-                         backgroundColor: getProgressColor(app.parsingStatus || 'PENDING_LOAD') 
-                       }">
-                  </div>
-                  <div class="progress-text-overlay">
-                    {{ app.parsingStatus === 'SUCCESS' ? '100%' : Math.round(app.progressValue || 0) + '%' }}
-                  </div>
-                </div>
-              </div>
-            </td>
-
-            <!-- STATUS Column -->
-            <td>
-              <div class="status-cell">
-                <span :class="'status-badge status-' + (app.parsingStatus || 'PENDING_LOAD')" 
-                      :title="getStatusTooltip(app)">
-                  {{ formatStatus(app.parsingStatus) }}
+              <!-- 2. Spark Version -->
+              <template v-else-if="col.field === 'sparkVersion'">
+                <span v-if="app.sparkVersion && app.sparkVersion !== 'unknown'" class="spark-version-badge">
+                  {{ app.sparkVersion }}
                 </span>
-              </div>
+              </template>
+
+              <!-- 3. App ID -->
+              <template v-else-if="col.field === 'appId'">
+                <code class="app-id-code">{{ app.appId }}</code>
+              </template>
+
+              <!-- 4. User -->
+              <template v-else-if="col.field === 'userName'">
+                {{ app.userName }}
+              </template>
+
+              <!-- 5. Submitted (Start Time) -->
+              <template v-else-if="col.field === 'startTime'">
+                {{ formatDateTime(app.startTime) }}
+              </template>
+
+              <!-- 6. Duration -->
+              <template v-else-if="col.field === 'duration'">
+                {{ formatTime(app.duration) }}
+              </template>
+
+              <!-- 7. Notes -->
+              <template v-else-if="col.field === 'notes'">
+                <div class="notes-cell" @click="startEditing(app)">
+                  <div v-if="editingAppId !== app.appId" class="notes-text" :class="{ 'empty-notes': !app.notes }">
+                    {{ app.notes || 'Click to add note...' }}
+                  </div>
+                  <input v-else
+                         ref="notesInput"
+                         v-model="editingNotes"
+                         class="notes-input"
+                         @blur="saveNotes(app)"
+                         @keyup.enter="saveNotes(app)"
+                         placeholder="Enter note..."/>
+                </div>
+              </template>
+
+              <!-- 8. Parsing Start -->
+              <template v-else-if="col.field === 'parsingStartTime'">
+                {{ formatDateTime(app.parsingStartTime) }}
+              </template>
+
+              <!-- 9. Parsing End -->
+              <template v-else-if="col.field === 'parsingEndTime'">
+                {{ formatDateTime(app.parsingEndTime) }}
+              </template>
+
+              <!-- 10. Detected At (Scan Time) -->
+              <template v-else-if="col.field === 'createdAt'">
+                {{ formatDateTime(app.createdAt) }}
+              </template>
+
+              <!-- 11. Progress -->
+              <template v-else-if="col.field === 'progress'">
+                <div class="progress-cell">
+                  <div class="progress-track" :title="getProgressTooltip(app)">
+                    <div class="progress-fill" 
+                         :style="{ 
+                           width: (app.parsingStatus === 'SUCCESS' ? 100 : (app.progressValue || 0)) + '%', 
+                           backgroundColor: getProgressColor(app.parsingStatus || 'PENDING_LOAD') 
+                         }">
+                    </div>
+                    <div class="progress-text-overlay">
+                      {{ app.parsingStatus === 'SUCCESS' ? '100%' : Math.round(app.progressValue || 0) + '%' }}
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <!-- 12. Status -->
+              <template v-else-if="col.field === 'status'">
+                <div class="status-cell">
+                  <span :class="'status-badge status-' + (app.parsingStatus || 'PENDING_LOAD')" 
+                        :title="getStatusTooltip(app)">
+                    {{ formatStatus(app.parsingStatus) }}
+                  </span>
+                </div>
+              </template>
             </td>
 
             <!-- ACTION Column -->
@@ -251,6 +306,7 @@
                 <!-- Processing: No Actions (except Cancel for Queued) -->
                 <span v-if="isActivePipeline(app.parsingStatus)" class="processing-label">
                   Processing...
+                  <span v-if="getRemainingTime(app)" class="remaining-time">({{ getRemainingTime(app) }} left)</span>
                 </span>
               </div>
             </td>
@@ -278,7 +334,7 @@
 <script setup>
 import {ref, onMounted, onUnmounted, computed, reactive, nextTick} from 'vue';
 import {getApps, updateAppNotes} from '../api';
-import {formatDateTime} from '../utils/format';
+import {formatDateTime, formatTime} from '../utils/format';
 import {useRoute, useRouter} from 'vue-router';
 import { compareStore } from '../store/compareStore';
 import ConfirmationModal from '../components/common/ConfirmationModal.vue';
@@ -311,7 +367,7 @@ const currentPage = ref(1);
 const pageSize = ref(20);
 const jumpPageInput = ref(1);
 const searchQuery = ref('');
-const sorts = ref([{field: 'startTime', dir: 'desc'}]);
+const sorts = ref([{field: 'createdAt', dir: 'desc'}]);
 const activeDropdown = ref(null);
 const dropdownStyle = reactive({ top: '0px', left: '0px' });
 
@@ -541,7 +597,7 @@ const triggerReimport = async (appId, mode) => {
   }
 };
 
-const columns = [
+const AVAILABLE_COLUMNS = [
   {field: 'appName', label: 'App Name', sortable: true},
   {field: 'sparkVersion', label: 'Version', width: '100px', sortable: true},
   {field: 'appId', label: 'App ID', width: '400px', sortable: true},
@@ -549,10 +605,26 @@ const columns = [
   {field: 'startTime', label: 'Submitted', width: '180px', sortable: true},
   {field: 'duration', label: 'Duration', width: '120px', sortable: true},
   {field: 'notes', label: 'Notes', width: '250px', sortable: false},
+  {field: 'parsingStartTime', label: 'Last Parsing Start', width: '180px', sortable: true},
+  {field: 'parsingEndTime', label: 'Last Parsing End', width: '180px', sortable: true},
+  {field: 'createdAt', label: 'Scan Time', width: '180px', sortable: true},
   {field: 'progress', label: 'Progress', width: '150px', sortable: false},
-  {field: 'status', label: 'Status', width: '150px', sortable: true},
-  {field: 'action', label: 'Action', width: '220px', sortable: false}
+  {field: 'status', label: 'Status', width: '150px', sortable: true}
 ];
+
+const selectedColumnFields = ref(['appName', 'appId', 'startTime', 'duration', 'notes', 'createdAt', 'progress', 'status']);
+
+const columns = computed(() => {
+  return AVAILABLE_COLUMNS.filter(c => selectedColumnFields.value.includes(c.field));
+});
+
+const selectAllColumns = () => {
+  selectedColumnFields.value = AVAILABLE_COLUMNS.map(c => c.field);
+};
+
+const clearAllColumns = () => {
+  selectedColumnFields.value = [];
+};
 
 const getProgressColor = (status) => {
   if (status === 'FAILED') return '#e74c3c'; // Red
@@ -600,6 +672,28 @@ const getStatusTooltip = (app) => {
   return tip;
 };
 
+const getRemainingTime = (app) => {
+  if (!app.parsingStartTime || !app.progressValue || app.progressValue <= 0 || app.progressValue >= 100) {
+    return null;
+  }
+
+  const start = new Date(app.parsingStartTime).getTime();
+  const now = Date.now();
+  const elapsedMs = now - start;
+  
+  if (elapsedMs <= 5000) return null; // Wait for stable progress
+
+  const totalEstimatedMs = (elapsedMs / app.progressValue) * 100;
+  const remainingMs = totalEstimatedMs - elapsedMs;
+
+  if (remainingMs <= 0) return null;
+
+  const totalSecs = Math.floor(remainingMs / 1000);
+  const mins = Math.floor(totalSecs / 60);
+  const secs = totalSecs % 60;
+  return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+};
+
 const getProgressTooltip = (app) => {
   if (!app.parsingStartTime || !app.progressValue || app.progressValue <= 0 || app.progressValue >= 100) {
     return app.parsingProgress || 'No timing info available';
@@ -611,9 +705,6 @@ const getProgressTooltip = (app) => {
   
   if (elapsedMs <= 0) return 'Calculating timing...';
 
-  const totalEstimatedMs = (elapsedMs / app.progressValue) * 100;
-  const remainingMs = totalEstimatedMs - elapsedMs;
-
   const formatMs = (ms) => {
     const totalSecs = Math.floor(ms / 1000);
     const mins = Math.floor(totalSecs / 60);
@@ -621,7 +712,12 @@ const getProgressTooltip = (app) => {
     return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
   };
 
-  return `Elapsed: ${formatMs(elapsedMs)}\nEstimated Remaining: ${formatMs(remainingMs)}`;
+  const remaining = getRemainingTime(app);
+  let tip = `Elapsed: ${formatMs(elapsedMs)}`;
+  if (remaining) {
+    tip += `\nEstimated Remaining: ${remaining}`;
+  }
+  return tip;
 };
 
 const isProcessing = (status) => {
@@ -713,7 +809,7 @@ const handleSizeChange = () => {
 };
 
 const handleSort = (field, event) => {
-  const col = columns.find(c => c.field === field);
+  const col = columns.value.find(c => c.field === field);
   if (!col || col.sortable === false) return;
 
   const existingIndex = sorts.value.findIndex(s => s.field === field);
@@ -749,7 +845,7 @@ const clearSorts = () => {
 };
 
 const getColumnLabel = (field) => {
-  const col = columns.find(c => c.field === field);
+  const col = columns.value.find(c => c.field === field);
   return col ? col.label : field;
 };
 
@@ -851,6 +947,73 @@ onUnmounted(() => {
 }
 
 .search-btn:hover { background: #e9ecef; }
+
+/* Column Selector Styles */
+.column-selector-card {
+  background: #fdfdfd;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #edf2f7;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 8px;
+}
+
+.selector-header strong {
+  font-size: 0.9rem;
+  color: #2c3e50;
+}
+
+.selector-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.selector-actions button {
+  background: none;
+  border: 1px solid #ddd;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  color: #666;
+  transition: all 0.2s;
+}
+
+.selector-actions button:hover {
+  border-color: #3498db;
+  color: #3498db;
+  background: #f7fbff;
+}
+
+.checkbox-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px 15px;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #555;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.checkbox-item input {
+  cursor: pointer;
+}
 
 .table-card {
   background: white;
@@ -1049,6 +1212,20 @@ onUnmounted(() => {
   background-color: #f9f2f4;
   padding: 2px 4px;
   border-radius: 3px;
+}
+
+.processing-label {
+  color: #3498db;
+  font-size: 0.85rem;
+  font-style: italic;
+  display: flex;
+  flex-direction: column;
+}
+
+.remaining-time {
+  font-size: 0.75rem;
+  color: #7f8c8d;
+  font-weight: normal;
 }
 
 .notes-cell {

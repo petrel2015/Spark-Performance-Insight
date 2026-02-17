@@ -598,9 +598,7 @@ onUnmounted(() => {
   color: #999;
   font-weight: normal;
   font-size: 0.75rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 200px;
+  white-space: nowrap;
 }
 
 .tabs {

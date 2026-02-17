@@ -18,6 +18,7 @@ const router = createRouter({
         {path: '/app/:id/stages', component: AppDetail},
         {path: '/app/:id/executors', component: AppDetail},
         {path: '/app/:id/storage', component: AppDetail},
+        {path: '/app/:id/storage/:rddId', component: AppDetail},
         {path: '/app/:id/environment', component: AppDetail},
         {path: '/app/:id/job/:jobId', component: AppDetail},
         {path: '/app/:id/stage/:stageId', component: AppDetail}

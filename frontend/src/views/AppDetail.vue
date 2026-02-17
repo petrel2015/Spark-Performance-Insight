@@ -118,7 +118,12 @@
       </div>
 
       <ExecutorsTab v-if="activeTab === 'Executors'" :executors="executors"/>
-      <StorageTab v-if="activeTab === 'Storage' && app" :app-id="app.appId" />
+      
+      <div v-if="activeTab === 'Storage' && app" class="storage-view">
+        <StorageTab v-if="selectedRddId === null" :app-id="app.appId" @view-rdd-detail="navigateToRdd" />
+        <RddDetailView v-else :app-id="app.appId" :rdd-id="selectedRddId" @back="navigateBackToStorage" />
+      </div>
+
       <EnvironmentTab v-if="activeTab === 'Environment'" :configs="environment"/>
     </div>
 
@@ -155,6 +160,7 @@ import SQLTab from '../components/sql/SQLTab.vue';
 import SQLDetailView from '../components/sql/SQLDetailView.vue';
 import ExecutorsTab from '../components/executor/ExecutorsTab.vue';
 import StorageTab from '../components/storage/StorageTab.vue';
+import RddDetailView from '../components/storage/RddDetailView.vue';
 import StageTable from '../components/stage/StageTable.vue';
 import StageDetailView from '../components/stage/StageDetailView.vue';
 import EnvironmentTab from '../components/environment/EnvironmentTab.vue';
@@ -216,6 +222,7 @@ const selectedStageId = computed(() => route.params.stageId ? parseInt(route.par
 const selectedAttemptId = computed(() => route.query.attemptId ? parseInt(route.query.attemptId) : null);
 const selectedJobId = computed(() => route.params.jobId ? parseInt(route.params.jobId) : null);
 const selectedExecutionId = computed(() => route.params.executionId ? parseInt(route.params.executionId) : null);
+const selectedRddId = computed(() => route.params.rddId ? parseInt(route.params.rddId) : null);
 
 const renderedReport = computed(() => marked(report.value || ''));
 const renderedLLMReport = computed(() => marked(llmReport.value || ''));
@@ -334,6 +341,7 @@ const syncTabWithRoute = () => {
   if (path.includes('/stage/')) newTab = 'Stages';
   else if (path.includes('/job/')) newTab = 'Jobs';
   else if (path.includes('/sql')) newTab = 'SQL / DataFrame';
+  else if (path.includes('/storage/')) newTab = 'Storage';
   else if (path.endsWith('/jobs')) newTab = 'Jobs';
   else if (path.endsWith('/stages')) newTab = 'Stages';
   else if (path.endsWith('/executors')) newTab = 'Executors';
@@ -359,6 +367,9 @@ const navigateToJob = (jobId) => router.push(`/app/${route.params.id}/job/${jobI
 const navigateBackToJobs = () => router.push(`/app/${route.params.id}/jobs`);
 const navigateToSql = (executionId) => router.push(`/app/${route.params.id}/sql/${executionId}`);
 const navigateBackToSqlList = () => router.push(`/app/${route.params.id}/sql`);
+
+const navigateToRdd = (rddId) => router.push(`/app/${route.params.id}/storage/${rddId}`);
+const navigateBackToStorage = () => router.push(`/app/${route.params.id}/storage`);
 
 const navigateToStage = (payload) => {
   let stageId = typeof payload === 'object' ? payload.stageId : payload;

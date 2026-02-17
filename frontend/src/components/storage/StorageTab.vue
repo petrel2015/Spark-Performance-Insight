@@ -1,7 +1,7 @@
 <template>
   <div class="storage-tab">
     <!-- RDD List View -->
-    <CollapsibleCard v-if="!selectedRdd" title="Persisted RDDs / DataFrames">
+    <CollapsibleCard title="Persisted RDDs / DataFrames">
       <div v-if="rdds.length > 0" class="table-wrapper">
         <table class="styled-table">
           <thead>
@@ -18,7 +18,7 @@
           <tr v-for="rdd in rdds" :key="rdd.rddId">
             <td>{{ rdd.rddId }}</td>
             <td>
-              <a href="javascript:void(0)" @click="viewRddDetail(rdd)" class="rdd-link">{{ rdd.name }}</a>
+              <a href="javascript:void(0)" @click="$emit('view-rdd-detail', rdd.rddId)" class="rdd-link">{{ rdd.name }}</a>
             </td>
             <td>
               <div class="storage-level-tags">
@@ -45,127 +45,23 @@
         <small>Data only appears here if .cache() or .persist() was explicitly called in the Spark code and an Action was triggered.</small>
       </div>
     </CollapsibleCard>
-
-    <!-- RDD Detail View -->
-    <div v-else class="rdd-detail-view">
-      <div class="detail-header">
-        <button @click="selectedRdd = null" class="back-btn">← Back to Storage List</button>
-        <h3 class="rdd-title">Details for RDD {{ selectedRdd.name }} (ID {{ selectedRdd.rddId }})</h3>
-      </div>
-
-      <div class="summary-cards">
-        <div class="mini-card storage-level-card">
-          <label>Storage Level</label>
-          <div class="storage-grid" v-if="parseStorageLevelObject(selectedRdd.storageLevel)">
-            <div class="grid-item" :class="{ active: parseStorageLevelObject(selectedRdd.storageLevel).useDisk }">
-              <span class="dot"></span> Disk
-            </div>
-            <div class="grid-item" :class="{ active: parseStorageLevelObject(selectedRdd.storageLevel).useMemory }">
-              <span class="dot"></span> Memory
-            </div>
-            <div class="grid-item" :class="{ active: parseStorageLevelObject(selectedRdd.storageLevel).deserialized }">
-              <span class="dot"></span> Deserialized
-            </div>
-            <div class="grid-item" :class="{ active: parseStorageLevelObject(selectedRdd.storageLevel).replication > 1 }">
-              <span class="dot"></span> {{ parseStorageLevelObject(selectedRdd.storageLevel).replication }}x Repl
-            </div>
-          </div>
-          <div v-else class="value">{{ selectedRdd.storageLevel }}</div>
-        </div>
-        <div class="mini-card">
-          <label>Partitions</label>
-          <div class="value">{{ selectedRdd.numPartitions }}</div>
-        </div>
-        <div class="mini-card">
-          <label>Memory Size</label>
-          <div class="value">{{ formatBytes(selectedRdd.memorySize) }}</div>
-        </div>
-        <div class="mini-card">
-          <label>Disk Size</label>
-          <div class="value">{{ formatBytes(selectedRdd.diskSize) }}</div>
-        </div>
-      </div>
-
-      <CollapsibleCard title="Data Distribution on Executors">
-        <div class="table-wrapper">
-          <table class="styled-table">
-            <thead>
-            <tr>
-              <th>Host</th>
-              <th>Executor ID</th>
-              <th>Storage Level</th>
-              <th>Memory Size</th>
-              <th>Disk Size</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr v-for="block in rddBlocks" :key="block.id">
-              <td>{{ block.host }}</td>
-              <td>{{ block.executorId }}</td>
-              <td>
-                <div class="storage-level-tags">
-                  <span v-for="tag in formatStorageLevel(block.storageLevel)" :key="tag" :class="['storage-tag', tag.toLowerCase()]">
-                    {{ tag }}
-                  </span>
-                </div>
-              </td>
-              <td>{{ formatBytes(block.memorySize) }}</td>
-              <td>{{ formatBytes(block.diskSize) }}</td>
-            </tr>
-            </tbody>
-          </table>
-        </div>
-      </CollapsibleCard>
-    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { getAppStorage, getRddStorage } from '../../api';
+import { getAppStorage } from '../../api';
 import { formatBytes } from '../../utils/format';
+import { formatStorageLevel } from '../../utils/storage';
 import CollapsibleCard from '../common/CollapsibleCard.vue';
 
 const props = defineProps({
   appId: { type: String, required: true }
 });
 
+defineEmits(['view-rdd-detail']);
+
 const rdds = ref([]);
-const selectedRdd = ref(null);
-const rddBlocks = ref([]);
-
-const parseStorageLevelObject = (levelStr) => {
-  if (!levelStr) return null;
-  if (levelStr === 'NONE') return { useDisk: false, useMemory: false, useOffHeap: false, deserialized: false, replication: 0 };
-  try {
-    return typeof levelStr === 'string' ? JSON.parse(levelStr) : levelStr;
-  } catch (e) {
-    return null;
-  }
-};
-
-const formatStorageLevel = (levelStr) => {
-  if (!levelStr) return [];
-  if (levelStr === 'NONE') return ['None'];
-  
-  try {
-    // If it's already a JSON object, use it directly
-    // If it's a string, try to parse it
-    const level = typeof levelStr === 'string' ? JSON.parse(levelStr) : levelStr;
-    const tags = [];
-    
-    if (level.useDisk) tags.push('Disk');
-    if (level.useMemory) tags.push('Memory');
-    if (level.useOffHeap) tags.push('OffHeap');
-    if (level.deserialized) tags.push('Deserialized');
-    if (level.replication > 1) tags.push(`${level.replication}x Replicated`);
-    
-    return tags.length > 0 ? tags : [levelStr];
-  } catch (e) {
-    // Fallback for non-JSON strings
-    return [levelStr];
-  }
-};
 
 const fetchStorageData = async () => {
   try {
@@ -173,16 +69,6 @@ const fetchStorageData = async () => {
     rdds.value = res.data || [];
   } catch (err) {
     console.error("Failed to fetch storage data", err);
-  }
-};
-
-const viewRddDetail = async (rdd) => {
-  selectedRdd.value = rdd;
-  try {
-    const res = await getRddStorage(props.appId, rdd.rddId);
-    rddBlocks.value = res.data || [];
-  } catch (err) {
-    console.error("Failed to fetch RDD detail", err);
   }
 };
 
@@ -250,39 +136,6 @@ onMounted(fetchStorageData);
 .storage-tag.offheap { background: #f3f0ff; color: #6741d9; border-color: #d0bfff; }
 .storage-tag.deserialized { background: #f8f9fa; color: #495057; border-color: #ced4da; }
 
-/* Storage Grid Detail Styles */
-.storage-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.grid-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.8rem;
-  color: #bdc3c7; /* Inactive color */
-  font-weight: 500;
-}
-
-.grid-item.active {
-  color: #2c3e50; /* Active color */
-}
-
-.grid-item .dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #ecf0f1; /* Inactive dot */
-}
-
-.grid-item.active .dot {
-  background: #27ae60; /* Active green dot */
-  box-shadow: 0 0 4px rgba(39, 174, 96, 0.4);
-}
-
 .progress-container {
   width: 100%;
   height: 18px;
@@ -329,70 +182,5 @@ onMounted(fetchStorageData);
 
 .empty-storage small {
   color: #c0c4cc;
-}
-
-/* Detail View Styles */
-.rdd-detail-view {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.detail-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 20px;
-}
-
-.back-btn {
-  padding: 6px 12px;
-  background: #6c757d;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  flex-shrink: 0;
-  white-space: nowrap;
-  margin-top: 4px; /* Align better with h3 text */
-}
-
-.rdd-title {
-  margin: 0;
-  font-size: 1.25rem;
-  line-height: 1.4;
-  word-break: break-word;
-  overflow-wrap: break-word;
-  flex: 1;
-  min-width: 0;
-}
-
-.summary-cards {
-  display: flex;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.mini-card {
-  background: white;
-  padding: 1rem 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  border: 1px solid #eee;
-  min-width: 150px;
-}
-
-.mini-card label {
-  display: block;
-  font-size: 0.75rem;
-  color: #999;
-  text-transform: uppercase;
-  margin-bottom: 5px;
-}
-
-.mini-card .value {
-  font-size: 1.1rem;
-  font-weight: bold;
-  color: #2c3e50;
 }
 </style>

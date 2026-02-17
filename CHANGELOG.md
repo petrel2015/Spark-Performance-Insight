@@ -1,3 +1,8 @@
+## 1.0.3 - 2026-02-17
+
+### Maintenance
+- Relocated release-skills configuration file to its dedicated directory.
+
 ## 1.0.2 - 2026-02-17
 
 ### Features

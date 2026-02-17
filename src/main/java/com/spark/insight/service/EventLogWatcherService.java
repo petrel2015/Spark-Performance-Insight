@@ -4,10 +4,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spark.insight.config.InsightProperties;
 import com.spark.insight.mapper.EventLogScanMapper;
-import com.spark.insight.mapper.ParsedEventLogMapper;
-import com.spark.insight.model.ApplicationModel;
+import com.spark.insight.model.GoldApplicationModel;
 import com.spark.insight.model.EventLogStatus;
-import com.spark.insight.model.ParsedEventLogModel;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,7 +28,6 @@ import java.util.stream.Collectors;
 public class EventLogWatcherService {
 
     private final InsightProperties properties;
-    private final ParsedEventLogMapper parsedLogMapper;
     private final ApplicationService applicationService;
     private final EventLogScanMapper scanMapper;
     private final StatusBroadcaster broadcaster;
@@ -87,7 +84,7 @@ public class EventLogWatcherService {
 
         appGroups.forEach((appId, files) -> {
             long totalSize = files.stream().mapToLong(File::length).sum();
-            ApplicationModel existingApp = applicationService.getById(appId);
+            GoldApplicationModel existingApp = applicationService.getById(appId);
 
             if (existingApp == null) {
                 handleNewApp(appId, files, totalSize);
@@ -101,7 +98,7 @@ public class EventLogWatcherService {
         logService.logEvent(appId, "SCAN", "New Application Detected", 
                 String.format("Found %d files, total size: %.2f MB", files.size(), totalSize / (1024.0 * 1024.0)));
         
-        ApplicationModel app = new ApplicationModel();
+        GoldApplicationModel app = new GoldApplicationModel();
         app.setAppId(appId);
         app.setAppName("Unparsed Application"); // Will be updated during processing
         app.setParsingStatus("PENDING_LOAD");
@@ -118,7 +115,7 @@ public class EventLogWatcherService {
         broadcaster.broadcastStatus(appId, "PENDING_LOAD", 0.0, "Ready to import", app.getAppName(), app.getParsingStartTime());
     }
 
-    private void handleExistingApp(ApplicationModel app, List<File> files, long totalSize) {
+    private void handleExistingApp(GoldApplicationModel app, List<File> files, long totalSize) {
         String currentStatus = app.getParsingStatus();
         // Skip if currently processing
         if ("INGESTING_BRONZE".equals(currentStatus) || 
@@ -167,7 +164,7 @@ public class EventLogWatcherService {
 
     public void executePipeline(String appId, String type, java.util.function.Consumer<Boolean> onComplete) {
         // Resolve files
-        ApplicationModel app = applicationService.getById(appId);
+        GoldApplicationModel app = applicationService.getById(appId);
         if (app == null) {
             log.error("App not found for pipeline execution: {}", appId);
             onComplete.accept(false);
@@ -214,25 +211,31 @@ public class EventLogWatcherService {
         pipelineExecutor.submit(() -> {
             try {
                 // Bronze (0-100%)
+                LocalDateTime bronzeStart = LocalDateTime.now();
+                updateStatus(appId, "INGESTING_BRONZE", 0.0, "Starting ingestion...", bronzeStart);
                 long t0 = System.currentTimeMillis();
                 bronzeIngestionService.ingest(appId, files, (p, msg) -> {
-                    updateStatus(appId, "INGESTING_BRONZE", p, msg);
+                    updateStatus(appId, "INGESTING_BRONZE", p, msg, null);
                 });
                 logService.logEvent(appId, "IMPORT", "Bronze Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t0) / 1000.0));
 
                 // Silver (0-100%)
+                LocalDateTime silverStart = LocalDateTime.now();
+                updateStatus(appId, "TRANSFORMING_SILVER", 0.0, "Structuring data...", silverStart);
                 long t1 = System.currentTimeMillis();
                 logService.logEvent(appId, "TRANSFORM", "Silver Start", "Structuring data");
                 silverTransformationService.transform(appId, (p, msg) -> {
-                    updateStatus(appId, "TRANSFORMING_SILVER", p, msg);
+                    updateStatus(appId, "TRANSFORMING_SILVER", p, msg, null);
                 });
                 logService.logEvent(appId, "TRANSFORM", "Silver Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t1) / 1000.0));
 
                 // Gold (0-100%)
+                LocalDateTime goldStart = LocalDateTime.now();
+                updateStatus(appId, "AGGREGATING_GOLD", 0.0, "Aggregating metrics...", goldStart);
                 long t2 = System.currentTimeMillis();
                 logService.logEvent(appId, "AGGREGATE", "Gold Start", "Aggregating metrics");
                 goldAggregationService.aggregate(appId, (p, msg) -> {
-                    updateStatus(appId, "AGGREGATING_GOLD", p, msg);
+                    updateStatus(appId, "AGGREGATING_GOLD", p, msg, null);
                 });
                 logService.logEvent(appId, "AGGREGATE", "Gold Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t2) / 1000.0));
                 
@@ -253,17 +256,21 @@ public class EventLogWatcherService {
         pipelineExecutor.submit(() -> {
             try {
                 // Silver (0-100%)
+                LocalDateTime silverStart = LocalDateTime.now();
+                updateStatus(appId, "TRANSFORMING_SILVER", 0.0, "Structuring data...", silverStart);
                 long t1 = System.currentTimeMillis();
                 silverTransformationService.transform(appId, (p, msg) -> {
-                    updateStatus(appId, "TRANSFORMING_SILVER", p, msg);
+                    updateStatus(appId, "TRANSFORMING_SILVER", p, msg, null);
                 });
                 logService.logEvent(appId, "TRANSFORM", "Silver Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t1) / 1000.0));
 
                 // Gold (0-100%)
+                LocalDateTime goldStart = LocalDateTime.now();
+                updateStatus(appId, "AGGREGATING_GOLD", 0.0, "Aggregating metrics...", goldStart);
                 long t2 = System.currentTimeMillis();
                 logService.logEvent(appId, "AGGREGATE", "Gold Start", "Aggregating metrics");
                 goldAggregationService.aggregate(appId, (p, msg) -> {
-                    updateStatus(appId, "AGGREGATING_GOLD", p, msg);
+                    updateStatus(appId, "AGGREGATING_GOLD", p, msg, null);
                 });
                 logService.logEvent(appId, "AGGREGATE", "Gold Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t2) / 1000.0));
                 
@@ -282,9 +289,11 @@ public class EventLogWatcherService {
         pipelineExecutor.submit(() -> {
             try {
                 // Gold
+                LocalDateTime goldStart = LocalDateTime.now();
+                updateStatus(appId, "AGGREGATING_GOLD", 0.0, "Aggregating metrics...", goldStart);
                 long t2 = System.currentTimeMillis();
                 goldAggregationService.aggregate(appId, (p, msg) -> {
-                    updateStatus(appId, "AGGREGATING_GOLD", p, msg);
+                    updateStatus(appId, "AGGREGATING_GOLD", p, msg, null);
                 });
                 logService.logEvent(appId, "AGGREGATE", "Gold Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t2) / 1000.0));
                 
@@ -297,8 +306,16 @@ public class EventLogWatcherService {
         });
     }
 
+    private void resetParsingStartTime(String appId) {
+        GoldApplicationModel app = applicationService.getById(appId);
+        if (app != null) {
+            app.setParsingStartTime(LocalDateTime.now());
+            applicationService.updateById(app);
+        }
+    }
+
     private void finalizeSuccess(String appId, List<File> files) throws Exception {
-        ApplicationModel app = applicationService.getById(appId);
+        GoldApplicationModel app = applicationService.getById(appId);
         if (app == null) return;
 
         // Update metadata to reflect the files we just successfully processed
@@ -326,18 +343,18 @@ public class EventLogWatcherService {
         if (e.getCause() != null) {
             errorMsg += " (Cause: " + e.getCause().getMessage() + ")";
         }
-        updateStatus(appId, "FAILED", 0.0, "Error: " + errorMsg);
+        updateStatus(appId, "FAILED", 0.0, "Error: " + errorMsg, null);
         logService.logEvent(appId, "FAILED", "Pipeline Error", errorMsg);
     }
 
-    private void updateStatus(String appId, String status, double progress, String msg) {
+    private void updateStatus(String appId, String status, double progress, String msg, LocalDateTime startTime) {
         String progressText = String.format("%.0f%% %s", progress, msg);
         
         // Persist to DB immediately in a new transaction
-        applicationService.updateStatusAtomic(appId, status, progress, progressText);
+        applicationService.updateStatusAtomic(appId, status, progress, progressText, startTime);
         
         // Broadcast via WebSocket
-        ApplicationModel app = applicationService.getById(appId);
+        GoldApplicationModel app = applicationService.getById(appId);
         broadcaster.broadcastStatus(appId, status, progress, msg, app != null ? app.getAppName() : null, app != null ? app.getParsingStartTime() : null);
     }
 

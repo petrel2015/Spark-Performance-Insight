@@ -28,12 +28,15 @@ public class ParsingQueueService {
         log.info("Submitting app {} to parsing queue (Type: {})", appId, type);
         
         // Remove any existing QUEUED jobs for this app to avoid duplicates
-        jdbcTemplate.update("DELETE FROM parsing_queue WHERE app_id = ? AND status = 'QUEUED'", appId);
+        jdbcTemplate.update("DELETE FROM sys_parsing_queue WHERE app_id = ? AND status = 'QUEUED'", appId);
         
-        jdbcTemplate.update("INSERT INTO parsing_queue (id, app_id, type, status) VALUES (?, ?, ?, ?)",
+        // Clear parsing_start_time to avoid stale timing in UI
+        jdbcTemplate.update("UPDATE gold_applications SET parsing_start_time = NULL WHERE app_id = ?", appId);
+
+        jdbcTemplate.update("INSERT INTO sys_parsing_queue (id, app_id, type, status) VALUES (?, ?, ?, ?)",
                 UUID.randomUUID(), appId, type, "QUEUED");
         
-        broadcaster.broadcastStatus(appId, "QUEUED", 0.0, "Waiting in queue...", getAppName(appId), getStartTime(appId));
+        broadcaster.broadcastStatus(appId, "QUEUED", 0.0, "Waiting in queue...", getAppName(appId), null);
         
         // Use virtual thread to trigger processQueue outside of current execution flow
         Thread.ofVirtual().start(this::processQueue);
@@ -42,7 +45,7 @@ public class ParsingQueueService {
     @Transactional
     public void cancel(String appId) {
         log.info("Cancelling app {} from parsing queue", appId);
-        int rows = jdbcTemplate.update("DELETE FROM parsing_queue WHERE app_id = ? AND status = 'QUEUED'", appId);
+        int rows = jdbcTemplate.update("DELETE FROM sys_parsing_queue WHERE app_id = ? AND status = 'QUEUED'", appId);
         if (rows > 0) {
             broadcaster.broadcastStatus(appId, "CANCELLED", 0.0, "Cancelled by user", getAppName(appId), getStartTime(appId));
         }
@@ -72,7 +75,7 @@ public class ParsingQueueService {
     public synchronized void processQueue() {
         // Check if anything is running - Fetch names for better logging
         List<String> runningApps = jdbcTemplate.queryForList(
-                "SELECT COALESCE(ga.app_name, q.app_id) FROM parsing_queue q " +
+                "SELECT COALESCE(ga.app_name, q.app_id) FROM sys_parsing_queue q " +
                 "LEFT JOIN gold_applications ga ON q.app_id = ga.app_id " +
                 "WHERE q.status = 'RUNNING'", String.class);
         
@@ -83,7 +86,7 @@ public class ParsingQueueService {
 
         // Pick next
         List<Map<String, Object>> nextJobs = jdbcTemplate.queryForList(
-                "SELECT id, app_id, type FROM parsing_queue WHERE status = 'QUEUED' ORDER BY submit_time ASC LIMIT 1");
+                "SELECT id, app_id, type FROM sys_parsing_queue WHERE status = 'QUEUED' ORDER BY submit_time ASC LIMIT 1");
 
         if (nextJobs.isEmpty()) {
             return;
@@ -98,9 +101,9 @@ public class ParsingQueueService {
 
         try {
             // Mark Running (Workaround: DELETE + INSERT)
-            Map<String, Object> currentJob = jdbcTemplate.queryForMap("SELECT * FROM parsing_queue WHERE id = ?", id);
-            jdbcTemplate.update("DELETE FROM parsing_queue WHERE id = ?", id);
-            jdbcTemplate.update("INSERT INTO parsing_queue (id, app_id, type, status, submit_time, start_time) VALUES (?, ?, ?, 'RUNNING', ?, CURRENT_TIMESTAMP)",
+            Map<String, Object> currentJob = jdbcTemplate.queryForMap("SELECT * FROM sys_parsing_queue WHERE id = ?", id);
+            jdbcTemplate.update("DELETE FROM sys_parsing_queue WHERE id = ?", id);
+            jdbcTemplate.update("INSERT INTO sys_parsing_queue (id, app_id, type, status, submit_time, start_time) VALUES (?, ?, ?, 'RUNNING', ?, CURRENT_TIMESTAMP)",
                     id, appId, type, currentJob.get("submit_time"));
             
             log.info("Job {} marked as RUNNING, starting pipeline executor...", id);
@@ -115,7 +118,7 @@ public class ParsingQueueService {
         } catch (Exception e) {
             log.error("Failed to start job from queue: " + id, e);
             // Revert status to FAILED in queue to avoid blocking
-            jdbcTemplate.update("UPDATE parsing_queue SET status = 'FAILED' WHERE id = ?", id);
+            jdbcTemplate.update("UPDATE sys_parsing_queue SET status = 'FAILED' WHERE id = ?", id);
         }
     }
 
@@ -124,7 +127,7 @@ public class ParsingQueueService {
             return Map.of();
         }
         String placeholders = String.join(",", java.util.Collections.nCopies(appIds.size(), "?"));
-        String sql = String.format("SELECT app_id, status FROM parsing_queue WHERE status = 'QUEUED' AND app_id IN (%s)", placeholders);
+        String sql = String.format("SELECT app_id, status FROM sys_parsing_queue WHERE status = 'QUEUED' AND app_id IN (%s)", placeholders);
         
         List<Map<String, Object>> results = jdbcTemplate.queryForList(sql, appIds.toArray());
         
@@ -139,9 +142,9 @@ public class ParsingQueueService {
         log.info("Job {} finished (Success: {})", id, success);
         // Workaround: DELETE + INSERT
         try {
-            Map<String, Object> job = jdbcTemplate.queryForMap("SELECT * FROM parsing_queue WHERE id = ?", id);
-            jdbcTemplate.update("DELETE FROM parsing_queue WHERE id = ?", id);
-            jdbcTemplate.update("INSERT INTO parsing_queue (id, app_id, type, status, submit_time, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+            Map<String, Object> job = jdbcTemplate.queryForMap("SELECT * FROM sys_parsing_queue WHERE id = ?", id);
+            jdbcTemplate.update("DELETE FROM sys_parsing_queue WHERE id = ?", id);
+            jdbcTemplate.update("INSERT INTO sys_parsing_queue (id, app_id, type, status, submit_time, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
                     id, job.get("app_id"), job.get("type"), success ? "COMPLETED" : "FAILED", job.get("submit_time"), job.get("start_time"));
         } catch (Exception e) {
             log.error("Failed to mark job finished: " + id, e);

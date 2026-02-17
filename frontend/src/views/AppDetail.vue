@@ -135,6 +135,25 @@
       <p>Loading application data...</p>
     </div>
 
+    <!-- Resource Not Found Modal -->
+    <div v-if="showNotFoundModal" class="modal-overlay">
+      <div class="modal-card">
+        <div class="modal-header danger">
+          <span class="material-symbols-outlined">error</span>
+          <h3>Application Not Found</h3>
+        </div>
+        <div class="modal-body">
+          <p>The application ID you requested does not exist in our system.</p>
+          <p>It may have been deleted or the ID might be incorrect.</p>
+        </div>
+        <div class="modal-footer">
+          <button class="primary-btn danger-btn" @click="handleRestrictedBack">
+            Back to App List ({{ redirectCountdown }}s)
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Restricted Access Modal -->
     <div v-if="showRestrictedModal" class="modal-overlay">
       <div class="modal-card">
@@ -193,12 +212,24 @@ const generationMeta = ref({
 
 // Access Control
 const showRestrictedModal = ref(false);
+const showNotFoundModal = ref(false);
 const redirectCountdown = ref(5);
 let redirectTimer = null;
 
 const handleRestrictedBack = () => {
   if (redirectTimer) clearInterval(redirectTimer);
   router.push('/');
+};
+
+const startRedirectTimer = () => {
+  redirectCountdown.value = 5;
+  if (redirectTimer) clearInterval(redirectTimer);
+  redirectTimer = setInterval(() => {
+    redirectCountdown.value--;
+    if (redirectCountdown.value <= 0) {
+      handleRestrictedBack();
+    }
+  }, 1000);
 };
 
 let pollTimer = null;
@@ -437,14 +468,7 @@ const checkAppStatus = async () => {
   // If status is not SUCCESS or FAILED, it's not ready
   if (!status || (status !== 'SUCCESS' && status !== 'FAILED')) {
     showRestrictedModal.value = true;
-    redirectCountdown.value = 5;
-    if (redirectTimer) clearInterval(redirectTimer);
-    redirectTimer = setInterval(() => {
-      redirectCountdown.value--;
-      if (redirectCountdown.value <= 0) {
-        handleRestrictedBack();
-      }
-    }, 1000);
+    startRedirectTimer();
   }
 };
 
@@ -475,6 +499,12 @@ onMounted(async () => {
       startPolling(app.value.llmStartTime);
     } else if (app.value) {
       llmReport.value = app.value.llmReport;
+    }
+  } catch (err) {
+    console.error('Failed to fetch app info', err);
+    if (err.response && err.response.status === 404) {
+      showNotFoundModal.value = true;
+      startRedirectTimer();
     }
   } finally {
     loading.value.app = false;
@@ -538,6 +568,10 @@ onUnmounted(() => {
   background-color: #f39c12;
 }
 
+.modal-header.danger {
+  background-color: #e74c3c;
+}
+
 .modal-header h3 {
   margin: 0;
   font-size: 1.1rem;
@@ -569,8 +603,16 @@ onUnmounted(() => {
   transition: background 0.2s;
 }
 
+.primary-btn.danger-btn {
+  background-color: #e74c3c;
+}
+
 .primary-btn:hover {
   background-color: #e67e22;
+}
+
+.primary-btn.danger-btn:hover {
+  background-color: #c0392b;
 }
 
 /* Existing styles */

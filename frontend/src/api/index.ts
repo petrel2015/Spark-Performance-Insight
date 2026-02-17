@@ -8,13 +8,9 @@ const request = axios.create({
 request.interceptors.response.use(
     response => response,
     error => {
-        if (error.response) {
-            if (error.response.status === 503) {
-                const msg = error.response.data && error.response.data.message ? error.response.data.message : 'Application is processing...';
-                router.push({path: '/', query: {processingMsg: msg}});
-            } else if (error.response.status === 404) {
-                router.push({path: '/', query: {errorMsg: 'Application not found'}});
-            }
+        if (error.response && error.response.status === 503) {
+            const msg = error.response.data && error.response.data.message ? error.response.data.message : 'Application is processing...';
+            router.push({path: '/', query: {processingMsg: msg}});
         }
         return Promise.reject(error);
     }

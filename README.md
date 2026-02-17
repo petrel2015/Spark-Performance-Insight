@@ -9,50 +9,53 @@ English | [中文](./README.zh.md)
 
 ---
 
-An advanced Spark performance analysis system designed to address the core pain points of the native Spark Web UI/History Server. It eliminates "slow replay" and "lack of comparison" issues through **Medallion Architecture**, **Structured OLAP Storage**, and **Multi-dimensional Benchmarking**.
+An advanced Spark performance analysis system designed to address the core pain points of the native Spark Web UI/History Server. It eliminates "slow replay", "information overload", and "lack of comparison" issues through **Medallion Architecture**, **Smart Diagnosis**, and **Multi-dimensional Benchmarking**.
+
+> **💡 Core Goal: Transform raw logs into actionable intelligence, providing instant answers instead of raw data.**
+
+---
 
 ## Why Spark-Performance-Insight?
 
-While the native Spark Web UI provides basic monitoring, it suffers from critical limitations during deep performance analysis and production operations:
+While the native Spark Web UI provides basic monitoring, users often face significant hurdles during deep performance analysis:
 
-### 1. History Server Architectural Bottlenecks
-- **Event Replay Overhead:** TB-sized logs result in extreme CPU/Memory overhead and minute-long wait times due to replaying raw JSON.
-- **Scalability Issues:** Without structured storage, all metrics must be cached in memory, often triggering OOM when handling jobs with millions of tasks.
-- **No Query Indexing:** Linear storage lacks efficient indexing. Browsing through tens of thousands of stages provides a poor user experience.
+### 1. Information Overload & Obscurity
+- **Metric Labyrinth:** Spark UI presents a massive volume of raw metrics and obscure charts. Beginners struggle to find what matters, and experts spend excessive time digging through pages to correlate metrics.
+- **Hidden Insights:** Critical bottlenecks like GC pressure or data skew are often buried under layers of sub-menus, making it hard to get a quick "health check" of an application.
 
-### 2. Lack of Deep Comparison
-- **Unquantifiable Differences:** Impossible to compare metrics directly across different runs to identify root causes.
-- **Environment Blind Spots:** Hard to identify if performance changes are due to configuration tweaks or hardware discrepancies.
+### 2. Lack of Meaningful Comparison
+- **Unquantifiable Deviations:** When a job slows down compared to yesterday, there is no built-in way to compare the two runs side-by-side to see exactly which stage or task changed.
+- **Blind Troubleshooting:** Hard to identify if performance shifts are due to config changes, resource fluctuations, or hardware issues without manual, error-prone data collection.
+
+### 3. History Server Performance Bottlenecks
+- **Event Replay Overhead:** Replaying raw JSON EventLogs for massive jobs results in extreme CPU/Memory overhead and minute-long wait times.
+- **Scalability Limits:** Without structured storage, the SHS often crashes (OOM) when handling jobs with millions of tasks.
+
+---
 
 ## Core Features
 
-### 1. Classic UI Parity & Beyond
-- **Familiar Interface:** Deeply replicates the native Spark UI lists (Jobs, Stages, Tasks), progress bars, and descriptions to ensure a seamless transition for developers.
-- **Enhanced Summary:** Provides statistical distributions (Min, 25%, Median, 75%, 95%, Max) for Duration, GC Time, Spill, and Shuffle metrics.
-- **Advanced Task View:** Supports server-side pagination for millions of tasks with multi-column sorting (Shift+Click).
+### 1. Smart Diagnosis Engine
+- **AI-Powered Analysis:** Integrates **Zhipu AI (GLM-4.7)** and **OpenAI** to analyze complex bottlenecks (e.g., Shuffle IO, GC pressure) and generate expert-level reports with optimization advice.
+- **Rule-Based Insights:** Automatically flags data skew, disk spills, and scheduler delays with visual risk indicators, allowing you to identify issues in seconds.
 
-### 2. Medallion Data Pipeline
-- **Bronze (Raw Ingestion):** High-speed streaming ingestion using Jackson.
-- **Silver (Transformation):** Structured parsing, recovering logical relationships and identifying long-tail tasks.
-- **Gold (Aggregation):** Pre-calculated analytical tables for instant UI response times.
+### 2. Multi-dimensional Benchmarking
+- **Cross-App Comparison:** Side-by-side comparison of different application instances to identify configuration or resource-induced regressions.
+- **Stage Benchmarking:** Deep dive into two stages to compare statistical distributions (P95, Median) and task execution traces.
 
-### 3. Advanced Storage Analysis
-- **Persistence Tracking:** Comprehensive view of cached RDDs and DataFrames.
-- **Structural UI:** Detailed storage levels (Memory/Disk/Deserialized) with status indicators.
-- **Deep Linking:** Every RDD has its own unique URL for easy sharing.
+### 3. Classic UI Parity & Beyond
+- **Familiar Interface:** Deeply replicates native Spark UI lists (Jobs, Stages, Tasks) and descriptions to ensure a zero-learning-curve transition for developers.
+- **Enhanced Summary:** Provides statistical distributions for all core metrics and high-performance server-side pagination for millions of tasks.
 
-### 4. Smart Diagnosis Engine
-- **AI-Powered Analysis:** Integrates **Zhipu AI (GLM-4.7)** and **OpenAI** for expert-level diagnostic reports.
-- **Rule-Based Insights:** Automatically identifies data skew, GC pressure, disk spills, and scheduler delays.
+### 4. Medallion Data Pipeline
+- **Bronze (Raw Ingestion):** High-speed streaming ingestion using Jackson, handling TB-sized logs effortlessly.
+- **Silver (Transformation):** Structured parsing that recovers logical relationships and identifies long-tail tasks.
+- **Gold (Aggregation):** Pre-calculated analytical tables stored in **DuckDB** for instant UI response times.
 
-### 5. Multi-dimensional Benchmarking
-- **Cross-App Comparison:** Side-by-side comparison of different application instances.
-- **Stage Benchmarking:** Deep dive into two stages to compare distributions and task traces.
-
-### 6. Enterprise-Grade Robustness
+### 5. Robustness & Compatibility
 - **OOM Recovery:** Automatic DuckDB memory management with `CHECKPOINT` and retry logic.
-- **Timing Accuracy:** Synchronized epoch milliseconds and monotonic progress tracking.
-- **Broad Compatibility:** Native support for **ZSTD** and Spark **V2 log directories**.
+- **Timing Accuracy:** Synchronized epoch milliseconds and monotonic progress tracking for reliable estimates.
+- **Broad Log Support:** Native support for **ZSTD** compression and Spark **V2 log directories**.
 
 ## Technical Stack
 
@@ -63,20 +66,26 @@ While the native Spark Web UI provides basic monitoring, it suffers from critica
 
 ## Quick Start
 
-### Build and Run (Native)
+### Development Mode (Maven Local)
 
-1.  **Build the Project:**
-    Includes frontend build and runs the application via Docker Compose.
+1.  **Build and Start:**
     ```bash
-    mvn clean install -Pbuild-frontend -Prun
+    mvn clean install -Pbuild-frontend
+    mvn spring-boot:run
     ```
 
 2.  **Access the UI:**
     Visit `http://localhost:18081` in your browser.
 
-### Build and Run (Docker Compose)
+### Auto Build and Run (Docker Managed)
 
-This method starts both **Spark Performance Insight** and a native **Spark History Server** using the same log directory, allowing for side-by-side comparison.
+```bash
+mvn clean install -Pbuild-frontend -Prun
+```
+
+### Production & Comparison Mode (Docker Compose)
+
+Starts both **Insight UI** and **Spark History Server** sharing the same log directory.
 
 1.  **Start Services:**
     ```bash
@@ -89,4 +98,4 @@ This method starts both **Spark Performance Insight** and a native **Spark Histo
 
 ## Acknowledgments
 
-- Special thanks to the authors of the **smart-commit** and **release-skills** tools for streamlining our development and release workflows.
+- Special thanks to [JimLiu/baoyu-skills](https://github.com/JimLiu/baoyu-skills.git) for the **release-skills** that streamlines our release workflow.

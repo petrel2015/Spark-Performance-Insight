@@ -50,7 +50,7 @@
     <div v-else class="rdd-detail-view">
       <div class="detail-header">
         <button @click="selectedRdd = null" class="back-btn">← Back to Storage List</button>
-        <h3>Details for RDD {{ selectedRdd.name }} (ID {{ selectedRdd.rddId }})</h3>
+        <h3 class="rdd-title">Details for RDD {{ selectedRdd.name }} (ID {{ selectedRdd.rddId }})</h3>
       </div>
 
       <div class="summary-cards">
@@ -340,7 +340,7 @@ onMounted(fetchStorageData);
 
 .detail-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 20px;
 }
 
@@ -352,6 +352,19 @@ onMounted(fetchStorageData);
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.85rem;
+  flex-shrink: 0;
+  white-space: nowrap;
+  margin-top: 4px; /* Align better with h3 text */
+}
+
+.rdd-title {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.4;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  flex: 1;
+  min-width: 0;
 }
 
 .summary-cards {

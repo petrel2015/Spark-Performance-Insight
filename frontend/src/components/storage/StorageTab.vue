@@ -20,7 +20,13 @@
             <td>
               <a href="javascript:void(0)" @click="viewRddDetail(rdd)" class="rdd-link">{{ rdd.name }}</a>
             </td>
-            <td>{{ rdd.storageLevel }}</td>
+            <td>
+              <div class="storage-level-tags">
+                <span v-for="tag in formatStorageLevel(rdd.storageLevel)" :key="tag" :class="['storage-tag', tag.toLowerCase()]">
+                  {{ tag }}
+                </span>
+              </div>
+            </td>
             <td>
               <div class="progress-container">
                 <div class="progress-bar" :style="{ width: (rdd.numCachedPartitions / Math.max(1, rdd.numPartitions) * 100) + '%' }"></div>
@@ -50,7 +56,13 @@
       <div class="summary-cards">
         <div class="mini-card">
           <label>Storage Level</label>
-          <div class="value">{{ selectedRdd.storageLevel }}</div>
+          <div class="value">
+            <div class="storage-level-tags">
+              <span v-for="tag in formatStorageLevel(selectedRdd.storageLevel)" :key="tag" :class="['storage-tag', tag.toLowerCase()]">
+                {{ tag }}
+              </span>
+            </div>
+          </div>
         </div>
         <div class="mini-card">
           <label>Partitions</label>
@@ -82,7 +94,13 @@
             <tr v-for="block in rddBlocks" :key="block.id">
               <td>{{ block.host }}</td>
               <td>{{ block.executorId }}</td>
-              <td>{{ block.storageLevel }}</td>
+              <td>
+                <div class="storage-level-tags">
+                  <span v-for="tag in formatStorageLevel(block.storageLevel)" :key="tag" :class="['storage-tag', tag.toLowerCase()]">
+                    {{ tag }}
+                  </span>
+                </div>
+              </td>
               <td>{{ formatBytes(block.memorySize) }}</td>
               <td>{{ formatBytes(block.diskSize) }}</td>
             </tr>
@@ -107,6 +125,29 @@ const props = defineProps({
 const rdds = ref([]);
 const selectedRdd = ref(null);
 const rddBlocks = ref([]);
+
+const formatStorageLevel = (levelStr) => {
+  if (!levelStr) return [];
+  if (levelStr === 'NONE') return ['None'];
+  
+  try {
+    // If it's already a JSON object, use it directly
+    // If it's a string, try to parse it
+    const level = typeof levelStr === 'string' ? JSON.parse(levelStr) : levelStr;
+    const tags = [];
+    
+    if (level.useDisk) tags.push('Disk');
+    if (level.useMemory) tags.push('Memory');
+    if (level.useOffHeap) tags.push('OffHeap');
+    if (level.deserialized) tags.push('Deserialized');
+    if (level.replication > 1) tags.push(`${level.replication}x Replicated`);
+    
+    return tags.length > 0 ? tags : [levelStr];
+  } catch (e) {
+    // Fallback for non-JSON strings
+    return [levelStr];
+  }
+};
 
 const fetchStorageData = async () => {
   try {
@@ -168,6 +209,28 @@ onMounted(fetchStorageData);
 .rdd-link:hover {
   text-decoration: underline;
 }
+
+.storage-level-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.storage-tag {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #f1f3f5;
+  color: #495057;
+  border: 1px solid #dee2e6;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.storage-tag.disk { background: #fff4e6; color: #d9480f; border-color: #ffd8a8; }
+.storage-tag.memory { background: #e7f5ff; color: #1971c2; border-color: #a5d8ff; }
+.storage-tag.offheap { background: #f3f0ff; color: #6741d9; border-color: #d0bfff; }
+.storage-tag.deserialized { background: #f8f9fa; color: #495057; border-color: #ced4da; }
 
 .progress-container {
   width: 100%;

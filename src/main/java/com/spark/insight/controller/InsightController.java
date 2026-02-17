@@ -518,12 +518,25 @@ public class InsightController {
                 if (parts.length == 2) {
                     String field = parts[0];
                     String dir = "asc".equalsIgnoreCase(parts[1]) ? "ASC" : "DESC";
-                    // 驼峰转蛇形: taskId -> task_id, taskIndex -> task_index
-                    String column = field.replaceAll("([a-z])([A-Z])", "$1_$2").toLowerCase();
+                    String column;
+                    
+                    if ("totalLogSize".equals(field)) {
+                        // 按照预估解压后的大小进行排序，逻辑与前端保持一致
+                        column = "(total_log_size * CASE " +
+                                "WHEN UPPER(compression_format) = 'ZSTD' THEN 10 " +
+                                "WHEN UPPER(compression_format) = 'GZIP' THEN 8 " +
+                                "WHEN UPPER(compression_format) = 'LZ4' THEN 4 " +
+                                "WHEN UPPER(compression_format) = 'SNAPPY' THEN 3 " +
+                                "ELSE 1 END)";
+                    } else {
+                        // 驼峰转蛇形: taskId -> task_id, taskIndex -> task_index
+                        column = "\"" + field.replaceAll("([a-z])([A-Z])", "$1_$2").toLowerCase() + "\"";
+                    }
+
                     if (orderBy.length() > 0) {
                         orderBy.append(", ");
                     }
-                    orderBy.append("\"").append(column).append("\"").append(" ").append(dir);
+                    orderBy.append(column).append(" ").append(dir);
                 }
             }
         }

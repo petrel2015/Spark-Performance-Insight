@@ -132,8 +132,12 @@ const getTooltip = (dimension) => tooltips[dimension] || 'Performance impact sco
   cursor: help;
 }
 
+.tooltip-container:hover {
+  z-index: 10000;
+}
+
 .tooltip-text {
-  visibility: hidden;
+  display: none;
   width: 260px;
   background-color: #333;
   color: #fff;
@@ -166,7 +170,7 @@ const getTooltip = (dimension) => tooltips[dimension] || 'Performance impact sco
 }
 
 .tooltip-container:hover .tooltip-text {
-  visibility: visible;
+  display: block;
   opacity: 1;
 }
 

@@ -224,8 +224,12 @@ const getBarColor = (score) => {
   cursor: help;
 }
 
+.tooltip-container:hover {
+  z-index: 10000;
+}
+
 .tooltip-text {
-  visibility: hidden;
+  display: none;
   width: 240px;
   background-color: #333;
   color: #fff;
@@ -244,7 +248,7 @@ const getBarColor = (score) => {
 }
 
 .tooltip-container:hover .tooltip-text {
-  visibility: visible;
+  display: block;
   opacity: 1;
 }
 

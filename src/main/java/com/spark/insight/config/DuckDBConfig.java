@@ -51,8 +51,8 @@ public class DuckDBConfig {
                 stmt.execute("SET temp_directory = '" + duckdb.getTempDirectory() + "'");
             }
             
-            // Helpful for memory management
-            stmt.execute("PRAGMA shrink_free_list");
+            // Forces data to disk and helps clear buffer manager
+            stmt.execute("CHECKPOINT");
             
         } catch (Exception e) {
             log.error("Failed to initialize DuckDB settings", e);
@@ -65,10 +65,10 @@ public class DuckDBConfig {
      * but we can force memory release.
      */
     public void forceMemoryRelease() {
-        log.warn("FORCING DuckDB memory release (shrink_free_list)...");
+        log.warn("FORCING DuckDB checkpoint and memory limit re-application...");
         try (Connection conn = dataSource.getConnection();
              Statement stmt = conn.createStatement()) {
-            stmt.execute("PRAGMA shrink_free_list");
+            stmt.execute("CHECKPOINT");
             applyDuckDBSettings();
         } catch (Exception e) {
             log.error("Failed to force memory release", e);

@@ -67,7 +67,7 @@ public class GoldAggregationService {
     private void aggregateStorage(String appId) {
         log.info("Aggregating Storage (RDDs & Blocks) for app: {}", appId);
 
-        // 1. First, populate gold_storage_blocks using the latest status for each block from Silver
+        // 1. Populate gold_storage_blocks (requires SparkListenerBlockUpdated events)
         String blocksSql = """
             INSERT INTO gold_storage_blocks (id, app_id, rdd_id, block_name, storage_level, memory_size, disk_size, executor_id, host)
             WITH latest_blocks AS (
@@ -101,24 +101,56 @@ public class GoldAggregationService {
         jdbcTemplate.update(blocksSql, appId, appId);
 
         // 2. Aggregate blocks to populate gold_storage_rdds
+        // Primary source: silver_rdd_info (to ensure RDDs appear even with 0 size)
+        // Secondary source (for sizes): aggregated gold_storage_blocks
         String rddsSql = """
             INSERT INTO gold_storage_rdds (id, app_id, rdd_id, name, storage_level, num_partitions, num_cached_partitions, memory_size, disk_size)
+            WITH block_agg AS (
+                SELECT 
+                    rdd_id,
+                    max(storage_level) as storage_level,
+                    count(DISTINCT block_name) as cached_parts,
+                    sum(memory_size) as mem_sum,
+                    sum(disk_size) as disk_sum
+                FROM gold_storage_blocks
+                WHERE app_id = ?
+                GROUP BY rdd_id
+            ),
+            rdd_last_snapshot AS (
+                -- Fallback: Extract the largest size reported in any stage for this RDD
+                SELECT 
+                    rdd_id,
+                    max(cached_parts) as cached_parts,
+                    max(mem_size) as mem_size,
+                    max(disk_size) as disk_size
+                FROM (
+                    SELECT 
+                        (r->>'RDD ID')::INT as rdd_id,
+                        (r->>'Number of Cached Partitions')::INT as cached_parts,
+                        (r->>'Memory Size')::BIGINT as mem_size,
+                        (r->>'Disk Size')::BIGINT as disk_size
+                    FROM silver_stages, unnest(CAST(rdd_info AS JSON[])) as r
+                    WHERE app_id = ?
+                ) t
+                GROUP BY rdd_id
+            )
             SELECT 
                 uuid(),
-                sb.app_id,
-                sb.rdd_id,
-                COALESCE(ri.name, 'RDD ' || sb.rdd_id),
-                max(sb.storage_level),
-                COALESCE(max(ri.num_partitions), count(DISTINCT sb.block_name)),
-                count(DISTINCT sb.block_name),
-                sum(sb.memory_size),
-                sum(sb.disk_size)
-            FROM gold_storage_blocks sb
-            LEFT JOIN silver_rdd_info ri ON sb.app_id = ri.app_id AND sb.rdd_id = ri.rdd_id
-            WHERE sb.app_id = ?
-            GROUP BY sb.app_id, sb.rdd_id, ri.name
+                ri.app_id,
+                ri.rdd_id,
+                ri.name,
+                COALESCE(ba.storage_level, ri.storage_level),
+                ri.num_partitions,
+                COALESCE(ba.cached_parts, rs.cached_parts, 0),
+                COALESCE(ba.mem_sum, rs.mem_size, 0),
+                COALESCE(ba.disk_sum, rs.disk_size, 0)
+            FROM silver_rdd_info ri
+            LEFT JOIN block_agg ba ON ri.rdd_id = ba.rdd_id
+            LEFT JOIN rdd_last_snapshot rs ON ri.rdd_id = rs.rdd_id
+            WHERE ri.app_id = ? 
+              AND ri.storage_level NOT LIKE '%NONE%'
             """;
-        jdbcTemplate.update(rddsSql, appId);
+        jdbcTemplate.update(rddsSql, appId, appId, appId);
     }
 
     private void aggregateStages(String appId) {

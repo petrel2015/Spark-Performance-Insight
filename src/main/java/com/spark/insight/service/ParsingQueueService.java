@@ -74,9 +74,10 @@ public class ParsingQueueService {
     }
 
     public synchronized void processQueue() {
-        // Check if anything is running - Fetch names for better logging
+        // Check if anything is running - Fetch names and IDs for better logging
         List<String> runningApps = jdbcTemplate.queryForList(
-                "SELECT COALESCE(ga.app_name, q.app_id) FROM sys_parsing_queue q " +
+                "SELECT COALESCE(ga.app_name, 'Unparsed') || ' [' || q.app_id || ']' " +
+                "FROM sys_parsing_queue q " +
                 "LEFT JOIN gold_applications ga ON q.app_id = ga.app_id " +
                 "WHERE q.status = 'RUNNING'", String.class);
         
@@ -101,8 +102,11 @@ public class ParsingQueueService {
         log.info("Picking app {} from queue to process (Job ID: {})", appId, id);
 
         try {
-            // Mark Running (Simplified from DELETE+INSERT)
-            jdbcTemplate.update("UPDATE sys_parsing_queue SET status = 'RUNNING', start_time = CURRENT_TIMESTAMP WHERE id = ?", id);
+            // Mark Running (Workaround: DELETE + INSERT to avoid DuckDB PK constraint error on UPDATE)
+            Map<String, Object> currentJob = jdbcTemplate.queryForMap("SELECT * FROM sys_parsing_queue WHERE id = ?", id);
+            jdbcTemplate.update("DELETE FROM sys_parsing_queue WHERE id = ?", id);
+            jdbcTemplate.update("INSERT INTO sys_parsing_queue (id, app_id, type, status, submit_time, start_time) VALUES (?, ?, ?, 'RUNNING', ?, CURRENT_TIMESTAMP)",
+                    id, appId, type, currentJob.get("submit_time"));
             
             log.info("Job {} marked as RUNNING, starting pipeline executor...", id);
             
@@ -115,8 +119,13 @@ public class ParsingQueueService {
             });
         } catch (Exception e) {
             log.error("Failed to start job from queue: " + id, e);
-            // Revert status to FAILED in queue to avoid blocking
-            jdbcTemplate.update("UPDATE sys_parsing_queue SET status = 'FAILED' WHERE id = ?", id);
+            // Even failed status update should use DELETE+INSERT for safety if index is stale
+            try {
+                Map<String, Object> failedJob = jdbcTemplate.queryForMap("SELECT * FROM sys_parsing_queue WHERE id = ?", id);
+                jdbcTemplate.update("DELETE FROM sys_parsing_queue WHERE id = ?", id);
+                jdbcTemplate.update("INSERT INTO sys_parsing_queue (id, app_id, type, status, submit_time, start_time, end_time) VALUES (?, ?, ?, 'FAILED', ?, ?, CURRENT_TIMESTAMP)",
+                        id, appId, type, failedJob.get("submit_time"), failedJob.get("start_time"));
+            } catch (Exception ignore) {}
         }
     }
 
@@ -138,9 +147,12 @@ public class ParsingQueueService {
 
     private void markFinished(String id, boolean success) {
         log.info("Job {} finished (Success: {})", id, success);
+        // Workaround: DELETE + INSERT to avoid DuckDB PK constraint error on UPDATE
         try {
-            jdbcTemplate.update("UPDATE sys_parsing_queue SET status = ?, end_time = CURRENT_TIMESTAMP WHERE id = ?",
-                    success ? "COMPLETED" : "FAILED", id);
+            Map<String, Object> job = jdbcTemplate.queryForMap("SELECT * FROM sys_parsing_queue WHERE id = ?", id);
+            jdbcTemplate.update("DELETE FROM sys_parsing_queue WHERE id = ?", id);
+            jdbcTemplate.update("INSERT INTO sys_parsing_queue (id, app_id, type, status, submit_time, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+                    id, job.get("app_id"), job.get("type"), success ? "COMPLETED" : "FAILED", job.get("submit_time"), job.get("start_time"));
         } catch (Exception e) {
             log.error("Failed to mark job finished: " + id, e);
         }

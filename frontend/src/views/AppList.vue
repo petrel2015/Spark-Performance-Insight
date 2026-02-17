@@ -233,7 +233,7 @@
               <!-- 11. Progress -->
               <template v-else-if="col.field === 'progress'">
                 <div class="progress-cell">
-                  <div class="progress-track" :title="getProgressTooltip(app)">
+                  <div v-if="shouldShowProgress(app.parsingStatus)" class="progress-track" :title="getProgressTooltip(app)">
                     <div class="progress-fill" 
                          :style="{ 
                            width: (app.parsingStatus === 'SUCCESS' ? 100 : (app.progressValue || 0)) + '%', 
@@ -244,6 +244,7 @@
                       {{ app.parsingStatus === 'SUCCESS' ? '100%' : Math.round(app.progressValue || 0) + '%' }}
                     </div>
                   </div>
+                  <div v-else class="na-progress">-</div>
                 </div>
               </template>
 
@@ -351,7 +352,7 @@
 </template>
 
 <script setup>
-import {ref, onMounted, onUnmounted, computed, reactive, nextTick} from 'vue';
+import {ref, onMounted, onUnmounted, computed, reactive, nextTick, watch} from 'vue';
 import {getApps, updateAppNotes} from '../api';
 import {formatDateTime, formatTime, formatBytes} from '../utils/format';
 import {useRoute, useRouter} from 'vue-router';
@@ -383,10 +384,18 @@ const apps = ref([]);
 const totalApps = ref(0);
 const totalPages = ref(0);
 const currentPage = ref(1);
-const pageSize = ref(20);
+const pageSize = ref(parseInt(localStorage.getItem('appList_pageSize') || '20'));
 const jumpPageInput = ref(1);
 const searchQuery = ref('');
-const sorts = ref([{field: 'createdAt', dir: 'desc'}]);
+const sorts = ref(JSON.parse(localStorage.getItem('appList_sorts') || '[{"field": "createdAt", "dir": "desc"}]'));
+
+watch(pageSize, (newVal) => {
+  localStorage.setItem('appList_pageSize', newVal.toString());
+});
+
+watch(sorts, (newVal) => {
+  localStorage.setItem('appList_sorts', JSON.stringify(newVal));
+}, { deep: true });
 const activeDropdown = ref(null);
 const dropdownStyle = reactive({ top: '0px', left: '0px' });
 
@@ -633,7 +642,11 @@ const AVAILABLE_COLUMNS = [
   {field: 'status', label: 'Status', width: '150px', sortable: true}
 ];
 
-const selectedColumnFields = ref(['appName', 'appId', 'startTime', 'duration', 'totalLogSize', 'notes', 'createdAt', 'progress', 'status']);
+const selectedColumnFields = ref(JSON.parse(localStorage.getItem('appList_columns') || '["appName", "appId", "startTime", "duration", "totalLogSize", "notes", "createdAt", "progress", "status"]'));
+
+watch(selectedColumnFields, (newVal) => {
+  localStorage.setItem('appList_columns', JSON.stringify(newVal));
+}, { deep: true });
 
 const columns = computed(() => {
   return AVAILABLE_COLUMNS.filter(c => selectedColumnFields.value.includes(c.field));
@@ -770,6 +783,11 @@ const isReady = (status) => {
 
 const isActivePipeline = (status) => {
   return ['INGESTING_BRONZE', 'TRANSFORMING_SILVER', 'AGGREGATING_GOLD', 'LOADING'].includes(status);
+};
+
+const shouldShowProgress = (status) => {
+  if (!status) return false;
+  return [...['INGESTING_BRONZE', 'TRANSFORMING_SILVER', 'AGGREGATING_GOLD', 'LOADING', 'SUCCESS', 'FAILED', 'PRE_CALCULATING']].includes(status);
 };
 
 const toggleCompare = (app) => {
@@ -1365,6 +1383,12 @@ onUnmounted(() => {
 .mini-btn.cancel { background: #bdc3c7; color: #333; }
 
 .progress-cell { width: 100%; }
+
+.na-progress {
+  text-align: center;
+  color: #bdc3c7;
+  font-family: monospace;
+}
 
 .progress-track {
   width: 100%;

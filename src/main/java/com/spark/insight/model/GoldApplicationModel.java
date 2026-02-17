@@ -46,6 +46,9 @@ public class GoldApplicationModel {
     @com.baomidou.mybatisplus.annotation.TableField("parsing_start_time")
     private LocalDateTime parsingStartTime;
 
+    @com.baomidou.mybatisplus.annotation.TableField("parsing_end_time")
+    private LocalDateTime parsingEndTime;
+
     private String sourceFileMetadata;
 
     private Integer performanceScore;

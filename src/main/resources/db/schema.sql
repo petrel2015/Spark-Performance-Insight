@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS gold_applications (
     parsing_progress VARCHAR,
     parsing_progress_value DOUBLE DEFAULT 0.0,
     parsing_start_time TIMESTAMP,
+    parsing_end_time TIMESTAMP,
     source_file_metadata JSON,
     performance_score INTEGER,
     diagnosis_info JSON,

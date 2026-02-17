@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 
 @Slf4j
 @Service
@@ -14,7 +14,7 @@ public class StatusBroadcaster {
     private final SimpMessagingTemplate messagingTemplate;
 
     public void broadcastStatus(String appId, String status, Double progressValue, String progressText, String appName, java.time.LocalDateTime startTime) {
-        Long startTimeMillis = (startTime != null) ? startTime.toInstant(ZoneOffset.UTC).toEpochMilli() : null;
+        Long startTimeMillis = (startTime != null) ? startTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() : null;
         StatusMessage msg = new StatusMessage(appId, status, progressValue, progressText, appName, startTimeMillis);
         messagingTemplate.convertAndSend("/topic/status", msg);
     }

@@ -333,8 +333,11 @@
 
                 <!-- Processing: No Actions (except Cancel for Queued) -->
                 <span v-if="isActivePipeline(app.parsingStatus)" class="processing-label">
-                  Processing...
-                  <span v-if="getRemainingTime(app)" class="remaining-time">({{ getRemainingTime(app) }} left)</span>
+                  {{ formatStatus(app.parsingStatus) }}
+                  <span v-if="getRemainingTime(app)" class="eta-text">ETA: {{ getRemainingTime(app) }}</span>
+                  <span v-else class="percent-text">
+                    ({{ (app.progressValue && app.progressValue < 1) ? app.progressValue.toFixed(1) : Math.round(app.progressValue || 0) }}%)
+                  </span>
                 </span>
               </div>
             </td>
@@ -739,7 +742,7 @@ const getStatusTooltip = (app) => {
 };
 
 const getRemainingTime = (app) => {
-  if (!app.parsingStartTime || !app.progressValue || app.progressValue <= 0.5 || app.progressValue >= 100) {
+  if (!app.parsingStartTime || !app.progressValue || app.progressValue <= 0 || app.progressValue >= 100) {
     return null;
   }
 
@@ -751,15 +754,16 @@ const getRemainingTime = (app) => {
   const now = Date.now();
   let elapsedMs = now - startTime;
   
-  // Handle clock skew or timezone mismatch
-  if (elapsedMs < 0) elapsedMs = 1000;
+  // Handle clock skew
+  if (elapsedMs < 0) elapsedMs = 0;
   
-  if (elapsedMs <= 3000) return null;
+  // Show estimate after 1 second of processing to provide immediate feedback
+  if (elapsedMs < 1000) return null;
 
   const totalEstimatedMs = (elapsedMs / app.progressValue) * 100;
   const remainingMs = totalEstimatedMs - elapsedMs;
 
-  if (remainingMs <= 0) return null;
+  if (remainingMs <= 500) return null; // Too close to finish
 
   const totalSecs = Math.floor(remainingMs / 1000);
   const mins = Math.floor(totalSecs / 60);
@@ -779,7 +783,7 @@ const getProgressTooltip = (app) => {
   const now = Date.now();
   let elapsedMs = now - startTime;
   
-  if (elapsedMs <= 0) elapsedMs = 1000;
+  if (elapsedMs < 0) elapsedMs = 0;
 
   const formatMs = (ms) => {
     const totalSecs = Math.floor(ms / 1000);
@@ -798,7 +802,7 @@ const getProgressTooltip = (app) => {
 
 const isProcessing = (status) => {
   if (!status || status === 'READY' || status === 'PENDING_LOAD' || status === 'PENDING_REIMPORT') return false; 
-  return ['INGESTING_BRONZE', 'TRANSFORMING_SILVER', 'AGGREGATING_GOLD', 'LOADING', 'QUEUED'].includes(status);
+  return ['INGESTING_BRONZE', 'TRANSFORMING_SILVER', 'AGGREGATING_GOLD', 'LOADING', 'QUEUED', 'PRE_CALCULATING'].includes(status);
 };
 
 const isReady = (status) => {
@@ -808,7 +812,7 @@ const isReady = (status) => {
 };
 
 const isActivePipeline = (status) => {
-  return ['INGESTING_BRONZE', 'TRANSFORMING_SILVER', 'AGGREGATING_GOLD', 'LOADING'].includes(status);
+  return ['INGESTING_BRONZE', 'TRANSFORMING_SILVER', 'AGGREGATING_GOLD', 'LOADING', 'PRE_CALCULATING'].includes(status);
 };
 
 const shouldShowProgress = (status) => {
@@ -1344,14 +1348,15 @@ onUnmounted(() => {
   color: #3498db;
   font-size: 0.85rem;
   font-style: italic;
+  font-weight: 600;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 6px;
 }
 
-.remaining-time {
-  font-size: 0.75rem;
-  color: #7f8c8d;
+.eta-text, .percent-text {
   font-weight: normal;
+  color: #2980b9;
 }
 
 .notes-cell {

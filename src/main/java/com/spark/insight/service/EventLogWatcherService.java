@@ -171,12 +171,7 @@ public class EventLogWatcherService {
             return;
         }
 
-        // Initialize start time for UI duration calculations
-        app.setParsingStartTime(LocalDateTime.now());
-        applicationService.updateById(app);
-        
-        // Find files again (as paths might have changed or we just need them)
-        // Ideally we should use the paths from metadata, but scanning dir is safer for now
+        // Find files again
         String logPath = properties.getEventLogPath();
         File directory = new File(logPath);
         List<File> allFiles = new ArrayList<>();
@@ -186,12 +181,18 @@ public class EventLogWatcherService {
                 .sorted(Comparator.comparing(File::getName))
                 .collect(Collectors.toList());
 
-        if (appFiles.isEmpty()) {
-            log.error("No files found for app: {}", appId);
-            handleFailure(appId, new RuntimeException("No files found"));
+        // For FULL or BRONZE_TO_GOLD, we MUST have files.
+        // For SILVER_TO_GOLD, we don't necessarily need raw files as we use existing Silver data.
+        if (("FULL".equals(type) || "BRONZE_TO_GOLD".equals(type)) && appFiles.isEmpty()) {
+            log.warn("Attempted to run raw ingestion but files are missing for app: {}", appId);
+            handleFailure(appId, new RuntimeException("Original eventlog lost, import not allowed."));
             onComplete.accept(false);
             return;
         }
+
+        // Initialize start time for UI duration calculations
+        app.setParsingStartTime(LocalDateTime.now());
+        applicationService.updateById(app);
 
         if ("FULL".equals(type)) {
             executeFullPipeline(appId, appFiles, onComplete);
@@ -327,6 +328,7 @@ public class EventLogWatcherService {
         app.setParsingProgressValue(100.0);
         app.setParsingProgress("Pipeline completed successfully.");
         app.setSourceFileMetadata(metadataJson);
+        app.setParsingEndTime(LocalDateTime.now());
         
         // 2. Use updateById to save everything (including metadata and final status) in one go
         applicationService.updateById(app);
@@ -343,6 +345,13 @@ public class EventLogWatcherService {
         if (e.getCause() != null) {
             errorMsg += " (Cause: " + e.getCause().getMessage() + ")";
         }
+        
+        // Update parsing_end_time even on failure
+        applicationService.lambdaUpdate()
+                .eq(GoldApplicationModel::getAppId, appId)
+                .set(GoldApplicationModel::getParsingEndTime, LocalDateTime.now())
+                .update();
+
         updateStatus(appId, "FAILED", 0.0, "Error: " + errorMsg, null);
         logService.logEvent(appId, "FAILED", "Pipeline Error", errorMsg);
     }
@@ -403,13 +412,16 @@ public class EventLogWatcherService {
 
     private void collectFiles(File file, List<File> result) {
         if (file.isDirectory()) {
+            if (file.getName().startsWith(".") || file.getName().endsWith(".crc")) {
+                return;
+            }
             File[] files = file.listFiles();
             if (files != null) {
                 for (File childFile : files) {
                     collectFiles(childFile, result);
                 }
             }
-        } else if (file.isFile() && !file.getName().startsWith(".") && isValidLogFile(file)) {
+        } else if (file.isFile() && isValidLogFile(file)) {
             result.add(file);
         }
     }
@@ -421,6 +433,21 @@ public class EventLogWatcherService {
                 return parts[2];
             }
         }
+        
+        if (filename.startsWith("application_")) {
+            // Use regex to capture from 'application_' until the first dot or end of string
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("^(application_[0-9]+_[0-9]+).*").matcher(filename);
+            if (m.find()) {
+                return m.group(1);
+            }
+            // Fallback: strip all extensions
+            int dotIndex = filename.indexOf('.');
+            if (dotIndex != -1) {
+                return filename.substring(0, dotIndex);
+            }
+            return filename;
+        }
+
         java.util.regex.Matcher matcher = APP_ID_PATTERN.matcher(filename);
         if (matcher.find()) {
             return matcher.group(1);
@@ -430,6 +457,9 @@ public class EventLogWatcherService {
 
     private boolean isValidLogFile(File file) {
         String name = file.getName();
-        return name.startsWith("event");
+        if (name.startsWith(".") || name.endsWith(".crc")) {
+            return false;
+        }
+        return name.startsWith("event") || name.startsWith("application_");
     }
 }

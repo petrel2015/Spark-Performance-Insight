@@ -228,32 +228,32 @@ public class EventLogWatcherService {
         
         pipelineExecutor.submit(() -> {
             try {
+                // Initialize start time once for the whole pipeline
+                LocalDateTime pipelineStart = LocalDateTime.now();
+                
                 // Bronze (0-100%)
-                LocalDateTime bronzeStart = LocalDateTime.now();
-                updateStatus(appId, "INGESTING_BRONZE", 0.0, "Starting ingestion...", bronzeStart);
+                updateStatus(appId, "INGESTING_BRONZE", 0.0, "Starting ingestion...", pipelineStart);
                 long t0 = System.currentTimeMillis();
                 bronzeIngestionService.ingest(appId, files, (p, msg) -> {
-                    updateStatus(appId, "INGESTING_BRONZE", p, msg, null);
+                    updateStatus(appId, "INGESTING_BRONZE", p, msg, pipelineStart);
                 });
                 logService.logEvent(appId, "IMPORT", "Bronze Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t0) / 1000.0));
 
                 // Silver (0-100%)
-                LocalDateTime silverStart = LocalDateTime.now();
-                updateStatus(appId, "TRANSFORMING_SILVER", 0.0, "Structuring data...", silverStart);
+                updateStatus(appId, "TRANSFORMING_SILVER", 0.0, "Structuring data...", pipelineStart);
                 long t1 = System.currentTimeMillis();
                 logService.logEvent(appId, "TRANSFORM", "Silver Start", "Structuring data");
                 silverTransformationService.transform(appId, (p, msg) -> {
-                    updateStatus(appId, "TRANSFORMING_SILVER", p, msg, null);
+                    updateStatus(appId, "TRANSFORMING_SILVER", p, msg, pipelineStart);
                 });
                 logService.logEvent(appId, "TRANSFORM", "Silver Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t1) / 1000.0));
 
                 // Gold (0-100%)
-                LocalDateTime goldStart = LocalDateTime.now();
-                updateStatus(appId, "AGGREGATING_GOLD", 0.0, "Aggregating metrics...", goldStart);
+                updateStatus(appId, "AGGREGATING_GOLD", 0.0, "Aggregating metrics...", pipelineStart);
                 long t2 = System.currentTimeMillis();
                 logService.logEvent(appId, "AGGREGATE", "Gold Start", "Aggregating metrics");
                 goldAggregationService.aggregate(appId, (p, msg) -> {
-                    updateStatus(appId, "AGGREGATING_GOLD", p, msg, null);
+                    updateStatus(appId, "AGGREGATING_GOLD", p, msg, pipelineStart);
                 });
                 logService.logEvent(appId, "AGGREGATE", "Gold Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t2) / 1000.0));
                 
@@ -273,22 +273,21 @@ public class EventLogWatcherService {
         
         pipelineExecutor.submit(() -> {
             try {
+                LocalDateTime pipelineStart = LocalDateTime.now();
                 // Silver (0-100%)
-                LocalDateTime silverStart = LocalDateTime.now();
-                updateStatus(appId, "TRANSFORMING_SILVER", 0.0, "Structuring data...", silverStart);
+                updateStatus(appId, "TRANSFORMING_SILVER", 0.0, "Structuring data...", pipelineStart);
                 long t1 = System.currentTimeMillis();
                 silverTransformationService.transform(appId, (p, msg) -> {
-                    updateStatus(appId, "TRANSFORMING_SILVER", p, msg, null);
+                    updateStatus(appId, "TRANSFORMING_SILVER", p, msg, pipelineStart);
                 });
                 logService.logEvent(appId, "TRANSFORM", "Silver Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t1) / 1000.0));
 
                 // Gold (0-100%)
-                LocalDateTime goldStart = LocalDateTime.now();
-                updateStatus(appId, "AGGREGATING_GOLD", 0.0, "Aggregating metrics...", goldStart);
+                updateStatus(appId, "AGGREGATING_GOLD", 0.0, "Aggregating metrics...", pipelineStart);
                 long t2 = System.currentTimeMillis();
                 logService.logEvent(appId, "AGGREGATE", "Gold Start", "Aggregating metrics");
                 goldAggregationService.aggregate(appId, (p, msg) -> {
-                    updateStatus(appId, "AGGREGATING_GOLD", p, msg, null);
+                    updateStatus(appId, "AGGREGATING_GOLD", p, msg, pipelineStart);
                 });
                 logService.logEvent(appId, "AGGREGATE", "Gold Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t2) / 1000.0));
                 
@@ -306,12 +305,12 @@ public class EventLogWatcherService {
         
         pipelineExecutor.submit(() -> {
             try {
+                LocalDateTime pipelineStart = LocalDateTime.now();
                 // Gold
-                LocalDateTime goldStart = LocalDateTime.now();
-                updateStatus(appId, "AGGREGATING_GOLD", 0.0, "Aggregating metrics...", goldStart);
+                updateStatus(appId, "AGGREGATING_GOLD", 0.0, "Aggregating metrics...", pipelineStart);
                 long t2 = System.currentTimeMillis();
                 goldAggregationService.aggregate(appId, (p, msg) -> {
-                    updateStatus(appId, "AGGREGATING_GOLD", p, msg, null);
+                    updateStatus(appId, "AGGREGATING_GOLD", p, msg, pipelineStart);
                 });
                 logService.logEvent(appId, "AGGREGATE", "Gold Finished", String.format("Duration: %.2fs", (System.currentTimeMillis() - t2) / 1000.0));
                 

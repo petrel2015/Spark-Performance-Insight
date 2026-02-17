@@ -56,10 +56,17 @@ public class StageService extends ServiceImpl<StageMapper, GoldStageModel> {
     }
 
     public GoldStageModel getStage(String appId, Integer stageId, Integer attemptId) {
-        return lambdaQuery()
+        var query = lambdaQuery()
                 .eq(GoldStageModel::getAppId, appId)
-                .eq(GoldStageModel::getStageId, stageId)
-                .eq(GoldStageModel::getAttemptId, attemptId)
-                .one();
+                .eq(GoldStageModel::getStageId, stageId);
+        
+        if (attemptId != null) {
+            query.eq(GoldStageModel::getAttemptId, attemptId);
+        } else {
+            query.orderByDesc(GoldStageModel::getAttemptId);
+            query.last("LIMIT 1");
+        }
+        
+        return query.one();
     }
 }

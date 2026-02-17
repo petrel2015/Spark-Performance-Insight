@@ -388,18 +388,7 @@ public class InsightController {
                                @PathVariable Integer stageId,
                                @RequestParam(required = false) Integer attemptId) {
         checkAppReady(appId);
-        var query = stageService.lambdaQuery()
-                .eq(GoldStageModel::getAppId, appId)
-                .eq(GoldStageModel::getStageId, stageId);
-
-        if (attemptId != null) {
-            query.eq(GoldStageModel::getAttemptId, attemptId);
-        } else {
-            query.orderByDesc(GoldStageModel::getAttemptId);
-            query.last("LIMIT 1");
-        }
-
-        return query.one();
+        return stageService.getStage(appId, stageId, attemptId);
     }
 
     /**
@@ -492,12 +481,17 @@ public class InsightController {
         java.util.Map<String, Boolean> results = new java.util.HashMap<>();
         for (String key : itemKeys) {
             // Key format: "appId:type:itemId"
-            String[] parts = key.split(":", 3);
-            if (parts.length < 3) continue;
+            // We split from the right to handle appIds that might contain colons
+            int lastColon = key.lastIndexOf(':');
+            if (lastColon == -1) continue;
+            String itemId = key.substring(lastColon + 1);
             
-            String appId = parts[0];
-            String type = parts[1];
-            String itemId = parts[2];
+            String remaining = key.substring(0, lastColon);
+            int secondLastColon = remaining.lastIndexOf(':');
+            if (secondLastColon == -1) continue;
+            
+            String type = remaining.substring(secondLastColon + 1);
+            String appId = remaining.substring(0, secondLastColon);
             
             boolean exists = false;
             try {

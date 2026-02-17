@@ -39,13 +39,19 @@ While the native Spark Web UI provides basic monitoring, users often face signif
 - **AI-Powered Analysis:** Integrates **Zhipu AI (GLM-4.7)** and **OpenAI** to analyze complex bottlenecks (e.g., Shuffle IO, GC pressure) and generate expert-level reports with optimization advice.
 - **Rule-Based Insights:** Automatically flags data skew, disk spills, and scheduler delays with visual risk indicators, allowing you to identify issues in seconds.
 
+![Smart Diagnosis](./img/pic1.jpg)
+
 ### 2. Multi-dimensional Benchmarking
 - **Cross-App Comparison:** Side-by-side comparison of different application instances to identify configuration or resource-induced regressions.
 - **Stage Benchmarking:** Deep dive into two stages to compare statistical distributions (P95, Median) and task execution traces.
 
+![Benchmarking](./img/pic2.jpg)
+
 ### 3. Classic UI Parity & Beyond
 - **Familiar Interface:** Deeply replicates native Spark UI lists (Jobs, Stages, Tasks) and descriptions to ensure a zero-learning-curve transition for developers.
 - **Enhanced Summary:** Provides statistical distributions for all core metrics and high-performance server-side pagination for millions of tasks.
+
+![UI Parity](./img/pic3.jpg)
 
 ### 4. Medallion Data Pipeline
 - **Bronze (Raw Ingestion):** High-speed streaming ingestion using Jackson, handling TB-sized logs effortlessly.

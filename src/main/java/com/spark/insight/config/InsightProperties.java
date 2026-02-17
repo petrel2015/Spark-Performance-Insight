@@ -64,7 +64,7 @@ public class InsightProperties {
         /**
          * Temporary directory for DuckDB to avoid memory overflow.
          */
-        private String tempDirectory = "./spark_performance_insight.duckdb.db.tmp";
+        private String tempDirectory = "./out/spark_performance_insight.duckdb.db.tmp";
     }
 
     @Data

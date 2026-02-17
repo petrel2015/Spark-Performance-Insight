@@ -5,7 +5,7 @@ spring:
   profiles:
     active: ${INSIGHT_PROFILE:medium}
   datasource:
-    url: jdbc:duckdb:spark_performance_insight.duckdb.db
+    url: jdbc:duckdb:out/spark_performance_insight.duckdb.db
     driver-class-name: org.duckdb.DuckDBDriver
     username: sa
     password: ""
@@ -45,7 +45,7 @@ insight:
     provider: ${AI_PROVIDER:zhipu}
   event-log-path: ./workspace/eventlog
   duckdb:
-    temp-directory: ${DUCKDB_TEMP_DIR:./spark_performance_insight.duckdb.db.tmp}
+    temp-directory: ${DUCKDB_TEMP_DIR:./out/spark_performance_insight.duckdb.db.tmp}
   scheduler:
     scan-interval-seconds: 60
   comparison:

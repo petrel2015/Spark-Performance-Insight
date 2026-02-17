@@ -38,6 +38,7 @@ release.properties
 
 # Project specific
 eventlogs/
+out/
 *.db
 *.db.wal
 frontend/node_modules/

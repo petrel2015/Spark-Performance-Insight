@@ -1,6 +1,10 @@
 <template>
   <div class="env-tab">
-    <div v-for="section in sections" :key="section.category">
+    <div v-if="isLoading" class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading environment data...</p>
+    </div>
+    <div v-else v-for="section in sections" :key="section.category">
       <CollapsibleCard :title="section.title" :initial-collapsed="section.defaultCollapsed">
         <div v-if="section.searchable" class="search-bar">
           <input v-model.trim="searchQueries[section.category]" :placeholder="'Search ' + section.title + '...'"/>
@@ -38,6 +42,10 @@ const props = defineProps({
   configs: {
     type: Array,
     default: () => []
+  },
+  isLoading: {
+    type: Boolean,
+    default: false
   }
 });
 
@@ -144,5 +152,32 @@ const getFilteredConfigs = (category) => {
   text-align: center;
   color: #999;
   font-style: italic;
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #3498db;
+  gap: 15px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #f0f0f0;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>

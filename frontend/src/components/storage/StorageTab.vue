@@ -2,7 +2,11 @@
   <div class="storage-tab">
     <!-- RDD List View -->
     <CollapsibleCard title="Persisted RDDs / DataFrames">
-      <div v-if="rdds.length > 0" class="table-wrapper">
+      <div v-if="isLoading" class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading storage data...</p>
+      </div>
+      <div v-else-if="rdds.length > 0" class="table-wrapper">
         <table class="styled-table">
           <thead>
           <tr>
@@ -62,13 +66,17 @@ const props = defineProps({
 defineEmits(['view-rdd-detail']);
 
 const rdds = ref([]);
+const isLoading = ref(false);
 
 const fetchStorageData = async () => {
+  isLoading.value = true;
   try {
     const res = await getAppStorage(props.appId);
     rdds.value = res.data || [];
   } catch (err) {
     console.error("Failed to fetch storage data", err);
+  } finally {
+    isLoading.value = false;
   }
 };
 
@@ -135,6 +143,30 @@ onMounted(fetchStorageData);
 .storage-tag.memory { background: #e7f5ff; color: #1971c2; border-color: #a5d8ff; }
 .storage-tag.offheap { background: #f3f0ff; color: #6741d9; border-color: #d0bfff; }
 .storage-tag.deserialized { background: #f8f9fa; color: #495057; border-color: #ced4da; }
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #3498db;
+  gap: 15px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
 
 .progress-container {
   width: 100%;

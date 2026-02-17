@@ -7,6 +7,7 @@ services:
     hostname: spark-performance-insight
     user: root
     entrypoint: [""]
+    restart: always
     ports:
       - "0.0.0.0:18080:18080"
       - "0.0.0.0:18081:18081"
@@ -15,6 +16,27 @@ services:
     networks:
       - spark-performance-insight-net
     command: /bin/bash /opt/spark/work-dir/workspace/entrypoint.sh
+    healthcheck:
+      # 使用 bash 内置的 TCP 检查 18081 端口是否开启
+      test: ["CMD-SHELL", "timeout 5s bash -c ':> /dev/tcp/127.0.0.1/18081' || exit 1"]
+      interval: 30s      # 每 30 秒检查一次
+      timeout: 10s       # 检查超时时间
+      retries: 3         # 连续失败 3 次标记为 unhealthy
+      start_period: 120s # 给予 2 分钟的启动缓冲时间，期间失败不计入重试次数
+    labels:
+      autoheal: "true"   # 标记此容器需要被自动修复
+
+  # 自动重启监视器：当发现标记为 autoheal 的容器处于 unhealthy 状态时，自动执行 docker restart
+  autoheal:
+    image: willfarrell/autoheal:latest
+    container_name: autoheal
+    restart: always
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=autoheal
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - spark-performance-insight-net
 
 volumes:
   master_data:

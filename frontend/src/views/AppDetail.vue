@@ -113,19 +113,19 @@
 
         <div v-if="activeTab === 'Stages'" class="stages-view">
           <div v-if="selectedStageId === null">
-            <StageTable v-if="app" :app-id="app.appId" @view-stage-detail="navigateToStage" @view-job-detail="navigateToJob"/>
+            <StageTable v-if="app" :app-id="app.appId" :is-loading="loading.stages" @view-stage-detail="navigateToStage" @view-job-detail="navigateToJob"/>
           </div>
           <StageDetailView v-else-if="app" :app-id="app.appId" :stage-id="selectedStageId" :attempt-id="selectedAttemptId" @back="navigateBackToStages" @view-job="handleViewJob" />
         </div>
 
-        <ExecutorsTab v-if="activeTab === 'Executors'" :executors="executors"/>
+        <ExecutorsTab v-if="activeTab === 'Executors'" :executors="executors" :is-loading="loading.executors"/>
         
         <div v-if="activeTab === 'Storage' && app" class="storage-view">
           <StorageTab v-if="selectedRddId === null" :app-id="app.appId" @view-rdd-detail="navigateToRdd" />
           <RddDetailView v-else :app-id="app.appId" :rdd-id="selectedRddId" @back="navigateBackToStorage" />
         </div>
 
-        <EnvironmentTab v-if="activeTab === 'Environment'" :configs="environment"/>
+        <EnvironmentTab v-if="activeTab === 'Environment'" :configs="environment" :is-loading="loading.environment"/>
       </div>
     </div>
 
@@ -240,7 +240,8 @@ const loading = ref({
   diagnosis: false,
   llm: false,
   executors: false,
-  environment: false
+  environment: false,
+  stages: false
 });
 
 const tabList = ['Diagnosis', 'Jobs', 'Stages', 'Executors', 'Storage', 'Environment', 'SQL / DataFrame'];
@@ -371,6 +372,14 @@ const fetchDataForTab = async (tab) => {
     } finally {
       loading.value.environment = false;
     }
+  } else if (tab === 'Stages' && stages.value.length === 0 && !loading.value.stages) {
+    // Stage data is actually fetched inside StageTable, but we can manage a general loading state if needed.
+    // However, since StageTable handles its own internal paging and loading, 
+    // we just need to ensure the initial load is visible.
+    loading.value.stages = true;
+    setTimeout(() => {
+      loading.value.stages = false;
+    }, 500); // Simple debounce/sync
   }
 };
 

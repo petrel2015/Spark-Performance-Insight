@@ -1,7 +1,12 @@
 <template>
   <div class="sql-view-container">
     <div class="sql-table-card">
-      <div class="table-header-toolbar">
+      <div v-if="isLoading" class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading SQL data...</p>
+      </div>
+      <template v-else>
+        <div class="table-header-toolbar">
         <div class="header-left">
           <h4>SQL / DataFrame List <small>(Total: {{ totalSqls }})</small></h4>
         </div>
@@ -158,6 +163,7 @@
           </tbody>
         </table>
       </div>
+      </template>
     </div>
   </div>
 </template>
@@ -180,6 +186,7 @@ const pageSize = ref(20);
 const jumpPageInput = ref(1);
 const searchJobId = ref(null);
 const sorts = ref([{field: 'executionId', dir: 'desc'}]);
+const isLoading = ref(false);
 
 const columns = [
   {field: 'executionId', label: 'ID', width: '80px', sortable: true},
@@ -192,6 +199,7 @@ const columns = [
 ];
 
 const fetchSqls = async () => {
+  isLoading.value = true;
   try {
     const sortStr = sorts.value.map(s => `${s.field},${s.dir}`).join(';');
     const res = await getAppSqlExecutions(props.appId, currentPage.value, pageSize.value, sortStr, searchJobId.value);
@@ -207,6 +215,8 @@ const fetchSqls = async () => {
     jumpPageInput.value = currentPage.value;
   } catch (err) {
     console.error("Failed to fetch SQL executions", err);
+  } finally {
+    isLoading.value = false;
   }
 };
 
@@ -719,5 +729,29 @@ watch(() => props.appId, () => {
 .score-badge.critical {
   background-color: #ffebee;
   color: #c62828;
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #3498db;
+  gap: 15px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>

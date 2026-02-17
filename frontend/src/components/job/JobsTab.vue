@@ -19,7 +19,12 @@
 
     <!-- Main Jobs Table Card -->
     <div class="jobs-table-card" :class="{ 'plain-mode': hideToolbar }">
-      <div class="table-header-toolbar" v-if="!hideToolbar">
+      <div v-if="isLoading" class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading jobs data...</p>
+      </div>
+      <template v-else>
+        <div class="table-header-toolbar" v-if="!hideToolbar">
         <div class="header-left">
           <h4>Jobs List <small>(Total: {{ totalJobs }})</small></h4>
         </div>
@@ -235,6 +240,7 @@
           </tbody>
         </table>
       </div>
+      </template>
     </div>
   </div>
 </template>
@@ -261,6 +267,7 @@ const jumpPageInput = ref(1);
 const searchJobId = ref(null);
 const searchJobGroup = ref('');
 const sorts = ref([{field: 'jobId', dir: 'desc'}]); // Default sort by Job ID DESC
+const isLoading = ref(false);
 
 const toggleSelection = (job) => {
   const key = `${props.appId}:job:${job.jobId}`;
@@ -324,6 +331,7 @@ const handleSearch = () => {
 };
 
 const fetchJobs = async () => {
+  isLoading.value = true;
   try {
     const sortStr = sorts.value.map(s => `${s.field},${s.dir}`).join(';');
     const res = await getAppJobs(props.appId, currentPage.value, pageSize.value, sortStr, searchJobId.value, searchJobGroup.value, props.sqlExecutionId);
@@ -339,6 +347,8 @@ const fetchJobs = async () => {
     jumpPageInput.value = currentPage.value;
   } catch (err) {
     console.error("Failed to fetch jobs", err);
+  } finally {
+    isLoading.value = false;
   }
 };
 
@@ -1063,5 +1073,29 @@ watch(() => props.sqlExecutionId, () => {
 
 .select-btn .material-symbols-outlined {
   font-size: 20px;
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #3498db;
+  gap: 15px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>

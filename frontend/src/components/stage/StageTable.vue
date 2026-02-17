@@ -1,6 +1,11 @@
 <template>
   <div class="stage-table-view" :class="{ 'plain-mode': plain }">
-    <div class="table-header-toolbar">
+    <div v-if="combinedLoading" class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading stages data...</p>
+    </div>
+    <template v-else>
+      <div class="table-header-toolbar">
       <div class="header-left">
         <h4 v-if="!hideTitle">Stages List <small>(Total: {{ totalStages }})</small></h4>
         <span v-else class="total-count-text">Total: {{ totalStages }} stages</span>
@@ -201,6 +206,7 @@
         </tbody>
       </table>
     </div>
+    </template>
   </div>
 </template>
 
@@ -215,7 +221,8 @@ const props = defineProps({
   jobId: Number, // Optional filter
   hideTitle: {type: Boolean, default: false},
   plain: {type: Boolean, default: false},
-  visibleMetrics: {type: Array, default: null} // If null, show all default columns
+  visibleMetrics: {type: Array, default: null}, // If null, show all default columns
+  isLoading: {type: Boolean, default: false}
 });
 
 const emit = defineEmits(['view-stage-detail', 'view-job-detail']);
@@ -229,6 +236,9 @@ const jumpPageInput = ref(1);
 const searchStageId = ref(null);
 const searchJobId = ref(null);
 const sorts = ref([{field: 'stageId', dir: 'desc'}]); // Default sort by Stage Id DESC
+const internalLoading = ref(false);
+
+const combinedLoading = computed(() => props.isLoading || internalLoading.value);
 
 const toggleSelection = (stage) => {
   const key = `${props.appId}:stage:${stage.stageId}`;
@@ -373,6 +383,7 @@ const handleSearch = () => {
 };
 
 const fetchStages = async () => {
+  internalLoading.value = true;
   try {
     const sortStr = sorts.value.map(s => `${s.field},${s.dir}`).join(';');
     const effectiveJobId = searchJobId.value !== null && searchJobId.value !== '' ? searchJobId.value : props.jobId;
@@ -390,6 +401,8 @@ const fetchStages = async () => {
     jumpPageInput.value = currentPage.value;
   } catch (err) {
     console.error("Failed to fetch stages", err);
+  } finally {
+    internalLoading.value = false;
   }
 };
 
@@ -960,5 +973,29 @@ watch(() => props.appId, () => {
 
 .select-btn .material-symbols-outlined {
   font-size: 20px;
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #3498db;
+  gap: 15px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>

@@ -1,7 +1,12 @@
 <template>
   <div class="executors-tab">
-    <!-- 1. Column Selector Card -->
-    <div class="metric-selector-card">
+    <div v-if="isLoading" class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading executors data...</p>
+    </div>
+    <template v-else>
+      <!-- 1. Column Selector Card -->
+      <div class="metric-selector-card">
       <div class="selector-header">
         <strong>Select Metrics to Display:</strong>
         <div class="selector-actions">
@@ -136,6 +141,7 @@
         </table>
       </div>
     </CollapsibleCard>
+    </template>
   </div>
 </template>
 
@@ -146,7 +152,8 @@ import ExecutorTimeline from './ExecutorTimeline.vue';
 import {formatBytes, formatTime, formatNum, formatDateTime} from '../../utils/format';
 
 const props = defineProps({
-  executors: {type: Array, default: () => []}
+  executors: {type: Array, default: () => []},
+  isLoading: {type: Boolean, default: false}
 });
 
 const timelineRef = ref(null);
@@ -562,5 +569,33 @@ const selectDefault = () => {
 .lock-btn:hover {
   background: #f0f0f0;
   color: #333;
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #3498db;
+  gap: 15px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border: 1px solid #f0f0f0;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>

@@ -1,3 +1,12 @@
+## 1.0.7 - 2026-02-18
+
+### Features
+- Added loading indicators (spinners) to all major detail tabs: Storage, Jobs, Stages, Executors, Environment, and SQL.
+- Implemented Docker healthcheck and auto-restart logic via 'autoheal' container to ensure service availability.
+
+### Fixes
+- Improved UI responsiveness by providing visual feedback during data fetching.
+
 ## 1.0.6 - 2026-02-18
 
 ### Maintenance

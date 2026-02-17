@@ -180,6 +180,25 @@
                 {{ formatTime(app.duration) }}
               </template>
 
+              <!-- 6.5 Total Size -->
+              <template v-else-if="col.field === 'totalLogSize'">
+                <div class="size-cell">
+                  <span class="raw-size">{{ formatBytes(app.totalLogSize) }}</span>
+                  <small v-if="estimateUncompressedSize(app.totalLogSize, app.compressionFormat)" 
+                         class="est-size" 
+                         title="Estimated Uncompressed Size">
+                    (Est. {{ formatBytes(estimateUncompressedSize(app.totalLogSize, app.compressionFormat)) }})
+                  </small>
+                </div>
+              </template>
+
+              <!-- 6.6 Compression -->
+              <template v-else-if="col.field === 'compressionFormat'">
+                <span class="compression-badge" :class="app.compressionFormat?.toLowerCase()">
+                  {{ app.compressionFormat || 'None' }}
+                </span>
+              </template>
+
               <!-- 7. Notes -->
               <template v-else-if="col.field === 'notes'">
                 <div class="notes-cell" @click="startEditing(app)">
@@ -334,7 +353,7 @@
 <script setup>
 import {ref, onMounted, onUnmounted, computed, reactive, nextTick} from 'vue';
 import {getApps, updateAppNotes} from '../api';
-import {formatDateTime, formatTime} from '../utils/format';
+import {formatDateTime, formatTime, formatBytes} from '../utils/format';
 import {useRoute, useRouter} from 'vue-router';
 import { compareStore } from '../store/compareStore';
 import ConfirmationModal from '../components/common/ConfirmationModal.vue';
@@ -604,6 +623,8 @@ const AVAILABLE_COLUMNS = [
   {field: 'userName', label: 'User', width: '120px', sortable: true},
   {field: 'startTime', label: 'Submitted', width: '180px', sortable: true},
   {field: 'duration', label: 'Duration', width: '120px', sortable: true},
+  {field: 'totalLogSize', label: 'Total Size', width: '120px', sortable: true},
+  {field: 'compressionFormat', label: 'Compression', width: '120px', sortable: true},
   {field: 'notes', label: 'Notes', width: '250px', sortable: false},
   {field: 'parsingStartTime', label: 'Last Parsing Start', width: '180px', sortable: true},
   {field: 'parsingEndTime', label: 'Last Parsing End', width: '180px', sortable: true},
@@ -612,7 +633,7 @@ const AVAILABLE_COLUMNS = [
   {field: 'status', label: 'Status', width: '150px', sortable: true}
 ];
 
-const selectedColumnFields = ref(['appName', 'appId', 'startTime', 'duration', 'notes', 'createdAt', 'progress', 'status']);
+const selectedColumnFields = ref(['appName', 'appId', 'startTime', 'duration', 'totalLogSize', 'notes', 'createdAt', 'progress', 'status']);
 
 const columns = computed(() => {
   return AVAILABLE_COLUMNS.filter(c => selectedColumnFields.value.includes(c.field));
@@ -633,6 +654,22 @@ const getProgressColor = (status) => {
   if (status === 'TRANSFORMING_SILVER') return '#95a5a6'; // Silver
   if (status === 'AGGREGATING_GOLD') return '#f1c40f'; // Gold
   return '#3498db'; // Default Blue
+};
+
+const estimateUncompressedSize = (size, format) => {
+  if (!size || !format || format === 'None') return null;
+  
+  const ratios = {
+    'ZSTD': 10,
+    'GZIP': 8,
+    'LZ4': 4,
+    'SNAPPY': 3
+  };
+  
+  const ratio = ratios[format.toUpperCase()] || 1;
+  if (ratio === 1) return null;
+  
+  return size * ratio;
 };
 
 const formatStatus = (status) => {
@@ -1198,6 +1235,34 @@ onUnmounted(() => {
   border: 1px solid #d1e9f0;
   font-weight: 600;
   white-space: nowrap;
+}
+
+.compression-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  background-color: #f0f0f0;
+  color: #666;
+  border: 1px solid #ddd;
+}
+
+.compression-badge.zstd { background-color: #e1f5fe; color: #0288d1; border-color: #b3e5fc; }
+.compression-badge.gzip { background-color: #efebe9; color: #5d4037; border-color: #d7ccc8; }
+.compression-badge.lz4 { background-color: #f1f8e9; color: #388e3c; border-color: #dcedc8; }
+.compression-badge.snappy { background-color: #fff3e0; color: #f57c00; border-color: #ffe0b2; }
+
+.size-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.est-size {
+  color: #7f8c8d;
+  font-size: 0.75rem;
+  font-style: italic;
 }
 
 .app-link { color: #3498db; text-decoration: none; font-weight: 600; }

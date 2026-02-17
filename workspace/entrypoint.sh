@@ -52,7 +52,9 @@ if [ ! -f "$JAR_PATH" ]; then
 fi
 
 java -Dinsight.event-log-path=$LOG_DIR \
-     -jar $JAR_PATH > ./insight-app.log 2>&1 &
+     -jar $JAR_PATH \
+     --spring.config.additional-location=optional:file:./config/ \
+     > ./insight-app.log 2>&1 &
 
 echo ">>> [6/6] ✅ 启动完成，正在追踪 History Server 日志..."
 # 等待日志生成

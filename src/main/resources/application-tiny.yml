@@ -1,0 +1,6 @@
+insight:
+  duckdb:
+    threads: 1
+    memory-limit: 512MB
+  ingestion:
+    batch-size: 500

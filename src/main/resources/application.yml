@@ -2,6 +2,8 @@ server:
   port: 18081
 
 spring:
+  profiles:
+    active: ${INSIGHT_PROFILE:medium}
   datasource:
     url: jdbc:duckdb:spark_performance_insight.db
     driver-class-name: org.duckdb.DuckDBDriver
@@ -43,9 +45,7 @@ insight:
     provider: ${AI_PROVIDER:zhipu}
   event-log-path: ./workspace/eventlog
   duckdb:
-    threads: ${DUCKDB_THREADS:4}
-    memory-limit: ${DUCKDB_MEMORY_LIMIT:8GB}
-    temp-directory: ${DUCKDB_TEMP_DIR:./spark-performance-insight-duckdb.tmp}
+    temp-directory: ${DUCKDB_TEMP_DIR:./spark_performance_insight.duckdb.db.tmp}
   scheduler:
     scan-interval-seconds: 3600
   comparison:

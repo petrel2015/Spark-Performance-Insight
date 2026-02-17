@@ -1,26 +1,25 @@
 version: '3.8'
 
 services:
-  spark:
+  spark-performance-insight:
     image: apache/spark:4.0.2-java21
-    container_name: spark-history-server
-    hostname: spark
+    container_name: spark-performance-insight
+    hostname: spark-performance-insight
     user: root
     entrypoint: [""]
     ports:
       - "0.0.0.0:18080:18080"
       - "0.0.0.0:18081:18081"
-    environment:
-      ZHIPU_API_KEY: ${ZHIPU_API_KEY:-45d86a56f6c742009588f921dff986fb.Dj93jbHrow9O08kx}
     volumes:
       - ./workspace:/opt/spark/work-dir/workspace
+      - ./config:/opt/spark/work-dir/workspace/config
     networks:
-      - spark_net
+      - spark-performance-insight-net
     command: /bin/bash /opt/spark/work-dir/workspace/entrypoint.sh
 
 volumes:
   master_data:
 
 networks:
-  spark_net:
+  spark-performance-insight-net:
     driver: bridge

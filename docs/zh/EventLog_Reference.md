@@ -1,5 +1,7 @@
 # EventLog 技术参考资料
 
+[English](../en/EventLog_Reference.md) | [中文](./EventLog_Reference.md)
+
 ## 1. 支持的命名规范
 系统通过正则表达式自动识别并将关联的日志文件归类为同一个 Spark Application 实例。
 

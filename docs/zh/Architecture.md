@@ -1,5 +1,7 @@
 # 系统架构设计规格
 
+[English](../en/Architecture.md) | [中文](./Architecture.md)
+
 ## 1. 核心理念：结构化 OLAP 分析
 Spark-Performance-Insight 抛弃了传统 Spark History Server 依赖“重放事件”来恢复内存状态的模式，转而采用 **结构化数据流 (Structured Data Pipeline)**。
 

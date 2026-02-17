@@ -1,5 +1,7 @@
 # Application Import State Machine
 
+[English](./Application_Import_State_Machine.md) | [中文](../zh/Application_Import_State_Machine.md)
+
 This document describes the state machine and lifecycle of a Spark EventLog as it moves through the Medallion architecture (Bronze -> Silver -> Gold).
 
 ## 1. State Machine Flow

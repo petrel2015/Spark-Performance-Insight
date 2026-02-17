@@ -1,5 +1,7 @@
 # 数据库存储设计规格
 
+[English](../en/Database_Design.md) | [中文](./Database_Design.md)
+
 ## 1. 存储引擎：DuckDB
 项目使用 DuckDB 1.1.x 作为核心 OLAP 引擎，所有数据持久化在 `out/` 目录下的 `.duckdb.db` 文件中。
 

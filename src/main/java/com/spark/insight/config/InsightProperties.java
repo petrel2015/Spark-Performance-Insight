@@ -28,6 +28,11 @@ public class InsightProperties {
      */
     private DuckDB duckdb = new DuckDB();
 
+    /**
+     * Ingestion configuration.
+     */
+    private Ingestion ingestion = new Ingestion();
+
     @Data
     public static class Scheduler {
         /**
@@ -64,6 +69,14 @@ public class InsightProperties {
         /**
          * Temporary directory for DuckDB to avoid memory overflow.
          */
-        private String tempDirectory = "./spark-performance-insight-duckdb.tmp";
+        private String tempDirectory = "./spark_performance_insight.duckdb.db.tmp";
+    }
+
+    @Data
+    public static class Ingestion {
+        /**
+         * Batch size for processing SQL lines during ingestion to prevent OOM.
+         */
+        private int batchSize = 50000;
     }
 }

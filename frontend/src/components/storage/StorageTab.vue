@@ -54,15 +54,23 @@
       </div>
 
       <div class="summary-cards">
-        <div class="mini-card">
+        <div class="mini-card storage-level-card">
           <label>Storage Level</label>
-          <div class="value">
-            <div class="storage-level-tags">
-              <span v-for="tag in formatStorageLevel(selectedRdd.storageLevel)" :key="tag" :class="['storage-tag', tag.toLowerCase()]">
-                {{ tag }}
-              </span>
+          <div class="storage-grid" v-if="parseStorageLevelObject(selectedRdd.storageLevel)">
+            <div class="grid-item" :class="{ active: parseStorageLevelObject(selectedRdd.storageLevel).useDisk }">
+              <span class="dot"></span> Disk
+            </div>
+            <div class="grid-item" :class="{ active: parseStorageLevelObject(selectedRdd.storageLevel).useMemory }">
+              <span class="dot"></span> Memory
+            </div>
+            <div class="grid-item" :class="{ active: parseStorageLevelObject(selectedRdd.storageLevel).deserialized }">
+              <span class="dot"></span> Deserialized
+            </div>
+            <div class="grid-item" :class="{ active: parseStorageLevelObject(selectedRdd.storageLevel).replication > 1 }">
+              <span class="dot"></span> {{ parseStorageLevelObject(selectedRdd.storageLevel).replication }}x Repl
             </div>
           </div>
+          <div v-else class="value">{{ selectedRdd.storageLevel }}</div>
         </div>
         <div class="mini-card">
           <label>Partitions</label>
@@ -125,6 +133,16 @@ const props = defineProps({
 const rdds = ref([]);
 const selectedRdd = ref(null);
 const rddBlocks = ref([]);
+
+const parseStorageLevelObject = (levelStr) => {
+  if (!levelStr) return null;
+  if (levelStr === 'NONE') return { useDisk: false, useMemory: false, useOffHeap: false, deserialized: false, replication: 0 };
+  try {
+    return typeof levelStr === 'string' ? JSON.parse(levelStr) : levelStr;
+  } catch (e) {
+    return null;
+  }
+};
 
 const formatStorageLevel = (levelStr) => {
   if (!levelStr) return [];
@@ -231,6 +249,39 @@ onMounted(fetchStorageData);
 .storage-tag.memory { background: #e7f5ff; color: #1971c2; border-color: #a5d8ff; }
 .storage-tag.offheap { background: #f3f0ff; color: #6741d9; border-color: #d0bfff; }
 .storage-tag.deserialized { background: #f8f9fa; color: #495057; border-color: #ced4da; }
+
+/* Storage Grid Detail Styles */
+.storage-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.grid-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: #bdc3c7; /* Inactive color */
+  font-weight: 500;
+}
+
+.grid-item.active {
+  color: #2c3e50; /* Active color */
+}
+
+.grid-item .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ecf0f1; /* Inactive dot */
+}
+
+.grid-item.active .dot {
+  background: #27ae60; /* Active green dot */
+  box-shadow: 0 0 4px rgba(39, 174, 96, 0.4);
+}
 
 .progress-container {
   width: 100%;

@@ -267,12 +267,11 @@ git commit -m "docs(project): update architecture documentation"
 ### Step 7: Generate Changelog and Update Version
 
 1. **Generate multi-language changelogs** (as described in Step 4)
-2. **Update version file**:
-    - Read version file (JSON/TOML/text)
-    - Update version number
-    - Write back (preserve formatting)
-
-**Version Paths by File Type**:
+2. **Update version files**:
+    - Scan for all relevant version files (e.g., `package.json` for frontend, `pom.xml` for backend, `Cargo.toml`, etc.).
+    - **Synchronize versions**: Ensure all detected components/modules are updated to the same release version number.
+    - Update each file accordingly (preserve formatting).
+3. **Version Paths by File Type**:
 
 | File | Path |
 |------|------|

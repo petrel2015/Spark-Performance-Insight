@@ -467,6 +467,17 @@ public class InsightController {
     }
 
     /**
+     * 更新 Application 备注
+     */
+    @PatchMapping("/apps/{appId}/notes")
+    public void updateNotes(@PathVariable String appId, @RequestBody String notes) {
+        applicationService.lambdaUpdate()
+                .eq(GoldApplicationModel::getAppId, appId)
+                .set(GoldApplicationModel::getNotes, notes)
+                .update();
+    }
+
+    /**
      * 批量校验工作区项的有效性
      */
     @PostMapping("/compare/validate")

@@ -75,6 +75,9 @@ export const getJobStages = (appId: string, jobId: number) =>
     request.get(`/apps/${appId}/jobs/${jobId}/stages`);
 
 export const getApp = (appId: string) => request.get(`/apps/${appId}`);
+export const updateAppNotes = (appId: string, notes: string) => request.patch(`/apps/${appId}/notes`, notes, {
+    headers: { 'Content-Type': 'text/plain' }
+});
 export const getDiagnosisReport = (appId: string) => request.get(`/apps/${appId}/report`);
 export const getLLMReport = (appId: string, force = false) => 
     request.get(`/apps/${appId}/llm-report?force=${force}`);

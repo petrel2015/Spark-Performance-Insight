@@ -143,6 +143,20 @@
             <td>{{ formatDateTime(app.startTime) }}</td>
             <td>{{ (app.duration / 1000).toFixed(1) }} s</td>
             
+            <!-- NOTES Column -->
+            <td class="notes-cell" @click="startEditing(app)">
+              <div v-if="editingAppId !== app.appId" class="notes-text" :class="{ 'empty-notes': !app.notes }">
+                {{ app.notes || 'Click to add note...' }}
+              </div>
+              <input v-else
+                     ref="notesInput"
+                     v-model="editingNotes"
+                     class="notes-input"
+                     @blur="saveNotes(app)"
+                     @keyup.enter="saveNotes(app)"
+                     placeholder="Enter note..."/>
+            </td>
+
             <!-- PROGRESS Column -->
             <td>
               <div class="progress-cell">
@@ -263,7 +277,7 @@
 
 <script setup>
 import {ref, onMounted, onUnmounted, computed, reactive, nextTick} from 'vue';
-import {getApps} from '../api';
+import {getApps, updateAppNotes} from '../api';
 import {formatDateTime} from '../utils/format';
 import {useRoute, useRouter} from 'vue-router';
 import { compareStore } from '../store/compareStore';
@@ -300,6 +314,41 @@ const searchQuery = ref('');
 const sorts = ref([{field: 'startTime', dir: 'desc'}]);
 const activeDropdown = ref(null);
 const dropdownStyle = reactive({ top: '0px', left: '0px' });
+
+// Inline editing for notes
+const editingAppId = ref(null);
+const editingNotes = ref('');
+const notesInput = ref(null);
+
+const startEditing = (app) => {
+  editingAppId.value = app.appId;
+  editingNotes.value = app.notes || '';
+  nextTick(() => {
+    if (notesInput.value) {
+      notesInput.value.focus();
+    }
+  });
+};
+
+const saveNotes = async (app) => {
+  if (editingAppId.value !== app.appId) return;
+  
+  const oldNotes = app.notes;
+  const newNotes = editingNotes.value;
+  
+  // Optimistic update
+  app.notes = newNotes;
+  editingAppId.value = null;
+  
+  if (oldNotes === newNotes) return;
+  
+  try {
+    await updateAppNotes(app.appId, newNotes);
+  } catch (err) {
+    console.error("Failed to update notes", err);
+    app.notes = oldNotes; // Rollback
+  }
+};
 
 const confirmState = reactive({
   isOpen: false,
@@ -499,6 +548,7 @@ const columns = [
   {field: 'userName', label: 'User', width: '120px', sortable: true},
   {field: 'startTime', label: 'Submitted', width: '180px', sortable: true},
   {field: 'duration', label: 'Duration', width: '120px', sortable: true},
+  {field: 'notes', label: 'Notes', width: '250px', sortable: false},
   {field: 'progress', label: 'Progress', width: '150px', sortable: false},
   {field: 'status', label: 'Status', width: '150px', sortable: true},
   {field: 'action', label: 'Action', width: '220px', sortable: false}
@@ -999,6 +1049,41 @@ onUnmounted(() => {
   background-color: #f9f2f4;
   padding: 2px 4px;
   border-radius: 3px;
+}
+
+.notes-cell {
+  min-width: 200px;
+  cursor: pointer;
+}
+
+.notes-text {
+  padding: 4px 8px;
+  border-radius: 4px;
+  min-height: 24px;
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notes-text:hover {
+  background-color: #f0f7ff;
+}
+
+.empty-notes {
+  color: #bdc3c7;
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+.notes-input {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid #3498db;
+  border-radius: 4px;
+  outline: none;
+  font-size: 0.9rem;
+  background: white;
 }
 
 .processing-row { opacity: 0.7; background-color: #f9f9f9; }

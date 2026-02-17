@@ -68,6 +68,8 @@ public class GoldApplicationModel {
 
     private Long totalShuffleReadBytes = 0L;
 
+    private String notes;
+
     private LocalDateTime createdAt;
 
 

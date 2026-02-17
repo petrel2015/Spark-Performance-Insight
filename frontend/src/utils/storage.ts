@@ -23,9 +23,15 @@ export const formatStorageLevel = (levelStr: any) => {
     if (level.deserialized) tags.push('Deserialized');
     if (level.replication > 1) tags.push(`${level.replication}x Replicated`);
     
-    return tags.length > 0 ? tags : [levelStr];
+    // If we have specific tags, return them. 
+    // Otherwise, if it's a valid level but no tags matched (rare), return 'Persisted'
+    return tags.length > 0 ? tags : ['Persisted'];
   } catch (e) {
-    // Fallback for non-JSON strings
-    return [levelStr];
+    // If parsing fails, it's definitely not a JSON we want to show.
+    // Return 'Standard' as a safe fallback for simple string levels like 'MEMORY_ONLY'
+    if (typeof levelStr === 'string' && levelStr.length > 0 && !levelStr.includes('{')) {
+      return [levelStr.replace(/_/g, ' ')];
+    }
+    return ['Persisted'];
   }
 };

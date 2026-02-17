@@ -8,7 +8,7 @@
           <tr>
             <th style="width: 80px;">ID</th>
             <th>Name</th>
-            <th style="width: 150px;">Storage Level</th>
+            <th style="width: 180px;">Storage Level</th>
             <th style="width: 150px;">Cached Partitions</th>
             <th style="width: 120px;">Size in Memory</th>
             <th style="width: 120px;">Size on Disk</th>

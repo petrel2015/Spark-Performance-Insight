@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS gold_applications (
     failed_tasks INT DEFAULT 0,
     total_input_bytes BIGINT DEFAULT 0,
     total_shuffle_read_bytes BIGINT DEFAULT 0,
+    compression_format VARCHAR,
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

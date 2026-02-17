@@ -71,6 +71,8 @@ public class GoldApplicationModel {
 
     private Long totalShuffleReadBytes = 0L;
 
+    private String compressionFormat;
+
     private String notes;
 
     private LocalDateTime createdAt;

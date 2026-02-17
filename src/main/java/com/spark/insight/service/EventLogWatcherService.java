@@ -93,27 +93,30 @@ public class EventLogWatcherService {
 
         appGroups.forEach((appId, files) -> {
             long totalSize = files.stream().mapToLong(File::length).sum();
+            String compression = detectCompression(files);
             GoldApplicationModel existingApp = applicationService.getById(appId);
 
             if (existingApp == null) {
-                handleNewApp(appId, files, totalSize);
+                handleNewApp(appId, files, totalSize, compression);
             } else {
-                handleExistingApp(existingApp, files, totalSize);
+                handleExistingApp(existingApp, files, totalSize, compression);
             }
         });
         
         log.info("<<< Log directory scan completed.");
     }
 
-    private void handleNewApp(String appId, List<File> files, long totalSize) {
+    private void handleNewApp(String appId, List<File> files, long totalSize, String compression) {
         logService.logEvent(appId, "SCAN", "New Application Detected", 
-                String.format("Found %d files, total size: %.2f MB", files.size(), totalSize / (1024.0 * 1024.0)));
+                String.format("Found %d files, total size: %.2f MB, Compression: %s", 
+                        files.size(), totalSize / (1024.0 * 1024.0), compression != null ? compression : "None"));
         
         GoldApplicationModel app = new GoldApplicationModel();
         app.setAppId(appId);
         app.setAppName("Unparsed Application"); // Will be updated during processing
         app.setParsingStatus("PENDING_LOAD");
         app.setTotalLogSize(totalSize);
+        app.setCompressionFormat(compression);
         
         try {
             List<FileMetadata> metadataList = generateMetadata(files);
@@ -126,7 +129,7 @@ public class EventLogWatcherService {
         broadcaster.broadcastStatus(appId, "PENDING_LOAD", 0.0, "Ready to import", app.getAppName(), app.getParsingStartTime());
     }
 
-    private void handleExistingApp(GoldApplicationModel app, List<File> files, long totalSize) {
+    private void handleExistingApp(GoldApplicationModel app, List<File> files, long totalSize, String compression) {
         String currentStatus = app.getParsingStatus();
         // Skip if currently processing
         if ("INGESTING_BRONZE".equals(currentStatus) || 
@@ -142,9 +145,6 @@ public class EventLogWatcherService {
             
             boolean changed = false;
             if (storedMetadataJson == null || storedMetadataJson.isEmpty()) {
-                // Backward compatibility: if no metadata stored, assume changed if it was previously SUCCESS/FAILED
-                // or maybe we should just update the metadata if it matches the files?
-                // For safety, let's treat null metadata as "changed" if we have files now.
                 changed = true;
             } else {
                 List<FileMetadata> storedMetadata = objectMapper.readValue(storedMetadataJson, new TypeReference<List<FileMetadata>>() {});
@@ -156,13 +156,8 @@ public class EventLogWatcherService {
             if (changed && !"PENDING_REIMPORT".equals(currentStatus)) {
                 logService.logEvent(app.getAppId(), "SCAN", "Log File Changed", "File content or list changed.");
                 app.setParsingStatus("PENDING_REIMPORT");
-                // Update metadata to current? No, keep old metadata until re-import? 
-                // Plan says "Update status PENDING_REIMPORT". 
-                // We should probably NOT update the source_file_metadata in DB yet, 
-                // so we know what was the "original" vs "current". 
-                // But wait, if we don't update it, next scan will still see it as changed.
-                // Actually, the `scan()` runs periodically. If we update status to PENDING_REIMPORT, 
-                // we don't need to keep updating it. 
+                app.setTotalLogSize(totalSize);
+                app.setCompressionFormat(compression);
                 
                 applicationService.updateById(app);
                 broadcaster.broadcastStatus(app.getAppId(), "PENDING_REIMPORT", 0.0, "Log files changed", app.getAppName(), app.getParsingStartTime());
@@ -171,6 +166,17 @@ public class EventLogWatcherService {
         } catch (Exception e) {
             log.error("Error checking existing app: " + app.getAppId(), e);
         }
+    }
+
+    private String detectCompression(List<File> files) {
+        for (File f : files) {
+            String name = f.getName().toLowerCase();
+            if (name.endsWith(".zstd")) return "ZSTD";
+            if (name.endsWith(".lz4")) return "LZ4";
+            if (name.endsWith(".snappy")) return "SNAPPY";
+            if (name.endsWith(".gz") || name.endsWith(".gzip")) return "GZIP";
+        }
+        return "None";
     }
 
     public void executePipeline(String appId, String type, java.util.function.Consumer<Boolean> onComplete) {

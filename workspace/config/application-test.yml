@@ -3,7 +3,7 @@ server:
 
 spring:
   profiles:
-    active: ${INSIGHT_PROFILE:medium}
+    active: ${INSIGHT_PROFILE:tiny}
   datasource:
     url: jdbc:duckdb:out/spark_performance_insight.duckdb.db
     driver-class-name: org.duckdb.DuckDBDriver
@@ -20,7 +20,7 @@ spring:
       schema-locations: classpath:db/schema.sql
   ai:
     zhipuai:
-      api-key: ${ZHIPU_API_KEY:fake_api_key}
+      api-key: ${ZHIPU_API_KEY:4ecbc1a4b6dc4d6f9f1bc73abdffd5fd.uo3r7vdb6Gy3dtQ5}
       chat:
         options:
           model: glm-4.7

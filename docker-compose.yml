@@ -12,7 +12,6 @@ services:
       - "0.0.0.0:18081:18081"
     volumes:
       - ./workspace:/opt/spark/work-dir/workspace
-      - ./config:/opt/spark/work-dir/workspace/config
     networks:
       - spark-performance-insight-net
     command: /bin/bash /opt/spark/work-dir/workspace/entrypoint.sh

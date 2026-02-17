@@ -48,6 +48,7 @@ echo ">>> [4/5] 启动 Spark History Server..."
 
 # --- 5. 启动 Spark Performance Insight 应用 ---
 echo ">>> [5/5] 启动 Spark Performance Insight 后端服务..."
+cd workspace
 # 检查当前目录下是否有 app.jar (Dockerfile 拷贝进去的位置或挂载位置)
 JAR_PATH="./app.jar"
 if [ ! -f "$JAR_PATH" ]; then
@@ -57,9 +58,17 @@ fi
 
 java -Dinsight.event-log-path=$LOG_DIR \
      -jar $JAR_PATH \
-     --spring.config.additional-location=optional:file:./workspace/config/ \
+     --spring.config.additional-location=optional:file:./config/application-test.yml \
      > ./insight-app.log 2>&1 &
 
 echo ">>> ✅ 启动完成，正在持续追踪日志输出..."
-# 等待日志生成
+
+# 打印日志全路径以便调试
+APP_LOG_FILE="$(pwd)/insight-app.log"
+HISTORY_LOG_FILE=$(ls /opt/spark/logs/*org.apache.spark.deploy.history.HistoryServer*.out 2>/dev/null | head -n 1)
+
+echo ">>> [Log Path] Backend Application: $APP_LOG_FILE"
+echo ">>> [Log Path] Spark History Server: ${HISTORY_LOG_FILE:-'Not found yet'}"
+
+# 等待日志生成并追踪
 tail -f /opt/spark/logs/*org.apache.spark.deploy.history.HistoryServer*.out

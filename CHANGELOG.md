@@ -1,4 +1,4 @@
-## 0.36.0 - 2026-02-17
+## 1.0.0 - 2026-02-17
 
 ### Features
 - **Medallion Architecture**: Fully transitioned to Medallion Architecture (Bronze/Silver/Gold) for high-speed log ingestion and analysis.

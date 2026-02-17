@@ -1,5 +1,13 @@
 <template>
   <div class="app-list-container">
+    <div v-if="alertMsg" class="processing-alert" :class="{ 'error-alert': alertType === 'error' }">
+      <div class="alert-content">
+        <span class="material-symbols-outlined">{{ alertType === 'error' ? 'error' : 'info' }}</span>
+        <span>{{ alertMsg }}</span>
+      </div>
+      <button class="close-alert" @click="clearAlert">&times;</button>
+    </div>
+
     <div class="header-section">
       <h2>Application List</h2>
       <div class="header-actions">
@@ -379,6 +387,14 @@ const vClickOutside = {
 
 const route = useRoute();
 const router = useRouter();
+
+const alertMsg = ref('');
+const alertType = ref('info');
+
+const clearAlert = () => {
+  alertMsg.value = '';
+  router.replace({ query: {} });
+};
 
 const apps = ref([]);
 const totalApps = ref(0);
@@ -931,6 +947,13 @@ const isFieldSorted = (field) => {
 };
 
 onMounted(() => {
+  if (route.query.processingMsg) {
+    alertMsg.value = route.query.processingMsg;
+    alertType.value = 'info';
+  } else if (route.query.errorMsg) {
+    alertMsg.value = route.query.errorMsg;
+    alertType.value = 'error';
+  }
   fetchApps();
   connectWebSocket();
 });
@@ -960,6 +983,12 @@ onUnmounted(() => {
   animation: fadeIn 0.3s ease-out;
 }
 
+.error-alert {
+  background-color: #f8d7da;
+  color: #721c24;
+  border-color: #f5c6cb;
+}
+
 .alert-content {
   display: flex;
   align-items: center;
@@ -972,8 +1001,13 @@ onUnmounted(() => {
   border: none;
   font-size: 1.5rem;
   cursor: pointer;
-  color: #856404;
+  color: inherit;
   line-height: 1;
+  opacity: 0.5;
+}
+
+.close-alert:hover {
+  opacity: 1;
 }
 
 @keyframes fadeIn {

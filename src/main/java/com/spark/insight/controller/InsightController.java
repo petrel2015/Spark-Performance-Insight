@@ -5,6 +5,7 @@ import com.spark.insight.model.dto.ComparisonResult;
 import com.spark.insight.model.dto.PageResponse;
 import com.spark.insight.service.*;
 import com.spark.insight.exception.AppParsingException;
+import com.spark.insight.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.lang.Nullable;
 import org.springframework.web.bind.annotation.*;
@@ -33,7 +34,9 @@ public class InsightController {
 
     private void checkAppReady(String appId) {
         GoldApplicationModel app = applicationService.getById(appId);
-        if (app == null) return;
+        if (app == null) {
+            throw new ResourceNotFoundException("Application " + appId + " not found");
+        }
         
         String status = app.getParsingStatus();
         // 如果状态不是 SUCCESS 或 FAILED，说明数据尚不完整，禁止进入详情
@@ -463,7 +466,11 @@ public class InsightController {
     @GetMapping("/apps/{appId}")
     public GoldApplicationModel getApp(@PathVariable String appId) {
         // Do NOT checkAppReady here, we need this to check status
-        return applicationService.getById(appId);
+        GoldApplicationModel app = applicationService.getById(appId);
+        if (app == null) {
+            throw new ResourceNotFoundException("Application " + appId + " not found");
+        }
+        return app;
     }
 
     /**

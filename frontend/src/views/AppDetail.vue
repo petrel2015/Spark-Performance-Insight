@@ -1,130 +1,138 @@
 <template>
   <div class="app-detail">
-    <div class="header-bar">
-      <div class="tabs">
-        <router-link v-for="tab in tabList" :key="tab"
-                :to="getTabRoute(tab)"
-                class="tab-link"
-                :class="{ active: activeTab === tab }">
-          {{ tab }}
-        </router-link>
+    <div v-if="app">
+      <div class="header-bar">
+        <div class="tabs">
+          <router-link v-for="tab in tabList" :key="tab"
+                  :to="getTabRoute(tab)"
+                  class="tab-link"
+                  :class="{ active: activeTab === tab }">
+            {{ tab }}
+          </router-link>
+        </div>
+        <div class="app-info">
+          <h2>
+            {{ app.appName }}
+            <span v-if="app.sparkVersion && app.sparkVersion !== 'unknown'" class="spark-version-badge">
+              {{ app.sparkVersion }}
+            </span>
+            <small>{{ app.appId }}</small>
+          </h2>
+        </div>
       </div>
-      <div class="app-info" v-if="app">
-        <h2>
-          {{ app.appName }}
-          <span v-if="app.sparkVersion && app.sparkVersion !== 'unknown'" class="spark-version-badge">
-            {{ app.sparkVersion }}
-          </span>
-          <small>{{ app.appId }}</small>
-        </h2>
+
+      <div class="content-area">
+        <!-- 1. Diagnosis Tab -->
+        <div v-if="activeTab === 'Diagnosis'" class="diagnosis-layout">
+          <div v-if="loading.diagnosis" class="loading-placeholder">
+            Generating expert diagnosis report...
+          </div>
+          <div v-else class="folder-card">
+            <!-- Sub Tabs -->
+            <div class="folder-tabs">
+              <div 
+                class="folder-tab" 
+                :class="{ active: activeDiagSubTab === 'Rule' }"
+                @click="activeDiagSubTab = 'Rule'"
+              >
+                <span class="material-symbols-outlined">rule</span>
+                规则引擎诊断报告 (Rule-Based Diagnostic Report)
+              </div>
+              <div 
+                class="folder-tab" 
+                :class="{ active: activeDiagSubTab === 'LLM' }"
+                @click="activeDiagSubTab = 'LLM'"
+              >
+                <span class="material-symbols-outlined">auto_awesome</span>
+                LLM 深度诊断报告 (LLM Diagnostic Report)
+              </div>
+            </div>
+
+            <!-- Folder Content -->
+            <div class="folder-content">
+              <!-- LLM Content -->
+              <div v-if="activeDiagSubTab === 'LLM'">
+                <!-- Initial State: Show only if no report, not loading, and not generating -->
+                <div v-if="!llmReport && !loading.llm && !isGenerating" class="ai-intro">
+                  <p>利用智谱 GLM-4.7 大语言模型对 Spark 应用进行全方位深度分析，挖掘隐藏的性能瓶颈并提供专家级优化建议。</p>
+                  <button class="generate-btn" @click="generateAIReport()">
+                    <span class="material-symbols-outlined">auto_awesome</span>
+                    生成深度诊断报告
+                  </button>
+                </div>
+                
+                <!-- Loading/Generating State -->
+                <div v-if="loading.llm || isGenerating" class="ai-loading">
+                  <div class="spinner"></div>
+                  <span>AI 正在思考中</span>
+                  <small class="polling-hint" v-if="isGenerating && elapsedSeconds > 0">
+                    已耗时: {{ elapsedSeconds }} 秒
+                  </small>
+                </div>
+
+                <!-- Report Display -->
+                <div v-if="llmReport && llmReport !== '[GENERATING]' && llmReport !== 'GENERATING' && !isGenerating && !loading.llm" class="llm-report-wrapper">
+                  <div class="report-header">
+                    <div class="header-left">
+                      <span class="report-title">
+                        <span class="material-symbols-outlined">psychology</span> 
+                        深度分析报告
+                      </span>
+                      <div class="generation-meta" v-if="generationMeta.startTime">
+                        <span class="meta-item">生成时间: {{ formatDateTime(generationMeta.endTime || generationMeta.startTime) }}</span>
+                        <span class="meta-item" v-if="generationMeta.duration">耗时: {{ formatTime(generationMeta.duration) }}</span>
+                      </div>
+                    </div>
+                    <button class="regenerate-btn" @click="forceRegenerateAIReport" :disabled="loading.llm">
+                      <span class="material-symbols-outlined">refresh</span>
+                      重新生成报告
+                    </button>
+                  </div>
+                  <div class="markdown-body" v-html="renderedLLMReport"></div>
+                </div>
+              </div>
+
+              <!-- Rule Content -->
+              <div v-if="activeDiagSubTab === 'Rule'">
+                <div class="markdown-body" v-html="renderedReport"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Other Tabs -->
+        <div v-if="activeTab === 'SQL / DataFrame'" class="sql-view">
+          <SQLTab v-if="selectedExecutionId === null && app" :app-id="app.appId" @view-sql-detail="navigateToSql" />
+          <SQLDetailView v-else-if="app" :app-id="app.appId" :execution-id="selectedExecutionId" @back="navigateBackToSqlList" />
+        </div>
+
+        <div v-if="activeTab === 'Jobs'" class="jobs-view">
+          <JobsTab v-if="selectedJobId === null && app" :app-id="app.appId" @view-sql-detail="navigateToSql" @view-job-detail="navigateToJob" />
+          <JobDetailView v-else-if="app" :app-id="app.appId" :job-id="selectedJobId" @back="navigateBackToJobs" @view-stage="navigateToStage" />
+        </div>
+
+        <div v-if="activeTab === 'Stages'" class="stages-view">
+          <div v-if="selectedStageId === null">
+            <StageTable v-if="app" :app-id="app.appId" @view-stage-detail="navigateToStage" @view-job-detail="navigateToJob"/>
+          </div>
+          <StageDetailView v-else-if="app" :app-id="app.appId" :stage-id="selectedStageId" :attempt-id="selectedAttemptId" @back="navigateBackToStages" @view-job="handleViewJob" />
+        </div>
+
+        <ExecutorsTab v-if="activeTab === 'Executors'" :executors="executors"/>
+        
+        <div v-if="activeTab === 'Storage' && app" class="storage-view">
+          <StorageTab v-if="selectedRddId === null" :app-id="app.appId" @view-rdd-detail="navigateToRdd" />
+          <RddDetailView v-else :app-id="app.appId" :rdd-id="selectedRddId" @back="navigateBackToStorage" />
+        </div>
+
+        <EnvironmentTab v-if="activeTab === 'Environment'" :configs="environment"/>
       </div>
     </div>
 
-    <div class="content-area">
-      <!-- 1. Diagnosis Tab -->
-      <div v-if="activeTab === 'Diagnosis'" class="diagnosis-layout">
-        <div v-if="loading.diagnosis" class="loading-placeholder">
-          Generating expert diagnosis report...
-        </div>
-        <div v-else class="folder-card">
-          <!-- Sub Tabs -->
-          <div class="folder-tabs">
-            <div 
-              class="folder-tab" 
-              :class="{ active: activeDiagSubTab === 'Rule' }"
-              @click="activeDiagSubTab = 'Rule'"
-            >
-              <span class="material-symbols-outlined">rule</span>
-              规则引擎诊断报告 (Rule-Based Diagnostic Report)
-            </div>
-            <div 
-              class="folder-tab" 
-              :class="{ active: activeDiagSubTab === 'LLM' }"
-              @click="activeDiagSubTab = 'LLM'"
-            >
-              <span class="material-symbols-outlined">auto_awesome</span>
-              LLM 深度诊断报告 (LLM Diagnostic Report)
-            </div>
-          </div>
-
-          <!-- Folder Content -->
-          <div class="folder-content">
-            <!-- LLM Content -->
-            <div v-if="activeDiagSubTab === 'LLM'">
-              <!-- Initial State: Show only if no report, not loading, and not generating -->
-              <div v-if="!llmReport && !loading.llm && !isGenerating" class="ai-intro">
-                <p>利用智谱 GLM-4.7 大语言模型对 Spark 应用进行全方位深度分析，挖掘隐藏的性能瓶颈并提供专家级优化建议。</p>
-                <button class="generate-btn" @click="generateAIReport()">
-                  <span class="material-symbols-outlined">auto_awesome</span>
-                  生成深度诊断报告
-                </button>
-              </div>
-              
-              <!-- Loading/Generating State -->
-              <div v-if="loading.llm || isGenerating" class="ai-loading">
-                <div class="spinner"></div>
-                <span>AI 正在思考中</span>
-                <small class="polling-hint" v-if="isGenerating && elapsedSeconds > 0">
-                  已耗时: {{ elapsedSeconds }} 秒
-                </small>
-              </div>
-
-              <!-- Report Display -->
-              <div v-if="llmReport && llmReport !== '[GENERATING]' && llmReport !== 'GENERATING' && !isGenerating && !loading.llm" class="llm-report-wrapper">
-                <div class="report-header">
-                  <div class="header-left">
-                    <span class="report-title">
-                      <span class="material-symbols-outlined">psychology</span> 
-                      深度分析报告
-                    </span>
-                    <div class="generation-meta" v-if="generationMeta.startTime">
-                      <span class="meta-item">生成时间: {{ formatDateTime(generationMeta.endTime || generationMeta.startTime) }}</span>
-                      <span class="meta-item" v-if="generationMeta.duration">耗时: {{ formatTime(generationMeta.duration) }}</span>
-                    </div>
-                  </div>
-                  <button class="regenerate-btn" @click="forceRegenerateAIReport" :disabled="loading.llm">
-                    <span class="material-symbols-outlined">refresh</span>
-                    重新生成报告
-                  </button>
-                </div>
-                <div class="markdown-body" v-html="renderedLLMReport"></div>
-              </div>
-            </div>
-
-            <!-- Rule Content -->
-            <div v-if="activeDiagSubTab === 'Rule'">
-              <div class="markdown-body" v-html="renderedReport"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Other Tabs -->
-      <div v-if="activeTab === 'SQL / DataFrame'" class="sql-view">
-        <SQLTab v-if="selectedExecutionId === null && app" :app-id="app.appId" @view-sql-detail="navigateToSql" />
-        <SQLDetailView v-else-if="app" :app-id="app.appId" :execution-id="selectedExecutionId" @back="navigateBackToSqlList" />
-      </div>
-
-      <div v-if="activeTab === 'Jobs'" class="jobs-view">
-        <JobsTab v-if="selectedJobId === null && app" :app-id="app.appId" @view-sql-detail="navigateToSql" @view-job-detail="navigateToJob" />
-        <JobDetailView v-else-if="app" :app-id="app.appId" :job-id="selectedJobId" @back="navigateBackToJobs" @view-stage="navigateToStage" />
-      </div>
-
-      <div v-if="activeTab === 'Stages'" class="stages-view">
-        <div v-if="selectedStageId === null">
-          <StageTable v-if="app" :app-id="app.appId" @view-stage-detail="navigateToStage" @view-job-detail="navigateToJob"/>
-        </div>
-        <StageDetailView v-else-if="app" :app-id="app.appId" :stage-id="selectedStageId" :attempt-id="selectedAttemptId" @back="navigateBackToStages" @view-job="handleViewJob" />
-      </div>
-
-      <ExecutorsTab v-if="activeTab === 'Executors'" :executors="executors"/>
-      
-      <div v-if="activeTab === 'Storage' && app" class="storage-view">
-        <StorageTab v-if="selectedRddId === null" :app-id="app.appId" @view-rdd-detail="navigateToRdd" />
-        <RddDetailView v-else :app-id="app.appId" :rdd-id="selectedRddId" @back="navigateBackToStorage" />
-      </div>
-
-      <EnvironmentTab v-if="activeTab === 'Environment'" :configs="environment"/>
+    <!-- Loading Placeholder for the whole page -->
+    <div v-else-if="loading.app" class="global-loading">
+      <div class="spinner"></div>
+      <p>Loading application data...</p>
     </div>
 
     <!-- Restricted Access Modal -->
@@ -506,6 +514,16 @@ onUnmounted(() => {
 @keyframes slideDown {
   from { opacity: 0; transform: translateY(-20px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+.global-loading {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  color: #3498db;
+  gap: 15px;
 }
 
 .modal-header {

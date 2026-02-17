@@ -47,7 +47,7 @@ insight:
   duckdb:
     temp-directory: ${DUCKDB_TEMP_DIR:./spark_performance_insight.duckdb.db.tmp}
   scheduler:
-    scan-interval-seconds: 3600
+    scan-interval-seconds: 60
   comparison:
     ignore-categories:
       - classpath_entries

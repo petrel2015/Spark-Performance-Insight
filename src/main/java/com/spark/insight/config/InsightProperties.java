@@ -39,11 +39,6 @@ public class InsightProperties {
          * Enable scheduled scanning.
          */
         private boolean enabled = true;
-
-        /**
-         * Interval in seconds between scans.
-         */
-        private long scanIntervalSeconds = 10;
     }
 
     @Data

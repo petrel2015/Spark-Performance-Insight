@@ -59,20 +59,29 @@ public class EventLogWatcherService {
         }
     }
 
-    @Scheduled(fixedDelayString = "${insight.scheduler.scan-interval-seconds:10}000")
+    @Scheduled(fixedDelayString = "${insight.scheduler.scan-interval-seconds}000")
     public void scan() {
         if (!properties.getScheduler().isEnabled()) {
             return;
         }
 
+        log.info(">>> Starting log directory scan...");
         String logPath = properties.getEventLogPath();
         File directory = new File(logPath);
         if (!directory.exists() || !directory.isDirectory()) {
+            log.warn("Log directory does not exist or is not a directory: {}", logPath);
             return;
         }
 
         List<File> allFiles = new ArrayList<>();
         collectFiles(directory, allFiles);
+        
+        if (allFiles.isEmpty()) {
+            log.info("No log files found in {}", logPath);
+        } else {
+            log.info("Detected {} potential log files: {}", allFiles.size(), 
+                    allFiles.stream().map(File::getName).collect(Collectors.joining(", ")));
+        }
 
         Map<String, List<File>> appGroups = new HashMap<>();
         for (File file : allFiles) {
@@ -92,6 +101,8 @@ public class EventLogWatcherService {
                 handleExistingApp(existingApp, files, totalSize);
             }
         });
+        
+        log.info("<<< Log directory scan completed.");
     }
 
     private void handleNewApp(String appId, List<File> files, long totalSize) {
@@ -427,31 +438,39 @@ public class EventLogWatcherService {
     }
 
     private String inferAppId(String filename) {
-        if (filename.startsWith("event")) {
-            String[] parts = filename.split("_", 3);
+        if (filename == null) return null;
+
+        // 1. Strip known extensions first to avoid confusion
+        String baseName = filename;
+        if (baseName.endsWith(".zstd")) baseName = baseName.substring(0, baseName.length() - 5);
+        if (baseName.endsWith(".lz4")) baseName = baseName.substring(0, baseName.length() - 4);
+        if (baseName.endsWith(".snappy")) baseName = baseName.substring(0, baseName.length() - 7);
+        if (baseName.endsWith(".gz")) baseName = baseName.substring(0, baseName.length() - 3);
+
+        // 2. Try Spark standard appId pattern (spark-XXXX)
+        java.util.regex.Matcher matcher = APP_ID_PATTERN.matcher(baseName);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+
+        // 3. Handle 'event_...' pattern
+        if (baseName.startsWith("event")) {
+            String[] parts = baseName.split("_", 3);
             if (parts.length >= 3) {
                 return parts[2];
             }
         }
         
-        if (filename.startsWith("application_")) {
-            // Use regex to capture from 'application_' until the first dot or end of string
-            java.util.regex.Matcher m = java.util.regex.Pattern.compile("^(application_[0-9]+_[0-9]+).*").matcher(filename);
-            if (m.find()) {
-                return m.group(1);
-            }
-            // Fallback: strip all extensions
-            int dotIndex = filename.indexOf('.');
+        // 4. Handle 'application_...' pattern
+        if (baseName.startsWith("application_")) {
+            // Strip any remaining dots (e.g. if it was application_123.log.zstd)
+            int dotIndex = baseName.indexOf('.');
             if (dotIndex != -1) {
-                return filename.substring(0, dotIndex);
+                return baseName.substring(0, dotIndex);
             }
-            return filename;
+            return baseName;
         }
 
-        java.util.regex.Matcher matcher = APP_ID_PATTERN.matcher(filename);
-        if (matcher.find()) {
-            return matcher.group(1);
-        }
         return null;
     }
 

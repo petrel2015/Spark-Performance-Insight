@@ -18,6 +18,7 @@ import java.util.function.BiConsumer;
 public class BronzeIngestionService {
 
     private final JdbcTemplate jdbcTemplate;
+    private final DuckDBManagerService duckDBManager;
     private final com.spark.insight.config.InsightProperties properties;
 
     private static final Map<String, String> EVENT_TABLE_MAP = new HashMap<>();
@@ -154,50 +155,52 @@ public class BronzeIngestionService {
     }
 
     private void distributeFromTempTable(String appId, String fileName) {
-        jdbcTemplate.execute("CREATE TEMPORARY TABLE IF NOT EXISTS temp_valid_events (line VARCHAR, event_type VARCHAR)");
-        jdbcTemplate.execute("DELETE FROM temp_valid_events");
+        duckDBManager.runWithRetry(() -> {
+            jdbcTemplate.execute("CREATE TEMPORARY TABLE IF NOT EXISTS temp_valid_events (line VARCHAR, event_type VARCHAR)");
+            jdbcTemplate.execute("DELETE FROM temp_valid_events");
 
-        String extractSql = """
-            INSERT INTO temp_valid_events
-            SELECT line, event_type
-            FROM (
-                SELECT line, 
-                       CASE WHEN json_valid(line) THEN json_extract_string(line, '$.Event') ELSE NULL END as event_type
-                FROM temp_raw_lines
-            ) t
-            WHERE event_type IS NOT NULL
-            """;
-        jdbcTemplate.update(extractSql);
+            String extractSql = """
+                INSERT INTO temp_valid_events
+                SELECT line, event_type
+                FROM (
+                    SELECT line, 
+                           CASE WHEN json_valid(line) THEN json_extract_string(line, '$.Event') ELSE NULL END as event_type
+                    FROM temp_raw_lines
+                ) t
+                WHERE event_type IS NOT NULL
+                """;
+            jdbcTemplate.update(extractSql);
 
-        for (Map.Entry<String, String> entry : EVENT_TABLE_MAP.entrySet()) {
-            String eventName = entry.getKey();
-            String tableName = entry.getValue();
-            
-            String insertSql = """
-                INSERT INTO %s (app_id, file_name, raw_json)
-                SELECT ?, ?, line
+            for (Map.Entry<String, String> entry : EVENT_TABLE_MAP.entrySet()) {
+                String eventName = entry.getKey();
+                String tableName = entry.getValue();
+                
+                String insertSql = """
+                    INSERT INTO %s (app_id, file_name, raw_json)
+                    SELECT ?, ?, line
+                    FROM temp_valid_events
+                    WHERE event_type = ?
+                    """.formatted(tableName);
+                
+                jdbcTemplate.update(insertSql, appId, fileName, eventName);
+            }
+
+            StringBuilder knownEventsPart = new StringBuilder();
+            for (String event : EVENT_TABLE_MAP.keySet()) {
+                if (knownEventsPart.length() > 0) knownEventsPart.append(", ");
+                knownEventsPart.append("'").append(event).append("'");
+            }
+
+            String unknownSql = """
+                INSERT INTO bronze_event_unknown (app_id, file_name, event_name, raw_json)
+                SELECT ?, ?, event_type, line
                 FROM temp_valid_events
-                WHERE event_type = ?
-                """.formatted(tableName);
+                WHERE event_type NOT IN (%s)
+                """.formatted(knownEventsPart.toString());
             
-            jdbcTemplate.update(insertSql, appId, fileName, eventName);
-        }
-
-        StringBuilder knownEventsPart = new StringBuilder();
-        for (String event : EVENT_TABLE_MAP.keySet()) {
-            if (knownEventsPart.length() > 0) knownEventsPart.append(", ");
-            knownEventsPart.append("'").append(event).append("'");
-        }
-
-        String unknownSql = """
-            INSERT INTO bronze_event_unknown (app_id, file_name, event_name, raw_json)
-            SELECT ?, ?, event_type, line
-            FROM temp_valid_events
-            WHERE event_type NOT IN (%s)
-            """.formatted(knownEventsPart.toString());
-        
-        jdbcTemplate.update(unknownSql, appId, fileName);
-        jdbcTemplate.execute("DROP TABLE temp_valid_events");
+            jdbcTemplate.update(unknownSql, appId, fileName);
+            jdbcTemplate.execute("DROP TABLE temp_valid_events");
+        });
     }
 
     private int naturalOrderCompare(String s1, String s2) {

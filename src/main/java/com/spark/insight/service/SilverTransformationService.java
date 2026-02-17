@@ -12,41 +12,43 @@ import org.springframework.transaction.annotation.Transactional;
 public class SilverTransformationService {
 
     private final JdbcTemplate jdbcTemplate;
+    private final DuckDBManagerService duckDBManager;
 
     @Transactional
     public void transform(String appId, java.util.function.BiConsumer<Double, String> progressReporter) {
         log.info("Starting Silver transformation (Metadata & Feature Recovery) for app: {}", appId);
         progressReporter.accept(0.0, "Silver: Initializing...");
         
-        jdbcTemplate.execute("INSTALL json; LOAD json;");
-
-        cleanSilverData(appId);
+        duckDBManager.runWithRetry(() -> {
+            jdbcTemplate.execute("INSTALL json; LOAD json;");
+            cleanSilverData(appId);
+        });
 
         // 1. Extract Application Metadata First (to update "Initializing...")
         progressReporter.accept(5.0, "Silver: Extracting Metadata...");
-        transformApplicationMetadata(appId);
+        duckDBManager.runWithRetry(() -> transformApplicationMetadata(appId));
 
         // 2. Core transformations - Estimated weights based on complexity
         progressReporter.accept(10.0, "Silver: Transforming Tasks (Heavy)...");
-        transformTasks(appId);
+        duckDBManager.runWithRetry(() -> transformTasks(appId));
         
         progressReporter.accept(40.0, "Silver: Transforming Stages...");
-        transformStages(appId);
+        duckDBManager.runWithRetry(() -> transformStages(appId));
         
         progressReporter.accept(60.0, "Silver: Transforming Jobs...");
-        transformJobs(appId);
+        duckDBManager.runWithRetry(() -> transformJobs(appId));
         
         progressReporter.accept(75.0, "Silver: Transforming Executors...");
-        transformExecutors(appId);
+        duckDBManager.runWithRetry(() -> transformExecutors(appId));
         
         progressReporter.accept(85.0, "Silver: Transforming SQL Executions...");
-        transformSql(appId);
+        duckDBManager.runWithRetry(() -> transformSql(appId));
 
         progressReporter.accept(90.0, "Silver: Transforming Storage (RDDs & Blocks)...");
-        transformStorage(appId);
+        duckDBManager.runWithRetry(() -> transformStorage(appId));
         
         progressReporter.accept(95.0, "Silver: Finalizing Environment...");
-        transformEnvironment(appId);
+        duckDBManager.runWithRetry(() -> transformEnvironment(appId));
 
         progressReporter.accept(100.0, "Silver: Completed");
         log.info("Finished Silver transformation for app: {}", appId);

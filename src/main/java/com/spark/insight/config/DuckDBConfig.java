@@ -19,11 +19,16 @@ public class DuckDBConfig {
 
     @PostConstruct
     public void initDuckDB() {
+        applyDuckDBSettings();
+    }
+
+    public void applyDuckDBSettings() {
         InsightProperties.DuckDB duckdb = insightProperties.getDuckdb();
         if (duckdb.getThreads() == null && duckdb.getMemoryLimit() == null && duckdb.getTempDirectory() == null) {
             return;
         }
 
+        log.info("Initializing/Applying DuckDB settings...");
         try (Connection conn = dataSource.getConnection();
              Statement stmt = conn.createStatement()) {
             
@@ -46,8 +51,27 @@ public class DuckDBConfig {
                 stmt.execute("SET temp_directory = '" + duckdb.getTempDirectory() + "'");
             }
             
+            // Helpful for memory management
+            stmt.execute("PRAGMA shrink_free_list");
+            
         } catch (Exception e) {
             log.error("Failed to initialize DuckDB settings", e);
+        }
+    }
+
+    /**
+     * Attempts to "restart" DuckDB by shrinking memory and re-applying limits.
+     * In DuckDB JDBC, we can't easily kill the engine without closing all connections,
+     * but we can force memory release.
+     */
+    public void forceMemoryRelease() {
+        log.warn("FORCING DuckDB memory release (shrink_free_list)...");
+        try (Connection conn = dataSource.getConnection();
+             Statement stmt = conn.createStatement()) {
+            stmt.execute("PRAGMA shrink_free_list");
+            applyDuckDBSettings();
+        } catch (Exception e) {
+            log.error("Failed to force memory release", e);
         }
     }
 }

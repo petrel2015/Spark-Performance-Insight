@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class GoldAggregationService {
 
     private final JdbcTemplate jdbcTemplate;
+    private final DuckDBManagerService duckDBManager;
     private final StageService stageService;
 
     @Transactional
@@ -19,29 +20,31 @@ public class GoldAggregationService {
         log.info("Starting Gold aggregation and Sync (SQL Recovery Mode) for app: {}", appId);
         progressReporter.accept(0.0, "Gold: Initializing...");
 
-        cleanGoldData(appId);
+        duckDBManager.runWithRetry(() -> cleanGoldData(appId));
 
         progressReporter.accept(10.0, "Gold: Aggregating Stages & Tasks (Heavy)...");
-        aggregateStages(appId);
+        duckDBManager.runWithRetry(() -> aggregateStages(appId));
         
         progressReporter.accept(50.0, "Gold: Calculating Summary Metrics...");
-        stageService.calculateStageMetrics(appId);
+        duckDBManager.runWithRetry(() -> stageService.calculateStageMetrics(appId));
         
         progressReporter.accept(65.0, "Gold: Aggregating Jobs...");
-        aggregateJobs(appId);
+        duckDBManager.runWithRetry(() -> aggregateJobs(appId));
         
         progressReporter.accept(80.0, "Gold: Aggregating Executors...");
-        aggregateExecutors(appId);
+        duckDBManager.runWithRetry(() -> aggregateExecutors(appId));
         
         progressReporter.accept(90.0, "Gold: Aggregating SQL...");
-        aggregateSql(appId);
+        duckDBManager.runWithRetry(() -> aggregateSql(appId));
         
         progressReporter.accept(92.0, "Gold: Aggregating Storage (RDDs & Blocks)...");
-        aggregateStorage(appId);
+        duckDBManager.runWithRetry(() -> aggregateStorage(appId));
         
         progressReporter.accept(95.0, "Gold: Finalizing Application Metrics...");
-        aggregateEnvironment(appId);
-        aggregateApp(appId);
+        duckDBManager.runWithRetry(() -> {
+            aggregateEnvironment(appId);
+            aggregateApp(appId);
+        });
 
         progressReporter.accept(100.0, "Gold: Completed");
         log.info("Finished Gold aggregation and Sync for app: {}", appId);

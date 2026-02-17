@@ -11,7 +11,68 @@
 | **`gold_`** | 汇聚分析表，UI 直接读取的视图或物理表 | `gold_applications`, `gold_jobs` |
 | **`sys_`** | 系统内部管理表 | `sys_parsing_queue` |
 
-## 3. 内存保护与重试 (OOM Protection)
+## 3. 核心实体关系图 (ER Diagram)
+系统采用典型的层次化监控模型，所有实体均通过 `app_id` 进行顶级隔离。
+
+```mermaid
+erDiagram
+    GOLD_APPLICATIONS ||--o{ GOLD_SQL_EXECUTIONS : executes
+    GOLD_APPLICATIONS ||--o{ GOLD_ENVIRONMENT_CONFIGS : configures
+    GOLD_APPLICATIONS ||--o{ GOLD_EXECUTORS : manages
+    GOLD_APPLICATIONS ||--o{ GOLD_STORAGE_RDDS : persists
+    
+    GOLD_SQL_EXECUTIONS ||--o{ GOLD_JOBS : triggers
+    GOLD_JOBS ||--o{ GOLD_STAGES : contains
+    GOLD_STAGES ||--o{ GOLD_TASKS : executes
+    
+    GOLD_STORAGE_RDDS ||--o{ GOLD_STORAGE_BLOCKS : stores
+    GOLD_EXECUTORS ||--o{ GOLD_STORAGE_BLOCKS : hosts
+    GOLD_EXECUTORS ||--o{ GOLD_TASKS : runs
+
+    GOLD_APPLICATIONS {
+        string app_id PK
+        string app_name
+        timestamp start_time
+        string status
+        int performance_score
+    }
+
+    GOLD_SQL_EXECUTIONS {
+        string id PK
+        bigint execution_id
+        string description
+        string physical_plan
+    }
+
+    GOLD_JOBS {
+        string id PK
+        int job_id
+        bigint sql_execution_id FK
+        string status
+    }
+
+    GOLD_STAGES {
+        string id PK
+        int stage_id
+        int job_id FK
+        boolean is_skewed
+    }
+
+    GOLD_TASKS {
+        bigint task_id PK
+        int stage_id FK
+        string executor_id FK
+        bigint duration
+    }
+
+    GOLD_EXECUTORS {
+        string executor_id PK
+        string host
+        boolean is_active
+    }
+```
+
+## 4. 内存保护与重试 (OOM Protection)
 由于 DuckDB 运行在 JVM 进程内，当处理大规模数据（百万级 Task）时，可能会触碰内存阈值。
 
 ### 3.1 自动恢复算法

@@ -3,6 +3,32 @@
 ## 1. 支持的命名规范
 系统通过正则表达式自动识别并将关联的日志文件归类为同一个 Spark Application 实例。
 
+```mermaid
+graph LR
+    subgraph "Input Formats"
+        S[Single File]
+        D[V2 Directory]
+        R[Rolling Logs]
+    end
+
+    subgraph "Regex Dispatcher"
+        Pattern1["/spark-\w+/"]
+        Pattern2["/application_\d+_\d+/"]
+        Pattern3["/eventlog_v2_(.+)/"]
+    end
+
+    subgraph "Internal Representation"
+        App[Unified Application ID]
+    end
+
+    S --> Pattern1
+    R --> Pattern2
+    D --> Pattern3
+    Pattern1 --> App
+    Pattern2 --> App
+    Pattern3 --> App
+```
+
 | 模式类型 | 示例文件名 | 备注 |
 | :--- | :--- | :--- |
 | **标准 AppId** | `spark-48289a2...` | Spark 官方标准格式 |

@@ -65,64 +65,60 @@ public class GoldAggregationService {
     }
 
     private void aggregateStorage(String appId) {
-        // 1. First, populate gold_storage_blocks using the latest status for each block
+        log.info("Aggregating Storage (RDDs & Blocks) for app: {}", appId);
+
+        // 1. First, populate gold_storage_blocks using the latest status for each block from Silver
         String blocksSql = """
             INSERT INTO gold_storage_blocks (id, app_id, rdd_id, block_name, storage_level, memory_size, disk_size, executor_id, host)
+            WITH latest_blocks AS (
+                SELECT 
+                    app_id, block_id, rdd_id, storage_level, memory_size, disk_size, executor_id, host, status,
+                    row_number() OVER (PARTITION BY app_id, block_id, executor_id ORDER BY event_time DESC) as rn
+                FROM silver_storage_blocks
+                WHERE app_id = ?
+            ),
+            deleted_rdds AS (
+                SELECT DISTINCT rdd_id FROM silver_storage_blocks WHERE app_id = ? AND status = 'DELETED'
+            )
             SELECT 
                 uuid(),
-                app_id,
-                COALESCE((regexp_extract(block_id, 'rdd_([0-9]+)_', 1))::INT, -1) as rdd_id,
-                block_id,
-                storage_level,
-                mem_size,
-                disk_size,
-                exec_id,
-                host
-            FROM (
-                SELECT 
-                    app_id,
-                    json_extract_string(raw_json, '$."Block Updated Info"."Block ID"') as block_id,
-                    json_extract_string(raw_json, '$."Block Updated Info"."Storage Level"') as storage_level,
-                    (json_extract(raw_json, '$."Block Updated Info"."Mem Size"'))::BIGINT as mem_size,
-                    (json_extract(raw_json, '$."Block Updated Info"."Disk Size"'))::BIGINT as disk_size,
-                    json_extract_string(raw_json, '$."Block Updated Info"."Block Manager ID"."Executor ID"') as exec_id,
-                    json_extract_string(raw_json, '$."Block Updated Info"."Block Manager ID".Host') as host,
-                    row_number() OVER (PARTITION BY app_id, block_id, exec_id ORDER BY ingested_at DESC) as rn
-                FROM bronze_event_block_updated
-                WHERE app_id = ? AND json_valid(raw_json)
-            ) t
-            WHERE rn = 1 AND (mem_size > 0 OR disk_size > 0)
+                lb.app_id,
+                lb.rdd_id,
+                lb.block_id,
+                lb.storage_level,
+                lb.memory_size,
+                lb.disk_size,
+                lb.executor_id,
+                lb.host
+            FROM latest_blocks lb
+            LEFT JOIN deleted_rdds dr ON lb.rdd_id = dr.rdd_id
+            WHERE lb.rn = 1 
+              AND lb.status != 'DELETED' 
+              AND dr.rdd_id IS NULL
+              AND (lb.memory_size > 0 OR lb.disk_size > 0)
+              AND lb.block_id NOT LIKE '%_all'
             """;
-        jdbcTemplate.update(blocksSql, appId);
+        jdbcTemplate.update(blocksSql, appId, appId);
 
         // 2. Aggregate blocks to populate gold_storage_rdds
-        // Only include blocks that are actually part of an RDD (rdd_id > -1)
         String rddsSql = """
             INSERT INTO gold_storage_rdds (id, app_id, rdd_id, name, storage_level, num_partitions, num_cached_partitions, memory_size, disk_size)
-            WITH rdd_metadata AS (
-                SELECT DISTINCT
-                    json_extract_string(r, '$."RDD ID"')::INT as rdd_id,
-                    json_extract_string(r, '$."Name"') as rdd_name,
-                    json_extract_string(r, '$."Number of Partitions"')::INT as part_count
-                FROM silver_stages, unnest(CAST(rdd_info AS JSON[])) as r
-                WHERE app_id = ?
-            )
             SELECT 
                 uuid(),
                 sb.app_id,
                 sb.rdd_id,
-                COALESCE(rm.rdd_name, 'RDD ' || sb.rdd_id),
+                COALESCE(ri.name, 'RDD ' || sb.rdd_id),
                 max(sb.storage_level),
-                COALESCE(max(rm.part_count), count(DISTINCT sb.block_name)),
+                COALESCE(max(ri.num_partitions), count(DISTINCT sb.block_name)),
                 count(DISTINCT sb.block_name),
                 sum(sb.memory_size),
                 sum(sb.disk_size)
             FROM gold_storage_blocks sb
-            LEFT JOIN rdd_metadata rm ON sb.rdd_id = rm.rdd_id
-            WHERE sb.app_id = ? AND sb.rdd_id > -1
-            GROUP BY sb.app_id, sb.rdd_id, rm.rdd_name
+            LEFT JOIN silver_rdd_info ri ON sb.app_id = ri.app_id AND sb.rdd_id = ri.rdd_id
+            WHERE sb.app_id = ?
+            GROUP BY sb.app_id, sb.rdd_id, ri.name
             """;
-        jdbcTemplate.update(rddsSql, appId, appId);
+        jdbcTemplate.update(rddsSql, appId);
     }
 
     private void aggregateStages(String appId) {

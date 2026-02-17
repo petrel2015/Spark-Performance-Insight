@@ -275,3 +275,29 @@ CREATE INDEX IF NOT EXISTS idx_silver_sql_app_exec ON silver_sql_executions(app_
 
 CREATE TABLE IF NOT EXISTS silver_environment_configs (app_id VARCHAR, param_key VARCHAR, param_value VARCHAR, category VARCHAR);
 CREATE INDEX IF NOT EXISTS idx_silver_env_app ON silver_environment_configs(app_id);
+
+CREATE TABLE IF NOT EXISTS silver_storage_blocks (
+    app_id VARCHAR,
+    block_id VARCHAR,
+    rdd_id INT,
+    name VARCHAR,
+    storage_level VARCHAR,
+    memory_size BIGINT,
+    disk_size BIGINT,
+    executor_id VARCHAR,
+    host VARCHAR,
+    status VARCHAR, -- UPDATED, DELETED
+    event_time TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_silver_storage_app ON silver_storage_blocks(app_id, block_id);
+
+CREATE TABLE IF NOT EXISTS silver_rdd_info (
+    app_id VARCHAR,
+    rdd_id INT,
+    name VARCHAR,
+    storage_level VARCHAR,
+    num_partitions INT,
+    callsite TEXT,
+    scope TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_silver_rdd_app ON silver_rdd_info(app_id, rdd_id);

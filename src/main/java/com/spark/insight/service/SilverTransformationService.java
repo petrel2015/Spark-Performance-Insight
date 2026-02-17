@@ -41,6 +41,9 @@ public class SilverTransformationService {
         
         progressReporter.accept(85.0, "Silver: Transforming SQL Executions...");
         transformSql(appId);
+
+        progressReporter.accept(90.0, "Silver: Transforming Storage (RDDs & Blocks)...");
+        transformStorage(appId);
         
         progressReporter.accept(95.0, "Silver: Finalizing Environment...");
         transformEnvironment(appId);
@@ -61,6 +64,65 @@ public class SilverTransformationService {
         jdbcTemplate.update("DELETE FROM silver_executors WHERE app_id = ?", appId);
         jdbcTemplate.update("DELETE FROM silver_sql_executions WHERE app_id = ?", appId);
         jdbcTemplate.update("DELETE FROM silver_environment_configs WHERE app_id = ?", appId);
+        jdbcTemplate.update("DELETE FROM silver_storage_blocks WHERE app_id = ?", appId);
+        jdbcTemplate.update("DELETE FROM silver_rdd_info WHERE app_id = ?", appId);
+    }
+
+    private void transformStorage(String appId) {
+        log.debug("Transforming Storage (RDD & Blocks) for app: {}", appId);
+
+        // 1. Extract RDD metadata from Stage Submitted events (RDD Info is an array)
+        String rddSql = """
+            INSERT INTO silver_rdd_info
+            SELECT DISTINCT ON (app_id, rdd_id)
+                app_id, 
+                (rdd->>'RDD ID')::INT as rdd_id,
+                rdd->>'Name' as name,
+                rdd->>'Storage Level' as storage_level,
+                (rdd->>'Number of Partitions')::INT as num_partitions,
+                rdd->>'Callsite' as callsite,
+                rdd->>'Scope' as scope
+            FROM (
+                SELECT app_id, unnest(CAST(json_extract(raw_json, '$."Stage Info"."RDD Info"') AS JSON[])) as rdd
+                FROM bronze_event_stage_submitted WHERE app_id = ?
+            )
+            ORDER BY app_id, rdd_id, (rdd->>'RDD ID')::INT
+            """;
+        jdbcTemplate.update(rddSql, appId);
+
+        // 2. Extract Block Updates
+        String blockSql = """
+            INSERT INTO silver_storage_blocks
+            SELECT 
+                app_id,
+                json_extract_string(raw_json, '$."Block ID"') as block_id,
+                -- Extract RDD ID from Block ID (e.g., rdd_12_1 -> 12)
+                (regexp_extract(json_extract_string(raw_json, '$."Block ID"'), 'rdd_(\\d+)_', 1))::INT as rdd_id,
+                json_extract_string(raw_json, '$."Block ID"') as name,
+                json_extract_string(raw_json, '$."Storage Level"') as storage_level,
+                (json_extract(raw_json, '$."Memory Size"'))::BIGINT as memory_size,
+                (json_extract(raw_json, '$."Disk Size"'))::BIGINT as disk_size,
+                -- Handle both "Executor ID" (standard) and "Block Manager ID" (sometimes nested)
+                COALESCE(json_extract_string(raw_json, '$."Executor ID"'), json_extract_string(raw_json, '$."Block Manager ID".Executor ID')) as executor_id,
+                json_extract_string(raw_json, '$."Block Manager ID".Host') as host,
+                'UPDATED' as status,
+                epoch_ms((json_extract(raw_json, '$.Timestamp'))::BIGINT) as event_time
+            FROM bronze_event_block_updated WHERE app_id = ?
+            """;
+        jdbcTemplate.update(blockSql, appId);
+
+        // 3. Handle Unpersist RDD (Mark blocks as DELETED)
+        String unpersistSql = """
+            INSERT INTO silver_storage_blocks (app_id, block_id, rdd_id, status, event_time)
+            SELECT 
+                app_id,
+                'rdd_' || (json_extract(raw_json, '$."RDD ID"'))::INT || '_all' as block_id,
+                (json_extract(raw_json, '$."RDD ID"'))::INT as rdd_id,
+                'DELETED' as status,
+                epoch_ms((json_extract(raw_json, '$.Timestamp'))::BIGINT)
+            FROM bronze_event_unpersist_rdd WHERE app_id = ?
+            """;
+        jdbcTemplate.update(unpersistSql, appId);
     }
 
     private void transformApplicationMetadata(String appId) {

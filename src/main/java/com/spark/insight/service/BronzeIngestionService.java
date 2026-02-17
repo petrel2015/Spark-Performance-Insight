@@ -18,6 +18,7 @@ import java.util.function.BiConsumer;
 public class BronzeIngestionService {
 
     private final JdbcTemplate jdbcTemplate;
+    private final com.spark.insight.config.InsightProperties properties;
 
     private static final Map<String, String> EVENT_TABLE_MAP = new HashMap<>();
 
@@ -37,6 +38,8 @@ public class BronzeIngestionService {
         EVENT_TABLE_MAP.put("org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd", "bronze_event_sql_execution_end");
         EVENT_TABLE_MAP.put("SparkListenerEnvironmentUpdate", "bronze_event_environment_update");
         EVENT_TABLE_MAP.put("SparkListenerLogStart", "bronze_event_log_start");
+        EVENT_TABLE_MAP.put("SparkListenerBlockUpdated", "bronze_event_block_updated");
+        EVENT_TABLE_MAP.put("SparkListenerUnpersistRDD", "bronze_event_unpersist_rdd");
     }
 
     @Transactional
@@ -83,7 +86,7 @@ public class BronzeIngestionService {
 
         log.info("Ingesting {} ({} lines) in chunks", fileName, totalLines);
 
-        int chunkSize = 50000;
+        int chunkSize = properties.getIngestion().getBatchSize();
         jdbcTemplate.execute("CREATE TEMPORARY TABLE IF NOT EXISTS temp_raw_lines (line VARCHAR)");
 
         for (long offset = 0; offset < totalLines; offset += chunkSize) {

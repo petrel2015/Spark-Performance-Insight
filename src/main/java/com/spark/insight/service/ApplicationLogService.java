@@ -2,7 +2,7 @@ package com.spark.insight.service;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.spark.insight.mapper.ApplicationLogMapper;
-import com.spark.insight.model.ApplicationLogModel;
+import com.spark.insight.model.SysApplicationLogModel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -11,11 +11,11 @@ import java.util.UUID;
 
 @Slf4j
 @Service
-public class ApplicationLogService extends ServiceImpl<ApplicationLogMapper, ApplicationLogModel> {
+public class ApplicationLogService extends ServiceImpl<ApplicationLogMapper, SysApplicationLogModel> {
 
     public void logEvent(String appId, String type, String name, String details) {
         try {
-            ApplicationLogModel logEntry = new ApplicationLogModel();
+            SysApplicationLogModel logEntry = new SysApplicationLogModel();
             logEntry.setId(UUID.randomUUID().toString());
             logEntry.setAppId(appId);
             logEntry.setEventType(type);
@@ -31,12 +31,12 @@ public class ApplicationLogService extends ServiceImpl<ApplicationLogMapper, App
 
     public java.util.List<String> getCompletedStages(String appId) {
         return lambdaQuery()
-                .eq(ApplicationLogModel::getAppId, appId)
-                .in(ApplicationLogModel::getEventName, "Bronze Finished", "Silver Finished", "Gold Finished")
-                .select(ApplicationLogModel::getEventName)
+                .eq(SysApplicationLogModel::getAppId, appId)
+                .in(SysApplicationLogModel::getEventName, "Bronze Finished", "Silver Finished", "Gold Finished")
+                .select(SysApplicationLogModel::getEventName)
                 .list()
                 .stream()
-                .map(ApplicationLogModel::getEventName)
+                .map(SysApplicationLogModel::getEventName)
                 .collect(java.util.stream.Collectors.toList());
     }
 }

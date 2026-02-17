@@ -7,8 +7,8 @@ import lombok.experimental.Accessors;
 
 @Data
 @Accessors(chain = true)
-@TableName("stage_statistics")
-public class StageStatisticsModel {
+@TableName("gold_stage_statistics")
+public class GoldStageStatisticsModel {
     @TableId
     private String id;
     private String appId;

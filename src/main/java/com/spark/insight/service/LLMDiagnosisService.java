@@ -69,7 +69,7 @@ public class LLMDiagnosisService {
     public String generateReport(String appId, boolean force) {
         try {
             // 1. 检查缓存或生成状态
-            ApplicationModel app = applicationService.getById(appId);
+            GoldApplicationModel app = applicationService.getById(appId);
             if (app != null && !force) {
                 String existingReport = app.getLlmReport();
                 if (existingReport != null) {
@@ -87,10 +87,10 @@ public class LLMDiagnosisService {
 
             // 2. 标记为生成中 (记录开始时间)
             applicationService.lambdaUpdate()
-                    .eq(ApplicationModel::getAppId, appId)
-                    .set(ApplicationModel::getLlmReport, "[GENERATING]")
-                    .set(ApplicationModel::getLlmStartTime, System.currentTimeMillis())
-                    .set(ApplicationModel::getLlmEndTime, null)
+                    .eq(GoldApplicationModel::getAppId, appId)
+                    .set(GoldApplicationModel::getLlmReport, "[GENERATING]")
+                    .set(GoldApplicationModel::getLlmStartTime, System.currentTimeMillis())
+                    .set(GoldApplicationModel::getLlmEndTime, null)
                     .update();
 
             Map<String, Object> contextMap = buildAnalysisContextMap(appId);
@@ -109,14 +109,14 @@ public class LLMDiagnosisService {
             // 4. 更新结果 (记录结束时间)
             if (report != null && !report.isEmpty()) {
                 applicationService.lambdaUpdate()
-                        .eq(ApplicationModel::getAppId, appId)
-                        .set(ApplicationModel::getLlmReport, report)
-                        .set(ApplicationModel::getLlmEndTime, System.currentTimeMillis())
+                        .eq(GoldApplicationModel::getAppId, appId)
+                        .set(GoldApplicationModel::getLlmReport, report)
+                        .set(GoldApplicationModel::getLlmEndTime, System.currentTimeMillis())
                         .update();
             } else {
                 applicationService.lambdaUpdate()
-                        .eq(ApplicationModel::getAppId, appId)
-                        .set(ApplicationModel::getLlmReport, null)
+                        .eq(GoldApplicationModel::getAppId, appId)
+                        .set(GoldApplicationModel::getLlmReport, null)
                         .update();
             }
             
@@ -126,8 +126,8 @@ public class LLMDiagnosisService {
             log.error("LLM Diagnosis failed", exception);
             // 重置状态
             applicationService.lambdaUpdate()
-                    .eq(ApplicationModel::getAppId, appId)
-                    .set(ApplicationModel::getLlmReport, null)
+                    .eq(GoldApplicationModel::getAppId, appId)
+                    .set(GoldApplicationModel::getLlmReport, null)
                     .update();
             return "Failed to generate deep diagnosis report: " + exception.getMessage();
         }
@@ -135,7 +135,7 @@ public class LLMDiagnosisService {
 
     private Map<String, Object> buildAnalysisContextMap(String appId) {
         try {
-            ApplicationModel app = applicationService.getById(appId);
+            GoldApplicationModel app = applicationService.getById(appId);
             if (app == null) {
                 return new HashMap<>();
             }
@@ -150,9 +150,9 @@ public class LLMDiagnosisService {
             ));
 
             // 2. Top 10 Slowest Stages (纯原始指标，不含评分)
-            List<StageModel> stages = stageService.lambdaQuery()
-                    .eq(StageModel::getAppId, appId)
-                    .orderByDesc(StageModel::getDuration) // 按耗时倒序
+            List<GoldStageModel> stages = stageService.lambdaQuery()
+                    .eq(GoldStageModel::getAppId, appId)
+                    .orderByDesc(GoldStageModel::getDuration) // 按耗时倒序
                     .last("LIMIT 10")
                     .list();
             
@@ -181,15 +181,15 @@ public class LLMDiagnosisService {
             }).collect(Collectors.toList()));
 
             // 3. Environment Configs (全量关键参数)
-            List<EnvironmentConfigModel> allConfigs = envService.lambdaQuery()
-                    .eq(EnvironmentConfigModel::getAppId, appId)
+            List<GoldEnvironmentConfigModel> allConfigs = envService.lambdaQuery()
+                    .eq(GoldEnvironmentConfigModel::getAppId, appId)
                     .list();
             
             Map<String, String> relevantConfigs = allConfigs.stream()
                     .filter(config -> {
                         return isRelevantConfig(config.getParamKey());
                     })
-                    .collect(Collectors.toMap(EnvironmentConfigModel::getParamKey, EnvironmentConfigModel::getParamValue, (value1, value2) -> {
+                    .collect(Collectors.toMap(GoldEnvironmentConfigModel::getParamKey, GoldEnvironmentConfigModel::getParamValue, (value1, value2) -> {
                         return value1;
                     }));
             context.put("spark_configuration", relevantConfigs);

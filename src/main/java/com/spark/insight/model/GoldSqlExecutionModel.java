@@ -10,7 +10,7 @@ import java.util.List;
 
 @Data
 @TableName("gold_sql_executions")
-public class SqlExecutionModel {
+public class GoldSqlExecutionModel {
     @TableId
     private String id; // appId:executionId
     private String appId;
@@ -29,5 +29,5 @@ public class SqlExecutionModel {
     private List<Integer> jobIds;
 
     @TableField(exist = false)
-    private List<JobModel> jobList;
+    private List<GoldJobModel> jobList;
 }

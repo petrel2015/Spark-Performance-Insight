@@ -6,7 +6,7 @@ import lombok.Data;
 
 @Data
 @TableName("gold_tasks")
-public class TaskModel {
+public class GoldTaskModel {
     @TableId
     private String id;
     private String appId;

@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class GoldAggregationService {
 
     private final JdbcTemplate jdbcTemplate;
+    private final StageService stageService;
 
     @Transactional
     public void aggregate(String appId, java.util.function.BiConsumer<Double, String> progressReporter) {
@@ -23,7 +24,10 @@ public class GoldAggregationService {
         progressReporter.accept(10.0, "Gold: Aggregating Stages & Tasks (Heavy)...");
         aggregateStages(appId);
         
-        progressReporter.accept(60.0, "Gold: Aggregating Jobs...");
+        progressReporter.accept(50.0, "Gold: Calculating Summary Metrics...");
+        stageService.calculateStageMetrics(appId);
+        
+        progressReporter.accept(65.0, "Gold: Aggregating Jobs...");
         aggregateJobs(appId);
         
         progressReporter.accept(80.0, "Gold: Aggregating Executors...");
@@ -31,6 +35,9 @@ public class GoldAggregationService {
         
         progressReporter.accept(90.0, "Gold: Aggregating SQL...");
         aggregateSql(appId);
+        
+        progressReporter.accept(92.0, "Gold: Aggregating Storage (RDDs & Blocks)...");
+        aggregateStorage(appId);
         
         progressReporter.accept(95.0, "Gold: Finalizing Application Metrics...");
         aggregateEnvironment(appId);
@@ -53,6 +60,69 @@ public class GoldAggregationService {
         jdbcTemplate.update("DELETE FROM gold_executors WHERE app_id = ?", appId);
         jdbcTemplate.update("DELETE FROM gold_sql_executions WHERE app_id = ?", appId);
         jdbcTemplate.update("DELETE FROM gold_environment_configs WHERE app_id = ?", appId);
+        jdbcTemplate.update("DELETE FROM gold_storage_rdds WHERE app_id = ?", appId);
+        jdbcTemplate.update("DELETE FROM gold_storage_blocks WHERE app_id = ?", appId);
+    }
+
+    private void aggregateStorage(String appId) {
+        // 1. First, populate gold_storage_blocks using the latest status for each block
+        String blocksSql = """
+            INSERT INTO gold_storage_blocks (id, app_id, rdd_id, block_name, storage_level, memory_size, disk_size, executor_id, host)
+            SELECT 
+                uuid(),
+                app_id,
+                COALESCE((regexp_extract(block_id, 'rdd_([0-9]+)_', 1))::INT, -1) as rdd_id,
+                block_id,
+                storage_level,
+                mem_size,
+                disk_size,
+                exec_id,
+                host
+            FROM (
+                SELECT 
+                    app_id,
+                    json_extract_string(raw_json, '$."Block Updated Info"."Block ID"') as block_id,
+                    json_extract_string(raw_json, '$."Block Updated Info"."Storage Level"') as storage_level,
+                    (json_extract(raw_json, '$."Block Updated Info"."Mem Size"'))::BIGINT as mem_size,
+                    (json_extract(raw_json, '$."Block Updated Info"."Disk Size"'))::BIGINT as disk_size,
+                    json_extract_string(raw_json, '$."Block Updated Info"."Block Manager ID"."Executor ID"') as exec_id,
+                    json_extract_string(raw_json, '$."Block Updated Info"."Block Manager ID".Host') as host,
+                    row_number() OVER (PARTITION BY app_id, block_id, exec_id ORDER BY ingested_at DESC) as rn
+                FROM bronze_event_block_updated
+                WHERE app_id = ? AND json_valid(raw_json)
+            ) t
+            WHERE rn = 1 AND (mem_size > 0 OR disk_size > 0)
+            """;
+        jdbcTemplate.update(blocksSql, appId);
+
+        // 2. Aggregate blocks to populate gold_storage_rdds
+        // Only include blocks that are actually part of an RDD (rdd_id > -1)
+        String rddsSql = """
+            INSERT INTO gold_storage_rdds (id, app_id, rdd_id, name, storage_level, num_partitions, num_cached_partitions, memory_size, disk_size)
+            WITH rdd_metadata AS (
+                SELECT DISTINCT
+                    json_extract_string(r, '$."RDD ID"')::INT as rdd_id,
+                    json_extract_string(r, '$."Name"') as rdd_name,
+                    json_extract_string(r, '$."Number of Partitions"')::INT as part_count
+                FROM silver_stages, unnest(CAST(rdd_info AS JSON[])) as r
+                WHERE app_id = ?
+            )
+            SELECT 
+                uuid(),
+                sb.app_id,
+                sb.rdd_id,
+                COALESCE(rm.rdd_name, 'RDD ' || sb.rdd_id),
+                max(sb.storage_level),
+                COALESCE(max(rm.part_count), count(DISTINCT sb.block_name)),
+                count(DISTINCT sb.block_name),
+                sum(sb.memory_size),
+                sum(sb.disk_size)
+            FROM gold_storage_blocks sb
+            LEFT JOIN rdd_metadata rm ON sb.rdd_id = rm.rdd_id
+            WHERE sb.app_id = ? AND sb.rdd_id > -1
+            GROUP BY sb.app_id, sb.rdd_id, rm.rdd_name
+            """;
+        jdbcTemplate.update(rddsSql, appId, appId);
     }
 
     private void aggregateStages(String appId) {

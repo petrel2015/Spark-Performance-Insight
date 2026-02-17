@@ -4,8 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.spark.insight.mapper.StageMapper;
 import com.spark.insight.mapper.StageStatisticsMapper;
-import com.spark.insight.model.StageModel;
-import com.spark.insight.model.StageStatisticsModel;
+import com.spark.insight.model.GoldStageModel;
+import com.spark.insight.model.GoldStageStatisticsModel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -15,11 +15,11 @@ import java.util.List;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class StageService extends ServiceImpl<StageMapper, StageModel> {
+public class StageService extends ServiceImpl<StageMapper, GoldStageModel> {
 
     private final StageStatisticsMapper stageStatisticsMapper;
 
-    public StageModel getById(String id) {
+    public GoldStageModel getById(String id) {
         return super.getById(id);
     }
 
@@ -36,8 +36,8 @@ public class StageService extends ServiceImpl<StageMapper, StageModel> {
         mapper.insertTaskStats(appId);
     }
 
-    public List<StageStatisticsModel> getStageStats(String appId, Integer stageId, Integer attemptId) {
-        return stageStatisticsMapper.selectList(new QueryWrapper<StageStatisticsModel>()
+    public List<GoldStageStatisticsModel> getStageStats(String appId, Integer stageId, Integer attemptId) {
+        return stageStatisticsMapper.selectList(new QueryWrapper<GoldStageStatisticsModel>()
                 .eq("app_id", appId)
                 .eq("stage_id", stageId)
                 .eq("attempt_id", attemptId));
@@ -55,11 +55,11 @@ public class StageService extends ServiceImpl<StageMapper, StageModel> {
         return baseMapper.getJobExecutorSummary(appId, jobId);
     }
 
-    public StageModel getStage(String appId, Integer stageId, Integer attemptId) {
+    public GoldStageModel getStage(String appId, Integer stageId, Integer attemptId) {
         return lambdaQuery()
-                .eq(StageModel::getAppId, appId)
-                .eq(StageModel::getStageId, stageId)
-                .eq(StageModel::getAttemptId, attemptId)
+                .eq(GoldStageModel::getAppId, appId)
+                .eq(GoldStageModel::getStageId, stageId)
+                .eq(GoldStageModel::getAttemptId, attemptId)
                 .one();
     }
 }

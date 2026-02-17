@@ -7,7 +7,7 @@ import lombok.Data;
 
 @Data
 @TableName("gold_environment_configs")
-public class EnvironmentConfigModel {
+public class GoldEnvironmentConfigModel {
     @TableId(type = IdType.INPUT)
     private String id;
     private String appId;

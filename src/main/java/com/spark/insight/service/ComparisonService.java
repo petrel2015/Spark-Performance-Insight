@@ -1,8 +1,8 @@
 package com.spark.insight.service;
 
-import com.spark.insight.model.EnvironmentConfigModel;
-import com.spark.insight.model.JobModel;
-import com.spark.insight.model.StageModel;
+import com.spark.insight.model.GoldEnvironmentConfigModel;
+import com.spark.insight.model.GoldJobModel;
+import com.spark.insight.model.GoldStageModel;
 import com.spark.insight.model.dto.ComparisonResult;
 import com.spark.insight.model.dto.ComparisonResult.ConfigDiff;
 import com.spark.insight.model.dto.ComparisonResult.ItemMeta;
@@ -40,8 +40,8 @@ public class ComparisonService {
     }
 
     private ComparisonResult compareApplications(String appId1, String appId2) {
-        com.spark.insight.model.ApplicationModel app1 = applicationService.getById(appId1);
-        com.spark.insight.model.ApplicationModel app2 = applicationService.getById(appId2);
+        com.spark.insight.model.GoldApplicationModel app1 = applicationService.getById(appId1);
+        com.spark.insight.model.GoldApplicationModel app2 = applicationService.getById(appId2);
 
         if (app1 == null) throw new RuntimeException("Application not found: " + appId1);
         if (app2 == null) throw new RuntimeException("Application not found: " + appId2);
@@ -64,8 +64,8 @@ public class ComparisonService {
     }
 
     private ComparisonResult compareStages(String appId1, int stageId1, String appId2, int stageId2) {
-        StageModel stage1 = stageService.getStage(appId1, stageId1, 0);
-        StageModel stage2 = stageService.getStage(appId2, stageId2, 0);
+        GoldStageModel stage1 = stageService.getStage(appId1, stageId1, 0);
+        GoldStageModel stage2 = stageService.getStage(appId2, stageId2, 0);
 
         if (stage1 == null) throw new RuntimeException("Stage " + stageId1 + " not found in application: " + appId1);
         if (stage2 == null) throw new RuntimeException("Stage " + stageId2 + " not found in application: " + appId2);
@@ -121,8 +121,8 @@ public class ComparisonService {
     }
 
     private ComparisonResult compareJobs(String appId1, int jobId1, String appId2, int jobId2) {
-        JobModel job1 = jobService.getJob(appId1, jobId1);
-        JobModel job2 = jobService.getJob(appId2, jobId2);
+        GoldJobModel job1 = jobService.getJob(appId1, jobId1);
+        GoldJobModel job2 = jobService.getJob(appId2, jobId2);
 
         if (job1 == null) throw new RuntimeException("Job " + jobId1 + " not found in application: " + appId1);
         if (job2 == null) throw new RuntimeException("Job " + jobId2 + " not found in application: " + appId2);
@@ -165,15 +165,15 @@ public class ComparisonService {
     private List<ConfigDiff> fetchResourceConfigs(String appId1, String appId2) {
         List<ConfigDiff> diffs = new ArrayList<>();
         // Fetch all configs
-        List<EnvironmentConfigModel> list1 = envService.lambdaQuery().eq(EnvironmentConfigModel::getAppId, appId1).list();
-        List<EnvironmentConfigModel> list2 = envService.lambdaQuery().eq(EnvironmentConfigModel::getAppId, appId2).list();
+        List<GoldEnvironmentConfigModel> list1 = envService.lambdaQuery().eq(GoldEnvironmentConfigModel::getAppId, appId1).list();
+        List<GoldEnvironmentConfigModel> list2 = envService.lambdaQuery().eq(GoldEnvironmentConfigModel::getAppId, appId2).list();
 
         // Use category + key as the map key to avoid collisions
-        Map<String, EnvironmentConfigModel> map1 = list1.stream().collect(java.util.stream.Collectors.toMap(
+        Map<String, GoldEnvironmentConfigModel> map1 = list1.stream().collect(java.util.stream.Collectors.toMap(
                 config -> config.getCategory() + "||" + config.getParamKey(),
                 config -> config,
                 (configA, configB) -> configA));
-        Map<String, EnvironmentConfigModel> map2 = list2.stream().collect(java.util.stream.Collectors.toMap(
+        Map<String, GoldEnvironmentConfigModel> map2 = list2.stream().collect(java.util.stream.Collectors.toMap(
                 config -> config.getCategory() + "||" + config.getParamKey(),
                 config -> config,
                 (configA, configB) -> configA));
@@ -183,13 +183,13 @@ public class ComparisonService {
         allCompositeKeys.addAll(map2.keySet());
 
         for (String compositeKey : allCompositeKeys) {
-            EnvironmentConfigModel envConfig1 = map1.get(compositeKey);
-            EnvironmentConfigModel envConfig2 = map2.get(compositeKey);
+            GoldEnvironmentConfigModel envConfig1 = map1.get(compositeKey);
+            GoldEnvironmentConfigModel envConfig2 = map2.get(compositeKey);
 
             if (isConfigDifferent(envConfig1, envConfig2)) {
-                Optional<EnvironmentConfigModel> optConfig = Optional.ofNullable(envConfig1).or(() -> Optional.ofNullable(envConfig2));
+                Optional<GoldEnvironmentConfigModel> optConfig = Optional.ofNullable(envConfig1).or(() -> Optional.ofNullable(envConfig2));
                 
-                String category = optConfig.map(EnvironmentConfigModel::getCategory).orElse("Unknown");
+                String category = optConfig.map(GoldEnvironmentConfigModel::getCategory).orElse("Unknown");
                 if (insightProperties.getComparison().getIgnoreCategories().stream()
                         .anyMatch(ignore -> ignore.equalsIgnoreCase(category))) {
                     continue;
@@ -197,9 +197,9 @@ public class ComparisonService {
 
                 diffs.add(ConfigDiff.builder()
                         .category(category)
-                        .key(optConfig.map(EnvironmentConfigModel::getParamKey).orElse("Unknown"))
-                        .sourceValue(Optional.ofNullable(envConfig1).map(EnvironmentConfigModel::getParamValue).orElse("N/A"))
-                        .targetValue(Optional.ofNullable(envConfig2).map(EnvironmentConfigModel::getParamValue).orElse("N/A"))
+                        .key(optConfig.map(GoldEnvironmentConfigModel::getParamKey).orElse("Unknown"))
+                        .sourceValue(Optional.ofNullable(envConfig1).map(GoldEnvironmentConfigModel::getParamValue).orElse("N/A"))
+                        .targetValue(Optional.ofNullable(envConfig2).map(GoldEnvironmentConfigModel::getParamValue).orElse("N/A"))
                         .build());
             }
         }
@@ -210,8 +210,8 @@ public class ComparisonService {
         return diffs;
     }
 
-    private boolean isConfigDifferent(@Nullable EnvironmentConfigModel config1,
-                                     @Nullable EnvironmentConfigModel config2) {
+    private boolean isConfigDifferent(@Nullable GoldEnvironmentConfigModel config1,
+                                     @Nullable GoldEnvironmentConfigModel config2) {
         String value1 = config1 != null ? config1.getParamValue() : null;
         String value2 = config2 != null ? config2.getParamValue() : null;
 

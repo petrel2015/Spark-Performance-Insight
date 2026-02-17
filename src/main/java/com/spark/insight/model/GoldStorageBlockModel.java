@@ -5,16 +5,16 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
 @Data
-@TableName("storage_rdds")
-public class StorageRddModel {
+@TableName("gold_storage_blocks")
+public class GoldStorageBlockModel {
     @TableId
-    private String id; // appId:rddId
+    private String id; // appId:rddId:blockName
     private String appId;
     private Integer rddId;
-    private String name;
+    private String blockName;
     private String storageLevel;
-    private Integer numPartitions;
-    private Integer numCached_partitions;
     private Long memorySize;
     private Long diskSize;
+    private String executorId;
+    private String host;
 }

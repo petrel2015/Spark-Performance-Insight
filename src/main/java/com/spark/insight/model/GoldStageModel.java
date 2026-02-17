@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 
 @Data
 @TableName("gold_stages")
-public class StageModel {
+public class GoldStageModel {
     @TableId
     private String id;
     private String appId;

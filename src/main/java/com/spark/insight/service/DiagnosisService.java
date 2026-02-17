@@ -1,9 +1,9 @@
 package com.spark.insight.service;
 
 import com.spark.insight.config.DiagnosisProperties;
-import com.spark.insight.model.ApplicationModel;
-import com.spark.insight.model.JobModel;
-import com.spark.insight.model.StageModel;
+import com.spark.insight.model.GoldApplicationModel;
+import com.spark.insight.model.GoldJobModel;
+import com.spark.insight.model.GoldStageModel;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -21,7 +21,7 @@ public class DiagnosisService {
      * 为指定的 Application 生成 Markdown 格式的规则引擎诊断报告
      */
     public String generateMarkdownReport(String appId) {
-        ApplicationModel app = applicationService.getById(appId);
+        GoldApplicationModel app = applicationService.getById(appId);
         if (app == null) {
             return "Application not found.";
         }
@@ -30,8 +30,8 @@ public class DiagnosisService {
         sb.append("# <span class=\"material-symbols-outlined\" style=\"vertical-align: middle;\">analytics</span> 规则引擎诊断报告 (Rule-Based Diagnostic Report)\n\n");
 
         // 1. Executive Summary
-        List<JobModel> jobs = jobService.lambdaQuery()
-                .eq(JobModel::getAppId, appId)
+        List<GoldJobModel> jobs = jobService.lambdaQuery()
+                .eq(GoldJobModel::getAppId, appId)
                 .list();
         
         double avgScore = jobs.stream()
@@ -52,17 +52,17 @@ public class DiagnosisService {
 
         // 2. Detailed Stage Analysis
         sb.append("## <span class=\"material-symbols-outlined\" style=\"vertical-align: middle;\">troubleshoot</span> 性能异常阶段分析\n");
-        List<StageModel> criticalStages = stageService.lambdaQuery()
-                .eq(StageModel::getAppId, appId)
-                .lt(StageModel::getPerformanceScore, 90) // 健康分低于 90 视为有优化空间
-                .orderByAsc(StageModel::getPerformanceScore)
+        List<GoldStageModel> criticalStages = stageService.lambdaQuery()
+                .eq(GoldStageModel::getAppId, appId)
+                .lt(GoldStageModel::getPerformanceScore, 90) // 健康分低于 90 视为有优化空间
+                .orderByAsc(GoldStageModel::getPerformanceScore)
                 .last("LIMIT 5")
                 .list();
 
         if (criticalStages.isEmpty()) {
             sb.append("> **结论**: <span style=\"color: #27ae60;\">未发现严重性能异常的阶段。应用当前运行状态良好。</span>\n\n");
         } else {
-            for (StageModel stage : criticalStages) {
+            for (GoldStageModel stage : criticalStages) {
                 sb.append(String.format("### Stage %d: %s\n", 
                         stage.getStageId(), stage.getStageName()));
                 sb.append(String.format("- **健康得分**: <span style=\"color: %s; font-weight: bold;\">%d</span> | **运行耗时**: `%s` | **任务总数**: `%d`\n", 
@@ -78,18 +78,18 @@ public class DiagnosisService {
 
         // 3. High Impact Jobs
         sb.append("## <span class=\"material-symbols-outlined\" style=\"vertical-align: middle;\">assignment_late</span> 高风险作业排名\n");
-        List<JobModel> topImpactJobs = jobs.stream()
+        List<GoldJobModel> topImpactJobs = jobs.stream()
                 .filter(job -> {
                     return job.getPerformanceScore() != null && job.getPerformanceScore() < 90;
                 })
-                .sorted(java.util.Comparator.comparingDouble(JobModel::getPerformanceScore))
+                .sorted(java.util.Comparator.comparingDouble(GoldJobModel::getPerformanceScore))
                 .limit(3)
                 .toList();
 
         if (topImpactJobs.isEmpty()) {
             sb.append("> **结论**: 未发现高风险作业。\n\n");
         } else {
-            for (JobModel job : topImpactJobs) {
+            for (GoldJobModel job : topImpactJobs) {
                 sb.append(String.format("### Job %d: %s\n", job.getJobId(), 
                         job.getDescription() != null ? job.getDescription() : "Job Execution"));
                 sb.append(String.format("- **健康评分**: <span style=\"color: %s; font-weight: bold;\">%d</span> | **运行耗时**: `%s`\n", 
@@ -115,7 +115,7 @@ public class DiagnosisService {
         return sb.toString();
     }
 
-    private void appendStageSpecificAdvice(StringBuilder sb, StageModel stage) {
+    private void appendStageSpecificAdvice(StringBuilder sb, GoldStageModel stage) {
         if (Boolean.TRUE.equals(stage.getIsSkewed())) {
             sb.append("- **数据倾斜**: 检测到最大任务耗时显著高于中位数。建议检查 `Join/GroupBy` 的 Key 分布，考虑引入加盐 (Salting) 策略。\n");
         }

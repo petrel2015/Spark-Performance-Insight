@@ -6,7 +6,7 @@ import lombok.Data;
 
 @Data
 @TableName("gold_executors")
-public class ExecutorModel {
+public class GoldExecutorModel {
     @TableId
     private String id;
     private String appId;

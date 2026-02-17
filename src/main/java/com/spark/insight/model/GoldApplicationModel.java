@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 
 @TableName("gold_applications")
 
-public class ApplicationModel {
+public class GoldApplicationModel {
 
     @TableId
 

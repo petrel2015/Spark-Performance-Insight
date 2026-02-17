@@ -1,7 +1,7 @@
 package com.spark.insight.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.spark.insight.model.StageModel;
+import com.spark.insight.model.GoldStageModel;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 @Mapper
-public interface StageMapper extends BaseMapper<StageModel> {
+public interface StageMapper extends BaseMapper<GoldStageModel> {
     void updateStageMetrics(@Param("appId") String appId);
 
     void deleteStageStats(@Param("appId") String appId);

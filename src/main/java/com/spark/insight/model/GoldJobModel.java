@@ -10,7 +10,7 @@ import java.util.List;
 
 @Data
 @TableName("gold_jobs")
-public class JobModel {
+public class GoldJobModel {
     @TableId
     private String id;
     private String appId;
@@ -35,5 +35,5 @@ public class JobModel {
     private Double performanceScore; // Weighted score of stages based on duration
 
     @TableField(exist = false)
-    private List<StageModel> stageList;
+    private List<GoldStageModel> stageList;
 }

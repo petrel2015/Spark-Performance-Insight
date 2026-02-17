@@ -1,14 +1,14 @@
 package com.spark.insight.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.spark.insight.model.EnvironmentConfigModel;
+import com.spark.insight.model.GoldEnvironmentConfigModel;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 
 @Mapper
-public interface EnvironmentConfigMapper extends BaseMapper<EnvironmentConfigModel> {
+public interface EnvironmentConfigMapper extends BaseMapper<GoldEnvironmentConfigModel> {
 
     @Update("<script>" +
             "INSERT OR REPLACE INTO environment_configs (id, app_id, param_key, param_value, category) VALUES " +
@@ -16,5 +16,5 @@ public interface EnvironmentConfigMapper extends BaseMapper<EnvironmentConfigMod
             "(#{item.id}, #{item.appId}, #{item.paramKey}, #{item.paramValue}, #{item.category})" +
             "</foreach>" +
             "</script>")
-    void upsertBatch(List<EnvironmentConfigModel> list);
+    void upsertBatch(List<GoldEnvironmentConfigModel> list);
 }

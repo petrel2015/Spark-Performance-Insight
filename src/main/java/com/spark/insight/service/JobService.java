@@ -2,20 +2,20 @@ package com.spark.insight.service;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.spark.insight.mapper.JobMapper;
-import com.spark.insight.model.JobModel;
+import com.spark.insight.model.GoldJobModel;
 import org.springframework.stereotype.Service;
 
 @Service
-public class JobService extends ServiceImpl<JobMapper, JobModel> {
+public class JobService extends ServiceImpl<JobMapper, GoldJobModel> {
 
     public void calculateJobMetrics(String appId) {
         baseMapper.calculateJobMetrics(appId);
     }
 
-    public JobModel getJob(String appId, Integer jobId) {
+    public GoldJobModel getJob(String appId, Integer jobId) {
         return lambdaQuery()
-                .eq(JobModel::getAppId, appId)
-                .eq(JobModel::getJobId, jobId)
+                .eq(GoldJobModel::getAppId, appId)
+                .eq(GoldJobModel::getJobId, jobId)
                 .one();
     }
 }

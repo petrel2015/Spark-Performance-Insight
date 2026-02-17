@@ -32,7 +32,7 @@ public class InsightController {
     private final ApplicationLogService applicationLogService;
 
     private void checkAppReady(String appId) {
-        ApplicationModel app = applicationService.getById(appId);
+        GoldApplicationModel app = applicationService.getById(appId);
         if (app == null) return;
         
         String status = app.getParsingStatus();
@@ -47,7 +47,7 @@ public class InsightController {
      * 获取 Job 列表
      */
     @GetMapping("/apps/{appId}/jobs")
-    public PageResponse<JobModel> listJobs(@PathVariable String appId,
+    public PageResponse<GoldJobModel> listJobs(@PathVariable String appId,
                                            @RequestParam(defaultValue = "1") int page,
                                            @RequestParam(defaultValue = "20") int size,
                                            @RequestParam(required = false) String sort,
@@ -55,39 +55,39 @@ public class InsightController {
                                            @RequestParam(required = false) String jobGroup,
                                            @RequestParam(required = false) Long sqlExecutionId) {
         checkAppReady(appId);
-        var query = jobService.lambdaQuery().eq(JobModel::getAppId, appId);
+        var query = jobService.lambdaQuery().eq(GoldJobModel::getAppId, appId);
         if (jobId != null) {
-            query.eq(JobModel::getJobId, jobId);
+            query.eq(GoldJobModel::getJobId, jobId);
         }
         if (sqlExecutionId != null) {
-            query.eq(JobModel::getSqlExecutionId, sqlExecutionId);
+            query.eq(GoldJobModel::getSqlExecutionId, sqlExecutionId);
         }
         if (jobGroup != null && !jobGroup.isBlank()) {
-            query.like(JobModel::getJobGroup, jobGroup); // Fuzzy search for convenience
+            query.like(GoldJobModel::getJobGroup, jobGroup); // Fuzzy search for convenience
         }
 
         long total = query.count();
 
         // Re-apply conditions for list
-        var listQuery = jobService.lambdaQuery().eq(JobModel::getAppId, appId);
+        var listQuery = jobService.lambdaQuery().eq(GoldJobModel::getAppId, appId);
         if (jobId != null) {
-            listQuery.eq(JobModel::getJobId, jobId);
+            listQuery.eq(GoldJobModel::getJobId, jobId);
         }
         if (sqlExecutionId != null) {
-            listQuery.eq(JobModel::getSqlExecutionId, sqlExecutionId);
+            listQuery.eq(GoldJobModel::getSqlExecutionId, sqlExecutionId);
         }
         if (jobGroup != null && !jobGroup.isBlank()) {
-            listQuery.like(JobModel::getJobGroup, jobGroup);
+            listQuery.like(GoldJobModel::getJobGroup, jobGroup);
         }
 
         listQuery.last(buildSqlSuffix(sort, page, size, "job_id ASC"));
 
-        List<JobModel> items = listQuery.list();
+        List<GoldJobModel> items = listQuery.list();
         // Populate stageList for each job to track stage statuses
-        for (JobModel job : items) {
-            List<StageModel> jobStages = stageService.lambdaQuery()
-                    .eq(StageModel::getAppId, appId)
-                    .eq(StageModel::getJobId, job.getJobId())
+        for (GoldJobModel job : items) {
+            List<GoldStageModel> jobStages = stageService.lambdaQuery()
+                    .eq(GoldStageModel::getAppId, appId)
+                    .eq(GoldStageModel::getJobId, job.getJobId())
                     .list();
             job.setStageList(jobStages);
         }
@@ -97,11 +97,11 @@ public class InsightController {
 
     @Nullable
     @GetMapping("/apps/{appId}/jobs/{jobId}")
-    public JobModel getJob(@PathVariable String appId, @PathVariable Integer jobId) {
+    public GoldJobModel getJob(@PathVariable String appId, @PathVariable Integer jobId) {
         checkAppReady(appId);
-        JobModel job = jobService.lambdaQuery()
-                .eq(JobModel::getAppId, appId)
-                .eq(JobModel::getJobId, jobId)
+        GoldJobModel job = jobService.lambdaQuery()
+                .eq(GoldJobModel::getAppId, appId)
+                .eq(GoldJobModel::getJobId, jobId)
                 .one();
         
         if (job != null && job.getStageIds() != null) {
@@ -114,9 +114,9 @@ public class InsightController {
                     .toList();
             
             if (!stageIds.isEmpty()) {
-                List<StageModel> jobStages = stageService.lambdaQuery()
-                        .eq(StageModel::getAppId, appId)
-                        .in(StageModel::getStageId, stageIds)
+                List<GoldStageModel> jobStages = stageService.lambdaQuery()
+                        .eq(GoldStageModel::getAppId, appId)
+                        .in(GoldStageModel::getStageId, stageIds)
                         .list();
                 job.setStageList(jobStages);
             }
@@ -128,16 +128,16 @@ public class InsightController {
      * 获取 Environment Config 列表
      */
     @GetMapping("/apps/{appId}/environment")
-    public List<EnvironmentConfigModel> listEnvironment(@PathVariable String appId) {
+    public List<GoldEnvironmentConfigModel> listEnvironment(@PathVariable String appId) {
         checkAppReady(appId);
-        return envService.lambdaQuery().eq(EnvironmentConfigModel::getAppId, appId).orderByAsc(EnvironmentConfigModel::getParamKey).list();
+        return envService.lambdaQuery().eq(GoldEnvironmentConfigModel::getAppId, appId).orderByAsc(GoldEnvironmentConfigModel::getParamKey).list();
     }
 
     /**
      * 获取 RDD 存储列表
      */
     @GetMapping("/apps/{appId}/storage")
-    public List<StorageRddModel> listStorage(@PathVariable String appId) {
+    public List<GoldStorageRddModel> listStorage(@PathVariable String appId) {
         checkAppReady(appId);
         return storageService.getRdds(appId);
     }
@@ -146,7 +146,7 @@ public class InsightController {
      * 获取特定 RDD 的分片明细
      */
     @GetMapping("/apps/{appId}/storage/{rddId}")
-    public List<StorageBlockModel> getStorageDetails(@PathVariable String appId, @PathVariable Integer rddId) {
+    public List<GoldStorageBlockModel> getStorageDetails(@PathVariable String appId, @PathVariable Integer rddId) {
         checkAppReady(appId);
         return storageService.getRddBlocks(appId, rddId);
     }
@@ -155,22 +155,22 @@ public class InsightController {
      * 获取 Executor 列表
      */
     @GetMapping("/apps/{appId}/executors")
-    public List<ExecutorModel> listExecutors(@PathVariable String appId) {
+    public List<GoldExecutorModel> listExecutors(@PathVariable String appId) {
         checkAppReady(appId);
-        return sparkExecutorService.lambdaQuery().eq(ExecutorModel::getAppId, appId).list();
+        return sparkExecutorService.lambdaQuery().eq(GoldExecutorModel::getAppId, appId).list();
     }
 
     /**
      * 获取 SQL 执行列表
      */
     @GetMapping("/apps/{appId}/sql")
-    public PageResponse<SqlExecutionModel> listSqlExecutions(@PathVariable String appId,
+    public PageResponse<GoldSqlExecutionModel> listSqlExecutions(@PathVariable String appId,
                                                              @RequestParam(defaultValue = "1") int page,
                                                              @RequestParam(defaultValue = "20") int size,
                                                              @RequestParam(required = false) String sort,
                                                              @RequestParam(required = false) Integer jobId) {
         checkAppReady(appId);
-        var query = sqlExecutionService.lambdaQuery().eq(SqlExecutionModel::getAppId, appId);
+        var query = sqlExecutionService.lambdaQuery().eq(GoldSqlExecutionModel::getAppId, appId);
         if (jobId != null) {
             // 通过子查询找到关联该 Job ID 的 SQL Execution ID
             query.apply("execution_id IN (SELECT sql_execution_id FROM gold_jobs WHERE app_id = {0} AND job_id = {1})", appId, jobId);
@@ -179,22 +179,22 @@ public class InsightController {
         long total = query.count();
 
         // 重新构建查询以应用分页
-        var listQuery = sqlExecutionService.lambdaQuery().eq(SqlExecutionModel::getAppId, appId);
+        var listQuery = sqlExecutionService.lambdaQuery().eq(GoldSqlExecutionModel::getAppId, appId);
         if (jobId != null) {
             listQuery.apply("execution_id IN (SELECT sql_execution_id FROM gold_jobs WHERE app_id = {0} AND job_id = {1})", appId, jobId);
         }
 
         listQuery.last(buildSqlSuffix(sort, page, size, "execution_id DESC"));
 
-        List<SqlExecutionModel> items = listQuery.list();
-        for (SqlExecutionModel sql : items) {
+        List<GoldSqlExecutionModel> items = listQuery.list();
+        for (GoldSqlExecutionModel sql : items) {
             List<Integer> jobIds = jobService.lambdaQuery()
-                    .eq(JobModel::getAppId, appId)
-                    .eq(JobModel::getSqlExecutionId, sql.getExecutionId())
-                    .select(JobModel::getJobId)
+                    .eq(GoldJobModel::getAppId, appId)
+                    .eq(GoldJobModel::getSqlExecutionId, sql.getExecutionId())
+                    .select(GoldJobModel::getJobId)
                     .list()
                     .stream()
-                    .map(JobModel::getJobId)
+                    .map(GoldJobModel::getJobId)
                     .toList();
             sql.setJobIds(jobIds);
         }
@@ -204,26 +204,26 @@ public class InsightController {
 
     @Nullable
     @GetMapping("/apps/{appId}/sql/{executionId}")
-    public SqlExecutionModel getSqlExecution(@PathVariable String appId, @PathVariable Long executionId) {
+    public GoldSqlExecutionModel getSqlExecution(@PathVariable String appId, @PathVariable Long executionId) {
         checkAppReady(appId);
-        SqlExecutionModel sql = sqlExecutionService.lambdaQuery()
-                .eq(SqlExecutionModel::getAppId, appId)
-                .eq(SqlExecutionModel::getExecutionId, executionId)
+        GoldSqlExecutionModel sql = sqlExecutionService.lambdaQuery()
+                .eq(GoldSqlExecutionModel::getAppId, appId)
+                .eq(GoldSqlExecutionModel::getExecutionId, executionId)
                 .one();
         
         if (sql != null) {
-            List<JobModel> jobList = jobService.lambdaQuery()
-                    .eq(JobModel::getAppId, appId)
-                    .eq(JobModel::getSqlExecutionId, executionId)
+            List<GoldJobModel> jobList = jobService.lambdaQuery()
+                    .eq(GoldJobModel::getAppId, appId)
+                    .eq(GoldJobModel::getSqlExecutionId, executionId)
                     .list();
             sql.setJobList(jobList);
-            sql.setJobIds(jobList.stream().map(JobModel::getJobId).toList());
+            sql.setJobIds(jobList.stream().map(GoldJobModel::getJobId).toList());
         }
         return sql;
     }
 
     @GetMapping("/apps/{appId}/stages/{stageId}/tasks")
-    public PageResponse<TaskModel> listTasks(@PathVariable String appId,
+    public PageResponse<GoldTaskModel> listTasks(@PathVariable String appId,
                                              @PathVariable Integer stageId,
                                              @RequestParam(required = false) Integer attemptId,
                                              @RequestParam(defaultValue = "1") int page,
@@ -232,24 +232,24 @@ public class InsightController {
         checkAppReady(appId);
         // 1. 获取总数 (使用独立的 QueryWrapper)
         var countQuery = taskService.lambdaQuery()
-                .eq(TaskModel::getAppId, appId)
-                .eq(TaskModel::getStageId, stageId);
+                .eq(GoldTaskModel::getAppId, appId)
+                .eq(GoldTaskModel::getStageId, stageId);
         if (attemptId != null) {
-            countQuery.eq(TaskModel::getAttemptId, attemptId);
+            countQuery.eq(GoldTaskModel::getAttemptId, attemptId);
         }
         long total = countQuery.count();
 
         // 2. 获取列表 (使用新的 QueryWrapper)
         var listQuery = taskService.lambdaQuery()
-                .eq(TaskModel::getAppId, appId)
-                .eq(TaskModel::getStageId, stageId);
+                .eq(GoldTaskModel::getAppId, appId)
+                .eq(GoldTaskModel::getStageId, stageId);
         if (attemptId != null) {
-            listQuery.eq(TaskModel::getAttemptId, attemptId);
+            listQuery.eq(GoldTaskModel::getAttemptId, attemptId);
         }
 
         listQuery.last(buildSqlSuffix(sort, page, size, "task_index ASC"));
 
-        List<TaskModel> items = listQuery.list();
+        List<GoldTaskModel> items = listQuery.list();
         int totalPages = (int) Math.ceil((double) total / size);
         return new PageResponse<>(items, total, page, size, totalPages);
     }
@@ -258,7 +258,7 @@ public class InsightController {
      * 获取所有已导入的 Application 列表
      */
     @GetMapping("/apps")
-    public PageResponse<ApplicationModel> listApps(@RequestParam(defaultValue = "1") int page,
+    public PageResponse<GoldApplicationModel> listApps(@RequestParam(defaultValue = "1") int page,
                                                    @RequestParam(defaultValue = "20") int size,
                                                    @RequestParam(required = false) String sort,
                                                    @RequestParam(required = false) String search) {
@@ -277,13 +277,13 @@ public class InsightController {
 
         query.last(buildSqlSuffix(sort, page, size, "start_time DESC"));
 
-        List<ApplicationModel> items = query.list();
+        List<GoldApplicationModel> items = query.list();
         
         if (!items.isEmpty()) {
-            List<String> appIds = items.stream().map(ApplicationModel::getAppId).toList();
+            List<String> appIds = items.stream().map(GoldApplicationModel::getAppId).toList();
             java.util.Map<String, String> queueStatus = parsingQueueService.getQueueStatuses(appIds);
             
-            for (ApplicationModel app : items) {
+            for (GoldApplicationModel app : items) {
                 if (queueStatus.containsKey(app.getAppId())) {
                     app.setParsingStatus("QUEUED");
                     app.setParsingProgress("Waiting in queue...");
@@ -343,35 +343,35 @@ public class InsightController {
      * 获取指定 App 的 Stage 详情（包含预计算指标）
      */
     @GetMapping("/apps/{appId}/stages")
-    public PageResponse<StageModel> listStages(@PathVariable String appId,
+    public PageResponse<GoldStageModel> listStages(@PathVariable String appId,
                                                @RequestParam(required = false) Integer jobId,
                                                @RequestParam(required = false) Integer stageId,
                                                @RequestParam(defaultValue = "1") int page,
                                                @RequestParam(defaultValue = "20") int size,
                                                @RequestParam(required = false) String sort) {
         checkAppReady(appId);
-        var query = stageService.lambdaQuery().eq(StageModel::getAppId, appId);
+        var query = stageService.lambdaQuery().eq(GoldStageModel::getAppId, appId);
         if (jobId != null) {
-            query.eq(StageModel::getJobId, jobId);
+            query.eq(GoldStageModel::getJobId, jobId);
         }
         if (stageId != null) {
-            query.eq(StageModel::getStageId, stageId);
+            query.eq(GoldStageModel::getStageId, stageId);
         }
 
         long total = query.count();
 
         // 重新构建查询以应用分页和排序
-        var listQuery = stageService.lambdaQuery().eq(StageModel::getAppId, appId);
+        var listQuery = stageService.lambdaQuery().eq(GoldStageModel::getAppId, appId);
         if (jobId != null) {
-            listQuery.eq(StageModel::getJobId, jobId);
+            listQuery.eq(GoldStageModel::getJobId, jobId);
         }
         if (stageId != null) {
-            listQuery.eq(StageModel::getStageId, stageId);
+            listQuery.eq(GoldStageModel::getStageId, stageId);
         }
 
         listQuery.last(buildSqlSuffix(sort, page, size, "stage_id ASC"));
 
-        List<StageModel> items = listQuery.list();
+        List<GoldStageModel> items = listQuery.list();
         int totalPages = (int) Math.ceil((double) total / size);
         return new PageResponse<>(items, total, page, size, totalPages);
     }
@@ -381,18 +381,18 @@ public class InsightController {
      */
     @Nullable
     @GetMapping("/apps/{appId}/stages/{stageId}")
-    public StageModel getStage(@PathVariable String appId,
+    public GoldStageModel getStage(@PathVariable String appId,
                                @PathVariable Integer stageId,
                                @RequestParam(required = false) Integer attemptId) {
         checkAppReady(appId);
         var query = stageService.lambdaQuery()
-                .eq(StageModel::getAppId, appId)
-                .eq(StageModel::getStageId, stageId);
+                .eq(GoldStageModel::getAppId, appId)
+                .eq(GoldStageModel::getStageId, stageId);
 
         if (attemptId != null) {
-            query.eq(StageModel::getAttemptId, attemptId);
+            query.eq(GoldStageModel::getAttemptId, attemptId);
         } else {
-            query.orderByDesc(StageModel::getAttemptId);
+            query.orderByDesc(GoldStageModel::getAttemptId);
             query.last("LIMIT 1");
         }
 
@@ -403,7 +403,7 @@ public class InsightController {
      * 获取 Stage 详细统计指标 (Summary Metrics)
      */
     @GetMapping("/apps/{appId}/stages/{stageId}/{attemptId}/stats")
-    public List<StageStatisticsModel> getStageStats(@PathVariable String appId,
+    public List<GoldStageStatisticsModel> getStageStats(@PathVariable String appId,
                                                     @PathVariable Integer stageId,
                                                     @PathVariable Integer attemptId) {
         checkAppReady(appId);
@@ -414,18 +414,18 @@ public class InsightController {
      * 获取 Stage 的所有 Task 数据 (用于 Timeline 可视化)
      */
     @GetMapping("/apps/{appId}/stages/{stageId}/timeline")
-    public List<TaskModel> getStageTimeline(@PathVariable String appId,
+    public List<GoldTaskModel> getStageTimeline(@PathVariable String appId,
                                             @PathVariable Integer stageId,
                                             @RequestParam(required = false) Integer attemptId) {
         checkAppReady(appId);
         var query = taskService.lambdaQuery()
-                .eq(TaskModel::getAppId, appId)
-                .eq(TaskModel::getStageId, stageId);
+                .eq(GoldTaskModel::getAppId, appId)
+                .eq(GoldTaskModel::getStageId, stageId);
         if (attemptId != null) {
-            query.eq(TaskModel::getAttemptId, attemptId);
+            query.eq(GoldTaskModel::getAttemptId, attemptId);
         }
 
-        return query.orderByAsc(TaskModel::getLaunchTime).list();
+        return query.orderByAsc(GoldTaskModel::getLaunchTime).list();
     }
 
     /**
@@ -447,12 +447,12 @@ public class InsightController {
     }
 
     @GetMapping("/apps/{appId}/jobs/{jobId}/stages")
-    public List<StageModel> getJobStages(@PathVariable String appId, @PathVariable Integer jobId) {
+    public List<GoldStageModel> getJobStages(@PathVariable String appId, @PathVariable Integer jobId) {
         checkAppReady(appId);
         return stageService.lambdaQuery()
-                .eq(StageModel::getAppId, appId)
-                .eq(StageModel::getJobId, jobId)
-                .orderByAsc(StageModel::getStageId)
+                .eq(GoldStageModel::getAppId, appId)
+                .eq(GoldStageModel::getJobId, jobId)
+                .orderByAsc(GoldStageModel::getStageId)
                 .list();
     }
 
@@ -461,7 +461,7 @@ public class InsightController {
      */
     @Nullable
     @GetMapping("/apps/{appId}")
-    public ApplicationModel getApp(@PathVariable String appId) {
+    public GoldApplicationModel getApp(@PathVariable String appId) {
         // Do NOT checkAppReady here, we need this to check status
         return applicationService.getById(appId);
     }

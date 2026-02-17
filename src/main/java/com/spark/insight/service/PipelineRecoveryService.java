@@ -1,6 +1,6 @@
 package com.spark.insight.service;
 
-import com.spark.insight.model.ApplicationModel;
+import com.spark.insight.model.GoldApplicationModel;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,15 +29,15 @@ public class PipelineRecoveryService {
         log.info("Starting Pipeline Recovery Service...");
 
         // 1. 扫描所有处于“中间态”的应用记录
-        List<ApplicationModel> interruptedApps = applicationService.lambdaQuery()
-                .in(ApplicationModel::getParsingStatus, ACTIVE_STATUSES)
+        List<GoldApplicationModel> interruptedApps = applicationService.lambdaQuery()
+                .in(GoldApplicationModel::getParsingStatus, ACTIVE_STATUSES)
                 .list();
 
         if (interruptedApps.isEmpty()) {
             log.info("No interrupted pipelines found in gold_applications.");
         } else {
             log.warn("Found {} interrupted pipelines. Marking as FAILED with recovery hint.", interruptedApps.size());
-            for (ApplicationModel app : interruptedApps) {
+            for (GoldApplicationModel app : interruptedApps) {
                 String appId = app.getAppId();
                 String lastStatus = app.getParsingStatus();
                 
@@ -52,18 +52,18 @@ public class PipelineRecoveryService {
             }
         }
 
-        // 2. 清理任务队列表 (parsing_queue)，防止重启后队列逻辑死锁
+        // 2. 清理任务队列表 (sys_parsing_queue)，防止重启后队列逻辑死锁
         // 使用 DELETE + INSERT 模式以规避某些 DuckDB 环境下的 UPDATE PK 约束错误
         try {
             List<Map<String, Object>> staleTasks = jdbcTemplate.queryForList(
-                    "SELECT * FROM parsing_queue WHERE status IN ('QUEUED', 'RUNNING')");
+                    "SELECT * FROM sys_parsing_queue WHERE status IN ('QUEUED', 'RUNNING')");
             
             for (Map<String, Object> task : staleTasks) {
                 String taskId = task.get("id").toString();
-                jdbcTemplate.update("DELETE FROM parsing_queue WHERE id = ?", taskId);
+                jdbcTemplate.update("DELETE FROM sys_parsing_queue WHERE id = ?", taskId);
                 
                 jdbcTemplate.update("""
-                    INSERT INTO parsing_queue (id, app_id, type, status, submit_time, start_time, end_time) 
+                    INSERT INTO sys_parsing_queue (id, app_id, type, status, submit_time, start_time, end_time) 
                     VALUES (?, ?, ?, 'FAILED', ?, ?, CURRENT_TIMESTAMP)
                     """,
                     taskId, 
@@ -75,10 +75,10 @@ public class PipelineRecoveryService {
             }
             
             if (!staleTasks.isEmpty()) {
-                log.info("Cleaned up {} stale tasks from parsing_queue using recovery re-insertion.", staleTasks.size());
+                log.info("Cleaned up {} stale tasks from sys_parsing_queue using recovery re-insertion.", staleTasks.size());
             }
         } catch (Exception e) {
-            log.error("Failed to clean up parsing_queue table during recovery", e);
+            log.error("Failed to clean up sys_parsing_queue table during recovery", e);
         }
     }
 }

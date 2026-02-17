@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS gold_applications (
 );
 
 -- 扫描到的待处理日志记录
-CREATE TABLE IF NOT EXISTS event_log_scans (
+CREATE TABLE IF NOT EXISTS sys_event_log_scans (
     id VARCHAR PRIMARY KEY,
     app_id VARCHAR,
     file_paths JSON,
@@ -212,16 +212,14 @@ CREATE TABLE IF NOT EXISTS gold_tasks (
 );
 
 -- 其他业务支持表
-CREATE TABLE IF NOT EXISTS diagnosis_reports (id INTEGER PRIMARY KEY, app_id VARCHAR, diag_type VARCHAR, severity VARCHAR, target_stage_id INT, summary_text TEXT, suggestion TEXT);
-CREATE TABLE IF NOT EXISTS stage_statistics (id VARCHAR PRIMARY KEY, app_id VARCHAR, stage_id INT, attempt_id INT, metric_name VARCHAR, min_value BIGINT, p25 BIGINT, p50 BIGINT, p75 BIGINT, p95 BIGINT, max_value BIGINT);
-CREATE TABLE IF NOT EXISTS parsed_event_logs (file_name VARCHAR PRIMARY KEY, app_id VARCHAR, update_time TIMESTAMP, file_size BIGINT, file_hash VARCHAR, create_time TIMESTAMP, status INTEGER);
+CREATE TABLE IF NOT EXISTS gold_stage_statistics (id VARCHAR PRIMARY KEY, app_id VARCHAR, stage_id INT, attempt_id INT, metric_name VARCHAR, min_value BIGINT, p25 BIGINT, p50 BIGINT, p75 BIGINT, p95 BIGINT, max_value BIGINT);
 CREATE TABLE IF NOT EXISTS gold_sql_executions (id VARCHAR PRIMARY KEY, app_id VARCHAR, execution_id BIGINT, description TEXT, details TEXT, physical_plan TEXT, plan_info TEXT, start_time TIMESTAMP, end_time TIMESTAMP, duration BIGINT DEFAULT 0, status VARCHAR, performance_score DOUBLE DEFAULT 0.0);
-CREATE TABLE IF NOT EXISTS storage_rdds (id VARCHAR PRIMARY KEY, app_id VARCHAR, rdd_id INT, name VARCHAR, storage_level VARCHAR, num_partitions INT, num_cached_partitions INT, memory_size BIGINT DEFAULT 0, disk_size BIGINT DEFAULT 0);
-CREATE TABLE IF NOT EXISTS storage_blocks (id VARCHAR PRIMARY KEY, app_id VARCHAR, rdd_id INT, block_name VARCHAR, storage_level VARCHAR, memory_size BIGINT DEFAULT 0, disk_size BIGINT DEFAULT 0, executor_id VARCHAR, host VARCHAR);
-CREATE TABLE IF NOT EXISTS application_logs (id VARCHAR PRIMARY KEY, app_id VARCHAR, event_type VARCHAR, event_name VARCHAR, details TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS gold_storage_rdds (id VARCHAR PRIMARY KEY, app_id VARCHAR, rdd_id INT, name VARCHAR, storage_level VARCHAR, num_partitions INT, num_cached_partitions INT, memory_size BIGINT DEFAULT 0, disk_size BIGINT DEFAULT 0);
+CREATE TABLE IF NOT EXISTS gold_storage_blocks (id VARCHAR PRIMARY KEY, app_id VARCHAR, rdd_id INT, block_name VARCHAR, storage_level VARCHAR, memory_size BIGINT DEFAULT 0, disk_size BIGINT DEFAULT 0, executor_id VARCHAR, host VARCHAR);
+CREATE TABLE IF NOT EXISTS sys_application_logs (id VARCHAR PRIMARY KEY, app_id VARCHAR, event_type VARCHAR, event_name VARCHAR, details TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
 
 -- Application Parsing Queue
-CREATE TABLE IF NOT EXISTS parsing_queue (
+CREATE TABLE IF NOT EXISTS sys_parsing_queue (
     id UUID DEFAULT uuid() PRIMARY KEY,
     app_id VARCHAR NOT NULL,
     type VARCHAR NOT NULL, -- FULL, BRONZE_TO_GOLD, SILVER_TO_GOLD
@@ -230,7 +228,7 @@ CREATE TABLE IF NOT EXISTS parsing_queue (
     start_time TIMESTAMP,
     end_time TIMESTAMP
 );
-CREATE INDEX IF NOT EXISTS idx_parsing_queue_status ON parsing_queue(status, submit_time);
+CREATE INDEX IF NOT EXISTS idx_sys_parsing_queue_status ON sys_parsing_queue(status, submit_time);
 
 -- ==========================================
 -- BRONZE LAYER
@@ -250,6 +248,8 @@ CREATE TABLE IF NOT EXISTS bronze_event_sql_execution_start (id UUID DEFAULT uui
 CREATE TABLE IF NOT EXISTS bronze_event_sql_execution_end (id UUID DEFAULT uuid(), app_id VARCHAR, file_name VARCHAR, raw_json JSON, ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS bronze_event_environment_update (id UUID DEFAULT uuid(), app_id VARCHAR, file_name VARCHAR, raw_json JSON, ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS bronze_event_log_start (id UUID DEFAULT uuid(), app_id VARCHAR, file_name VARCHAR, raw_json JSON, ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS bronze_event_block_updated (id UUID DEFAULT uuid(), app_id VARCHAR, file_name VARCHAR, raw_json JSON, ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS bronze_event_unpersist_rdd (id UUID DEFAULT uuid(), app_id VARCHAR, file_name VARCHAR, raw_json JSON, ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS bronze_event_unknown (id UUID DEFAULT uuid(), app_id VARCHAR, file_name VARCHAR, event_name VARCHAR, raw_json JSON, ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
 
 -- ==========================================

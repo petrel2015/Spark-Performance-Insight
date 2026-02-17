@@ -7,8 +7,8 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("application_logs")
-public class ApplicationLogModel {
+@TableName("sys_application_logs")
+public class SysApplicationLogModel {
     @TableId
     private String id;
     private String appId;

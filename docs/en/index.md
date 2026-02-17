@@ -2,7 +2,7 @@
 
 [English](./index.md) | [中文](../zh/index.md)
 
-Welcome to the Spark-Performance-Insight documentation. Below you will find detailed technical specifications and design documents.
+Welcome to the Spark Performance Insight documentation. Below you will find detailed technical specifications and design documents.
 
 ## 📖 Technical Specifications
 

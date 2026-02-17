@@ -12,7 +12,7 @@
     <artifactId>spark-performance-insight</artifactId>
     <version>1.0.1</version>
     <name>spark-performance-insight</name>
-    <description>Deep Insight for Spark Performance via Structured EventLog Analysis</description>
+    <description>Deep Spark Performance Insight via Structured EventLog Analysis</description>
     <properties>
         <java.version>21</java.version>
         <spring-ai.version>1.0.0-M1</spring-ai.version>

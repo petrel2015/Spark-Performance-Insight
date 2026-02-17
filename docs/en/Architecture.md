@@ -3,7 +3,7 @@
 [English](./Architecture.md) | [中文](../zh/Architecture.md)
 
 ## 1. Core Concept: Structured OLAP Analysis
-Spark-Performance-Insight moves away from the traditional Spark History Server model of "event replaying" to restore memory state. Instead, it adopts a **Structured Data Pipeline**.
+Spark Performance Insight moves away from the traditional Spark History Server model of "event replaying" to restore memory state. Instead, it adopts a **Structured Data Pipeline**.
 
 ## 2. Medallion Architecture
 The system uses a three-layer data evolution model to balance ingestion speed and query performance.

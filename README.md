@@ -1,4 +1,4 @@
-# Spark-Performance-Insight
+# Spark Performance Insight
 
 English | [中文](./README.zh.md)
 
@@ -17,7 +17,7 @@ An advanced Spark performance analysis system designed to address the core pain 
 
 ---
 
-## Why Spark-Performance-Insight?
+## Why Spark Performance Insight?
 
 While the native Spark Web UI provides basic monitoring, users often face significant hurdles during deep performance analysis:
 
@@ -120,7 +120,7 @@ mvn clean install -Pbuild-frontend -Prun
 
 ### Production & Comparison Mode (Docker Compose)
 
-Starts both **Insight UI** and **Spark History Server** sharing the same log directory.
+Starts both **Spark Performance Insight UI** and **Spark History Server** sharing the same log directory.
 
 1.  **Start Services:**
     ```bash
@@ -128,7 +128,7 @@ Starts both **Insight UI** and **Spark History Server** sharing the same log dir
     ```
 
 2.  **Access Points:**
-    -   **Insight UI:** `http://localhost:18081`
+    -   **Spark Performance Insight UI:** `http://localhost:18081`
     -   **Spark History Server:** `http://localhost:18080`
 
 ## Acknowledgments

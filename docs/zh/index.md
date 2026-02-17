@@ -2,7 +2,7 @@
 
 [English](../en/index.md) | [中文](./index.md)
 
-欢迎查看 Spark-Performance-Insight 技术文档。以下是详细的技术规格和设计文档。
+欢迎查看 Spark Performance Insight 技术文档。以下是详细的技术规格和设计文档。
 
 ## 📖 技术规格
 

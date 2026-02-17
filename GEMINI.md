@@ -1,6 +1,6 @@
-# Gemini Development Guide - Spark-Performance-Insight
+# Gemini Development Guide - Spark Performance Insight
 
-This document provides architectural context and development guidelines for Gemini CLI and other AI agents to maintain and evolve the Spark-Performance-Insight project.
+This document provides architectural context and development guidelines for Gemini CLI and other AI agents to maintain and evolve the Spark Performance Insight project.
 
 ## 🚀 Project Vision
 An advanced Spark performance analysis system that replaces the slow "event replay" of Spark History Server with a **structured OLAP storage (DuckDB)** and provides **multi-dimensional comparisons**.

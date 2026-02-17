@@ -1,8 +1,8 @@
 import { reactive, watch } from 'vue';
 import { validateCompareItems } from '../api';
 
-const STORAGE_KEY_MODE = 'spark_insight_compare_mode';
-const STORAGE_KEY_ITEMS = 'spark_insight_compare_items';
+const STORAGE_KEY_MODE = 'spark_performance_insight_compare_mode';
+const STORAGE_KEY_ITEMS = 'spark_performance_insight_compare_items';
 
 // Helper to load from local storage
 const loadMode = (): boolean => localStorage.getItem(STORAGE_KEY_MODE) === 'true';

@@ -1,4 +1,4 @@
-# Spark-Performance-Insight
+# Spark Performance Insight
 
 [English](./README.md) | 中文
 

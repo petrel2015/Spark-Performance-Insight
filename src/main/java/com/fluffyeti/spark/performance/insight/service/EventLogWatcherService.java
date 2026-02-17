@@ -2,10 +2,9 @@ package com.fluffyeti.spark.performance.insight.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fluffyeti.spark.performance.insight.config.InsightProperties;
+import com.fluffyeti.spark.performance.insight.config.SystemProperties;
 import com.fluffyeti.spark.performance.insight.mapper.EventLogScanMapper;
 import com.fluffyeti.spark.performance.insight.model.GoldApplicationModel;
-import com.fluffyeti.spark.performance.insight.model.EventLogStatus;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +26,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class EventLogWatcherService {
 
-    private final InsightProperties properties;
+    private final SystemProperties properties;
     private final ApplicationService applicationService;
     private final EventLogScanMapper scanMapper;
     private final StatusBroadcaster broadcaster;

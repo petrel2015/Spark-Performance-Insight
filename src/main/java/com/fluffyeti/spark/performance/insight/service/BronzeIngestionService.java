@@ -1,5 +1,6 @@
 package com.fluffyeti.spark.performance.insight.service;
 
+import com.fluffyeti.spark.performance.insight.config.SystemProperties;
 import com.github.luben.zstd.ZstdInputStream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +20,7 @@ public class BronzeIngestionService {
 
     private final JdbcTemplate jdbcTemplate;
     private final DuckDBManagerService duckDBManager;
-    private final com.fluffyeti.spark.performance.insight.config.InsightProperties properties;
+    private final SystemProperties properties;
 
     private static final Map<String, String> EVENT_TABLE_MAP = new HashMap<>();
 

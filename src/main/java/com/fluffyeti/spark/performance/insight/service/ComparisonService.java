@@ -1,5 +1,6 @@
 package com.fluffyeti.spark.performance.insight.service;
 
+import com.fluffyeti.spark.performance.insight.config.SystemProperties;
 import com.fluffyeti.spark.performance.insight.model.GoldEnvironmentConfigModel;
 import com.fluffyeti.spark.performance.insight.model.GoldJobModel;
 import com.fluffyeti.spark.performance.insight.model.GoldStageModel;
@@ -25,7 +26,7 @@ public class ComparisonService {
     private final JobService jobService;
     private final EnvironmentConfigService envService;
     private final TaskService taskService;
-    private final com.fluffyeti.spark.performance.insight.config.InsightProperties insightProperties;
+    private final SystemProperties systemProperties;
 
     @Nullable
     public ComparisonResult compare(String type, String appId1, String id1, String appId2, String id2) {
@@ -190,7 +191,7 @@ public class ComparisonService {
                 Optional<GoldEnvironmentConfigModel> optConfig = Optional.ofNullable(envConfig1).or(() -> Optional.ofNullable(envConfig2));
                 
                 String category = optConfig.map(GoldEnvironmentConfigModel::getCategory).orElse("Unknown");
-                if (insightProperties.getComparison().getIgnoreCategories().stream()
+                if (systemProperties.getComparison().getIgnoreCategories().stream()
                         .anyMatch(ignore -> ignore.equalsIgnoreCase(category))) {
                     continue;
                 }

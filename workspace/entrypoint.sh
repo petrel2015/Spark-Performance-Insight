@@ -59,12 +59,12 @@ fi
 java -Dinsight.event-log-path=$LOG_DIR \
      -jar $JAR_PATH \
      --spring.config.additional-location=optional:file:./config/application-test.yml \
-     > ./insight-app.log 2>&1 &
+     > ./app.log 2>&1 &
 
 echo ">>> ✅ 启动完成，正在持续追踪日志输出..."
 
 # 打印日志全路径以便调试
-APP_LOG_FILE="$(pwd)/insight-app.log"
+APP_LOG_FILE="$(pwd)/app.log"
 HISTORY_LOG_FILE=$(ls /opt/spark/logs/*org.apache.spark.deploy.history.HistoryServer*.out 2>/dev/null | head -n 1)
 
 echo ">>> [Log Path] Backend Application: $APP_LOG_FILE"

@@ -3,7 +3,7 @@ package com.fluffyeti.spark.performance.insight.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fluffyeti.spark.performance.insight.mapper.*;
 import com.fluffyeti.spark.performance.insight.model.*;
-import com.fluffyeti.spark.performance.insight.config.InsightProperties;
+import com.fluffyeti.spark.performance.insight.config.SystemProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -11,8 +11,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.File;
 import java.util.List;
-import java.util.UUID;
-import java.time.LocalDateTime;
 
 @Slf4j
 @Service
@@ -33,7 +31,7 @@ public class ApplicationOverwriteService {
     private final StorageRddMapper storageRddMapper;
     private final StorageBlockMapper storageBlockMapper;
     private final ApplicationLogMapper applicationLogMapper;
-    private final InsightProperties properties;
+    private final SystemProperties properties;
 
     @Transactional
     public void confirmOverwrite(String appId) {

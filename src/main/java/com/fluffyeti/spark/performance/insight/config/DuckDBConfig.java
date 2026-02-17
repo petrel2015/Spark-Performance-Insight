@@ -15,7 +15,7 @@ import java.sql.Statement;
 public class DuckDBConfig {
 
     private final DataSource dataSource;
-    private final InsightProperties insightProperties;
+    private final SystemProperties systemProperties;
 
     @PostConstruct
     public void initDuckDB() {
@@ -23,7 +23,7 @@ public class DuckDBConfig {
     }
 
     public void applyDuckDBSettings() {
-        InsightProperties.DuckDB duckdb = insightProperties.getDuckdb();
+        SystemProperties.DuckDB duckdb = systemProperties.getDuckdb();
         if (duckdb.getThreads() == null && duckdb.getMemoryLimit() == null && duckdb.getTempDirectory() == null) {
             return;
         }

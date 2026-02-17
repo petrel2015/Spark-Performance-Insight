@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Configuration;
 @Data
 @Configuration
 @ConfigurationProperties(prefix = "insight")
-public class InsightProperties {
+public class SystemProperties {
     /**
      * Directory containing Spark Event Logs.
      */

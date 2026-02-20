@@ -4,6 +4,7 @@ import com.fluffyeti.spark.performance.insight.config.DiagnosisProperties;
 import com.fluffyeti.spark.performance.insight.model.GoldApplicationModel;
 import com.fluffyeti.spark.performance.insight.model.GoldJobModel;
 import com.fluffyeti.spark.performance.insight.model.GoldStageModel;
+import com.fluffyeti.spark.performance.insight.utils.FormatUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -47,7 +48,7 @@ public class DiagnosisService {
         sb.append(String.format("- **整体健康得分**: %s\n", getHealthLabel(avgScore)));
         sb.append(String.format("- **应用名称**: `%s`\n", app.getAppName()));
         sb.append(String.format("- **运行耗时**: `%s`\n", 
-                app.getDuration() != null ? formatDuration(app.getDuration()) : "N/A"));
+                app.getDuration() != null ? FormatUtils.formatDuration(app.getDuration()) : "N/A"));
         sb.append("\n---\n\n");
 
         // 2. Detailed Stage Analysis
@@ -68,7 +69,7 @@ public class DiagnosisService {
                 sb.append(String.format("- **健康得分**: <span style=\"color: %s; font-weight: bold;\">%d</span> | **运行耗时**: `%s` | **任务总数**: `%d`\n", 
                         getHealthColor(stage.getPerformanceScore()),
                         Math.round(stage.getPerformanceScore()),
-                        formatDuration(stage.getDuration() != null ? stage.getDuration() : 0),
+                        FormatUtils.formatDuration(stage.getDuration() != null ? stage.getDuration() : 0),
                         stage.getNumTasks()));
                 
                 appendStageSpecificAdvice(sb, stage);
@@ -95,7 +96,7 @@ public class DiagnosisService {
                 sb.append(String.format("- **健康评分**: <span style=\"color: %s; font-weight: bold;\">%d</span> | **运行耗时**: `%s`\n", 
                         getHealthColor(job.getPerformanceScore()),
                         Math.round(job.getPerformanceScore()), 
-                        formatDuration(job.getDuration() != null ? job.getDuration() : 0)));
+                        FormatUtils.formatDuration(job.getDuration() != null ? job.getDuration() : 0)));
                 
                 // 只有当有关联阶段被列出时，才引导查看下方
                 if (!criticalStages.isEmpty()) {
@@ -151,24 +152,5 @@ public class DiagnosisService {
             return "#f39c12";
         }
         return "#27ae60";
-    }
-
-    private String formatDuration(long ms) {
-        if (ms < 1000) {
-            return ms + "ms";
-        }
-        long seconds = (ms / 1000) % 60;
-        long minutes = (ms / (1000 * 60)) % 60;
-        long hours = (ms / (1000 * 60 * 60));
-
-        StringBuilder sb = new StringBuilder();
-        if (hours > 0) {
-            sb.append(hours).append("h ");
-        }
-        if (minutes > 0 || hours > 0) {
-            sb.append(minutes).append("m ");
-        }
-        sb.append(seconds).append("s");
-        return sb.toString();
     }
 }

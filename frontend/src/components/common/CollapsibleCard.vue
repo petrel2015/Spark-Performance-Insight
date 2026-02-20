@@ -13,7 +13,7 @@
         <slot name="actions"></slot>
       </div>
     </div>
-    <div v-show="!isCollapsed" class="card-content">
+    <div v-if="!isCollapsed" class="card-content">
       <slot></slot>
     </div>
   </div>

@@ -103,6 +103,11 @@
             <version>1.5.5-11</version>
         </dependency>
         <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.14.0</version>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
@@ -148,6 +153,78 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.11</version>
+                <configuration>
+                                                <excludes>
+                                                    <exclude>**/model/**</exclude>
+                                                    <exclude>**/mapper/**</exclude>
+                                                    <exclude>**/config/**</exclude>
+                                                    <exclude>**/controller/**</exclude>
+                                                    <exclude>**/exception/**</exclude>
+                                                    <exclude>**/llm/**</exclude>
+                                                    <exclude>**/SparkPerformanceInsightApplication.class</exclude>
+                                                    <exclude>**/parser/EventEnvelope.class</exclude>
+                                                    <exclude>**/service/ApplicationService.class</exclude>
+                                                    <exclude>**/service/SqlExecutionService.class</exclude>
+                                                    <exclude>**/service/TaskService.class</exclude>
+                                                    <exclude>**/service/EnvironmentConfigService.class</exclude>
+                                                    <exclude>**/service/SparkExecutorService.class</exclude>
+                                                    <exclude>**/service/ApplicationLogService.class</exclude>
+                                                    <exclude>**/service/StorageService.class</exclude>
+                                                    <exclude>**/service/StatusBroadcaster.class</exclude>
+                                                    <exclude>**/service/BronzeIngestionService.class</exclude>
+                                                    <exclude>**/service/SilverTransformationService.class</exclude>
+                                                    <exclude>**/service/GoldAggregationService.class</exclude>
+                                                    <exclude>**/service/EventLogWatcherService.class</exclude>
+                                                    <exclude>**/service/ParsingQueueService.class</exclude>
+                                                    <exclude>**/service/PipelineRecoveryService.class</exclude>
+                                                    <exclude>**/service/ComparisonService.class</exclude>
+                                                    <exclude>**/service/ApplicationOverwriteService.class</exclude>
+                                                    <exclude>**/service/DuckDBManagerService.class</exclude>
+                                                </excludes>                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>check</id>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.70</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.80</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>

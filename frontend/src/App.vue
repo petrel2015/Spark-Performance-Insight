@@ -23,6 +23,17 @@
             <span v-if="compareStore.selectedItems.length > 0" class="badge">{{ compareStore.selectedItems.length }}</span>
           </router-link>
         </div>
+
+        <div class="github-star">
+          <iframe 
+            src="https://ghbtns.com/github-btn.html?user=hongyusu&repo=Spark-Performance-Insight&type=star&count=true&size=large" 
+            frameborder="0" 
+            scrolling="0" 
+            width="120" 
+            height="30" 
+            title="GitHub">
+          </iframe>
+        </div>
       </div>
     </nav>
     <router-view></router-view>
@@ -189,5 +200,15 @@ input:checked + .slider:before {
   font-size: 0.7rem;
   font-weight: bold;
   margin-left: 2px;
+}
+
+.github-star {
+  display: flex;
+  align-items: center;
+  margin-left: 0.5rem;
+}
+
+.github-star iframe {
+  vertical-align: middle;
 }
 </style>

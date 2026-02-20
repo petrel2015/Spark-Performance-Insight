@@ -8,6 +8,8 @@ English | [中文](./README.zh.md)
 [![Spring Boot 3](https://img.shields.io/badge/Spring%20Boot-3.x-green.svg)](https://spring.io/projects/spring-boot)
 [![Vue 3](https://img.shields.io/badge/Vue-3.x-42b883.svg)](https://vuejs.org/)
 [![DuckDB](https://img.shields.io/badge/DuckDB-1.1.x-fff000.svg)](https://duckdb.org/)
+[![CI Status](https://github.com/hongyusu/Spark-Performance-Insight/actions/workflows/ci.yml/badge.svg)](https://github.com/hongyusu/Spark-Performance-Insight/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/Coverage-70%25%2B-green.svg)](#testing)
 
 ---
 

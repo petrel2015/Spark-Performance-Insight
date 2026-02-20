@@ -89,6 +89,22 @@
 - **精准时间同步：** 统一毫秒级时间戳与单调递增的进度汇报，消除了跨时区环境下的导入时间估算偏差。
 - **广泛兼容：** 原生支持 **ZSTD** 压缩和 Spark **V2 目录式日志**。
 
+## 单元测试
+
+### 后端测试
+运行后端单元测试并生成 JaCoCo 覆盖率报告：
+```bash
+mvn clean test
+# 覆盖率报告路径：target/site/jacoco/index.html
+```
+
+### 前端测试
+运行前端单元测试并生成 Vitest 覆盖率报告：
+```bash
+cd frontend && npm run test:coverage
+# 覆盖率报告路径：frontend/coverage/index.html
+```
+
 ## 📖 文档与架构
 
 如需深入了解系统设计与技术规格，请参阅我们的结构化文档：

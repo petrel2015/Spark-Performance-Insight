@@ -89,6 +89,22 @@ While the native Spark Web UI provides basic monitoring, users often face signif
 - **Timing Accuracy:** Synchronized epoch milliseconds and monotonic progress tracking for reliable estimates.
 - **Broad Log Support:** Native support for **ZSTD** compression and Spark **V2 log directories**.
 
+## Testing
+
+### Backend Testing
+Run backend unit tests and generate JaCoCo coverage report:
+```bash
+mvn clean test
+# Coverage Report: target/site/jacoco/index.html
+```
+
+### Frontend Testing
+Run frontend unit tests and generate Vitest coverage report:
+```bash
+cd frontend && npm run test:coverage
+# Coverage Report: frontend/coverage/index.html
+```
+
 ## 📖 Documentation & Architecture
 
 For deep dives into the system design and technical specifications, please refer to our structured documentation:

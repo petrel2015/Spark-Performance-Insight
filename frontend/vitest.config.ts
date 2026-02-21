@@ -14,12 +14,12 @@ export default defineConfig({
         lines: 70,
         branches: 80
       },
-      include: ['src/utils/**/*.ts', 'src/store/**/*.ts'],
+      include: ['src/**/*.ts', 'src/**/*.vue'],
       exclude: ['src/main.ts', 'src/router/**', 'src/api/**']
     },
     server: {
       deps: {
-        inline: ['@antv/x6', 'dagre']
+        inline: [/@antv\/x6/, 'dagre', 'marked']
       }
     }
   },

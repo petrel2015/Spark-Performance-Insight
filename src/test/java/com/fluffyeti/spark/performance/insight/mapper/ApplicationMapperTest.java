@@ -1,0 +1,45 @@
+package com.fluffyeti.spark.performance.insight.mapper;
+
+import com.fluffyeti.spark.performance.insight.model.GoldApplicationModel;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@SpringBootTest
+@ActiveProfiles("test") // Uses application-test.yml
+@Transactional // Rolls back changes after each test
+class ApplicationMapperTest {
+
+    @Autowired
+    private ApplicationMapper applicationMapper;
+
+    @Test
+    @DisplayName("Should verify ApplicationMapper SQL compatibility with Schema")
+    void shouldSelectFromApplicationTable() {
+        // This simple test triggers the initialization of the DB and execution of the Mapper.
+        // If schema.sql and ApplicationMapper.xml are out of sync, this will fail.
+        
+        GoldApplicationModel app = new GoldApplicationModel();
+        app.setAppId("test-app-1");
+        app.setAppName("Test App");
+        
+        applicationMapper.insert(app);
+        
+        GoldApplicationModel retrieved = applicationMapper.selectById("test-app-1");
+        assertThat(retrieved).isNotNull();
+        assertThat(retrieved.getAppName()).isEqualTo("Test App");
+    }
+
+    @Test
+    @DisplayName("Should verify complex update metrics SQL")
+    void shouldExecuteUpdateAppMetrics() {
+        // Test a complex custom XML query
+        applicationMapper.updateAppMetrics("non-existent-app");
+        // No exception means SQL syntax and column names are valid according to schema
+    }
+}

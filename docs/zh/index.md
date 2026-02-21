@@ -11,6 +11,7 @@
 *   **[Application 导入状态机](./Application_Import_State_Machine.md)**：应用从发现到分析成功的详细生命周期。
 *   **[EventLog 技术参考](./EventLog_Reference.md)**：支持的日志格式、命名规范及压缩类型。
 *   **[测试策略](./Testing_Strategy.md)**：我们的“有意义覆盖”哲学及 CI 的技术实现。
+*   **[MCP 集成设计](./MCP_Integration_Design.md)**：通过 Model Context Protocol 向 LLM 提供分析工具的设计方案。
 
 ## 🖥 界面展示与说明
 

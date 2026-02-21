@@ -11,6 +11,7 @@ Welcome to the Spark Performance Insight documentation. Below you will find deta
 *   **[Application Import State Machine](./Application_Import_State_Machine.md)**: Detailed lifecycle of an application from discovery to successful analysis.
 *   **[EventLog Reference](./EventLog_Reference.md)**: Supported log formats, naming conventions, and compression types.
 *   **[Testing Strategy](./Testing_Strategy.md)**: Our philosophy on "Meaningful Coverage" and technical implementation of CI.
+*   **[MCP Integration Design](./MCP_Integration_Design.md)**: Exposing analysis tools to LLMs via Model Context Protocol.
 
 ## 🖥 User Interface Gallery
 

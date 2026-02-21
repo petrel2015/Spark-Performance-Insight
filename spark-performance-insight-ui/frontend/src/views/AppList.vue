@@ -1122,7 +1122,6 @@ onUnmounted(() => {
   border-radius: 8px;
   padding: 1.5rem;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-  overflow-x: auto;
 }
 
 .table-header-toolbar {
@@ -1248,9 +1247,11 @@ onUnmounted(() => {
 
 .sort-hint { margin-left: auto; color: #888; font-style: italic; font-size: 0.8rem; }
 
-.table-wrapper { min-width: 1500px; }
+.table-wrapper {
+  overflow-x: auto;
+}
 
-.styled-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.styled-table { width: 100%; min-width: 1500px; border-collapse: collapse; font-size: 0.9rem; }
 
 .styled-table th, .styled-table td {
   padding: 12px 15px;

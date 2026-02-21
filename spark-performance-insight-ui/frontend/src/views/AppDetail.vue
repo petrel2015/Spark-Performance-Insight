@@ -629,7 +629,6 @@ onUnmounted(() => {
   padding: 0;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 60px);
 }
 
 .header-bar {
@@ -714,7 +713,6 @@ onUnmounted(() => {
 
 .content-area {
   flex: 1;
-  overflow-y: auto;
   padding: 1.5rem;
   background: #f8f9fa;
 }

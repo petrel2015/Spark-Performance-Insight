@@ -54,10 +54,11 @@ import { SYSTEM_VERSION } from './constants/config';
 
 <style scoped>
 .container {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   background-color: #f5f7fa;
+  overflow: hidden;
 }
 
 .navbar {
@@ -189,8 +190,7 @@ input:checked + .slider:before {
 
 .main-content {
   flex: 1;
-  display: flex;
-  flex-direction: column;
+  overflow-y: auto;
 }
 
 .footer {

@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Slf4j
 @SpringBootTest
 @ActiveProfiles("test")
-@Disabled("Disabled due to DuckDB native library conflicts during CI execution. Run manually if needed.")
+
 class PipelinePerformanceWatchdogTest {
 
     @Autowired

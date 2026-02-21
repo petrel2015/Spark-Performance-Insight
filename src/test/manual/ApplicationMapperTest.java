@@ -1,8 +1,8 @@
 package com.fluffyeti.spark.performance.insight.mapper;
 
 import com.fluffyeti.spark.performance.insight.model.GoldApplicationModel;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 @ActiveProfiles("test")
 @Transactional
-@Disabled("Disabled due to DuckDB native library conflicts during CI. Run manually for SQL-Schema validation.")
+@Tag("IntegrationTest")
 class ApplicationMapperTest {
 
     @Autowired

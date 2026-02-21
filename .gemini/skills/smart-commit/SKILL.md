@@ -16,57 +16,43 @@ This skill guides the process of creating high-quality, atomic Git commits. It e
 
 - **Action:** Run `git status` to see staged, unstaged, and untracked files.
 - **Action:** Run `git diff --name-only` (and `git diff` if needed) to understand the nature of the changes.
-- **Decision:**
-    - If there are too many unrelated changes, plan to split them into multiple commits.
-    - If there are untracked files, decide whether to add them or ignore them.
 
-### 2. Group Changes (Atomic Commits)
+### 2. Pre-Commit Verification (Mandatory Guardrail)
+**Goal:** Ensure code quality before any commit.
+
+- **Requirement:** Before staging any files, you MUST run all backend and frontend tests.
+- **Backend Test:** Run `mvn clean test`.
+- **Frontend Test:** Run `cd frontend && npm run test:coverage`.
+- **Constraint:** If any test fails, you MUST STOP and report the failures to the user. Do NOT commit code with failing tests unless explicitly instructed by the user to bypass.
+
+### 3. Group Changes (Atomic Commits)
 **Goal:** Create commits where each one does one thing and does it well.
 
 - **Strategy:** Group files by feature, fix, or refactor.
-    - *Example:* All changes related to "fixing the login bug" go in one commit.
-    - *Example:* All "database schema renames" go in another commit.
 - **Avoid:** "Kitchen sink" commits that mix formatting, features, and bug fixes.
 
-### 3. Stage and Commit
-**Goal:** Commit each group sequentially.
-
+### 4. Stage and Commit
 **Loop for each logical group:**
-1.  **Stage:** Use `git add <file1> <file2> ...` to stage only the relevant files for this specific commit.
-    - *Tip:* Use `git add -p` (patch mode) if you need to split changes within a single file (though CLI agents might prefer file-level granularity for simplicity).
-2.  **Verify:** (Optional but recommended) Run `git diff --staged --name-only` to confirm you staged what you intended.
-3.  **Commit:** Run `git commit -m "<type>: <subject>"`
-    - **Convention:** Use Conventional Commits format:
-        - `feat:` for new features
-        - `fix:` for bug fixes
-        - `docs:` for documentation
-        - `style:` for formatting (missing semi-colons, etc)
-        - `refactor:` for code restructuring without behavior change
-        - `test:` for adding tests
-        - `chore:` for maintenance (build tasks, package managers)
-    - **Message:** Keep the subject line under 50 chars if possible. Use the body for details if necessary (for `git commit`, usually just `-m` is enough, but multiple `-m` flags can add a body).
+1.  **Stage:** Use `git add <file1> <file2> ...` to stage only the relevant files.
+2.  **Verify:** Run `git diff --staged --name-only` to confirm.
+3.  **Commit:** Run `git commit -m "<type>: <subject>"` (using Conventional Commits).
 
-### 4. Final Review
-**Goal:** Ensure everything is clean.
-
-- **Action:** Run `git status` one last time to ensure no files were left behind unintentionally.
-- **Action:** Run `git log -n <number_of_new_commits>` to show the user the result.
+### 5. Final Review
+- **Action:** Run `git status` to ensure a clean working tree.
+- **Action:** Run `git log -n <number_of_new_commits>` to show the result.
 
 ## Example Session
 
 **User:** "Commit these changes."
 
 **Gemini CLI:**
-1.  `git status` -> Sees `auth.ts`, `auth.test.ts`, `README.md`, `logo.png`.
-2.  **Plan:**
-    - Commit 1: Auth feature (`auth.ts`, `auth.test.ts`)
-    - Commit 2: Documentation (`README.md`)
-    - Commit 3: Assets (`logo.png`)
-3.  **Execution:**
-    - `git add auth.ts auth.test.ts`
-    - `git commit -m "feat: implement user authentication"`
-    - `git add README.md`
-    - `git commit -m "docs: update readme with auth instructions"`
-    - `git add logo.png`
-    - `git commit -m "chore: add company logo"`
-4.  **Report:** "I have split your changes into 3 commits..."
+1.  `git status` -> Sees changes in `DiagnosisService.java` and `format.ts`.
+2.  **Verify:** Runs `mvn test` and `npm test`. Both pass.
+3.  **Plan:**
+    - Commit 1: Fix diagnosis logic (`DiagnosisService.java`)
+    - Commit 2: Refactor format utils (`format.ts`)
+4.  **Execution:**
+    - `git add ...`
+    - `git commit -m "fix: correct scoring algorithm in DiagnosisService"`
+    - ...
+5.  **Report:** "Tests passed. I have created 2 commits..."

@@ -49,6 +49,18 @@ For features that rely on external providers (like LLMs), we provide a lightweig
 *   **Purpose**: Allows users to verify their API keys and network connectivity without running the full application or database.
 *   **Usage**: Fill in your API keys in the local variables and run the test manually from your IDE. These tests are `@Disabled` by default to avoid CI failures.
 
+## 🏗️ Manual Integration Tests
+
+Due to DuckDB's Native library initialization constraints (preventing frequent JVM refreshes during automated multi-class testing), all database-dependent tests are isolated in the `src/test/manual/` directory.
+
+### Why isolation?
+DuckDB native drivers can trigger JVM crashes (`Abort Trap 6`) if re-initialized too frequently or concurrently within the same process during a Maven build.
+
+### How to run them?
+These tests are essential for validating **SQL-Schema compatibility** and **End-to-End parsing logic**:
+1.  **IDE Execution**: Most modern IDEs (IntelliJ IDEA, Eclipse) can run these tests directly from the `src/test/manual` directory. Simply right-click and "Run".
+2.  **Command Line**: Temporarily move the desired test file back to `src/test/java/...` and run `mvn test -Dtest=YourTestName`. Remember to move it back before committing.
+
 ---
 
 *This strategy ensures that as the project grows, our maintenance effort remains focused on the logic that actually matters.*

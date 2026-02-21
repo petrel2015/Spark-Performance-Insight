@@ -37,6 +37,7 @@ release.properties
 *.ipr
 
 # Project specific
+.DS_Store
 eventlogs/
 out/
 *.db

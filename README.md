@@ -14,7 +14,7 @@ English | [中文](./README.zh.md)
 
 ---
 
-An advanced Spark performance analysis system designed to address the core pain points of the native Spark Web UI/History Server. It eliminates "slow replay", "information overload", and "lack of comparison" issues through **Medallion Architecture**, **Smart Diagnosis**, and **Multi-dimensional Benchmarking**.
+In the AI era, **Spark Performance Insight** aims to revolutionize Spark performance analysis. Centered around Spark, it leverages LLM to provide deep data insights and uses the **Model Context Protocol (MCP)** to expose these capabilities, enabling autonomous and natural language-driven tuning. It effectively addresses the core pain points of the native Spark Web UI/History Server by eliminating "slow replay", "information overload", and "lack of comparison" issues through **Medallion Architecture**, **Smart Diagnosis**, and **Multi-dimensional Benchmarking**.
 
 > **💡 Core Goal: Transform raw logs into actionable intelligence, providing instant answers instead of raw data.**
 

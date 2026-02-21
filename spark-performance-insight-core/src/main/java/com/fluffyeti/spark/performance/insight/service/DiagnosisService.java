@@ -94,22 +94,35 @@ public class DiagnosisService {
         metrics.put("score", stage.getPerformanceScore());
         metrics.put("duration_ms", stage.getDuration());
 
+        List<String> issues = new ArrayList<>();
         if (Boolean.TRUE.equals(stage.getIsSkewed())) {
             builder.type(ApplicationInsight.Bottleneck.Type.DATA_SKEW);
-            builder.description("Data Skew: Max task duration is significantly higher than median.");
+            issues.add("数据倾斜: 最大任务耗时显著高于中位数，存在长尾效应。");
             metrics.put("is_skewed", true);
-        } else if (stage.getDiskBytesSpilledSum() != null && stage.getDiskBytesSpilledSum() > 0) {
-            builder.type(ApplicationInsight.Bottleneck.Type.DISK_SPILL);
-            builder.description("Disk Spill: Memory pressure caused data to spill to disk.");
+        }
+        
+        if (stage.getDiskBytesSpilledSum() != null && stage.getDiskBytesSpilledSum() > 0) {
+            if (builder.build().getType() == null) {
+                builder.type(ApplicationInsight.Bottleneck.Type.DISK_SPILL);
+            }
+            issues.add("磁盘溢写: 内存压力导致数据溢写至磁盘，严重影响 IO 性能。");
             metrics.put("disk_spill_bytes", stage.getDiskBytesSpilledSum());
-        } else if (stage.getGcTimeSum() != null && stage.getTasksDurationSum() != null && stage.getTasksDurationSum() > 0 
+        }
+        
+        if (stage.getGcTimeSum() != null && stage.getTasksDurationSum() != null && stage.getTasksDurationSum() > 0 
                    && (double) stage.getGcTimeSum() / stage.getTasksDurationSum() > 0.1) {
-            builder.type(ApplicationInsight.Bottleneck.Type.MEMORY_PRESSURE);
-            builder.description("Memory Pressure: GC time accounts for more than 10% of task duration.");
+            if (builder.build().getType() == null) {
+                builder.type(ApplicationInsight.Bottleneck.Type.MEMORY_PRESSURE);
+            }
+            issues.add("内存压力: GC 时间占比超过 10% (实际占比: " + Math.round((double) stage.getGcTimeSum() / stage.getTasksDurationSum() * 100) + "%)，可能存在内存泄漏或配置不足。");
             metrics.put("gc_time_ms", stage.getGcTimeSum());
+        }
+
+        if (issues.isEmpty()) {
+            builder.type(ApplicationInsight.Bottleneck.Type.LOCALITY_ISSUE);
+            builder.description("常规性能退化。");
         } else {
-            builder.type(ApplicationInsight.Bottleneck.Type.LOCALITY_ISSUE); // Fallback
-            builder.description("General performance degradation.");
+            builder.description(String.join(" | ", issues));
         }
 
         return builder.metrics(metrics).build();

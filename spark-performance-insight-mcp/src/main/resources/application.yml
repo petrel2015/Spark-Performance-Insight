@@ -1,12 +1,7 @@
 server:
-  port: 18081
+  port: 18082
 
 spring:
-  ai:
-    mcp:
-      server:
-        stdio:
-          enabled: ${MCP_ENABLED:false}
   profiles:
     active: ${INSIGHT_PROFILE:medium}
   datasource:
@@ -24,6 +19,10 @@ spring:
       mode: always
       schema-locations: classpath:db/schema.sql
   ai:
+    mcp:
+      server:
+        http:
+          enabled: ${MCP_ENABLED:true}
     zhipuai:
       api-key: ${ZHIPU_API_KEY:fake_api_key}
       chat:
@@ -49,7 +48,7 @@ insight:
   ai:
     provider: ${AI_PROVIDER:zhipu}
   mcp:
-    enabled: ${MCP_ENABLED:false}
+    enabled: ${MCP_ENABLED:true}
   event-log-path: ./workspace/eventlog
   duckdb:
     temp-directory: ${DUCKDB_TEMP_DIR:out/spark_performance_insight.duckdb.db.tmp}

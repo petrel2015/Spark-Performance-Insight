@@ -33,9 +33,11 @@ An advanced Spark performance analysis system that replaces the slow "event repl
 ## 🛠 Development Guidelines for Gemini
 
 ### Backend Rules
-1. **Virtual Threads**: Always prefer virtual threads for background processing via `Executors.newVirtualThreadPerTaskExecutor()` or Spring's `@Async` (when enabled).
-2. **DuckDB SQL**: Use standard SQL. Avoid complex transactions as DuckDB is optimized for analytical throughput rather than ACID compliance.
-3. **Log Handling**: When adding new Event handlers in `JacksonEventParser`, ensure they are null-safe as Spark logs can be inconsistent across versions.
+1. **Coding Standards**: Strictly adhere to the **Alibaba Java Coding Guidelines** (via the `alibaba-java-guidelines` skill). This applies to naming, OOP design, concurrency management, exception handling, and logging. Always perform a compliance check or apply these rules during code generation.
+2. **Virtual Threads**: Always prefer virtual threads for background processing via `Executors.newVirtualThreadPerTaskExecutor()` or Spring's `@Async` (when enabled).
+3. **DuckDB SQL**: Use standard SQL. Avoid complex transactions as DuckDB is optimized for analytical throughput rather than ACID compliance.
+4. **Log Handling**: When adding new Event handlers in `JacksonEventParser`, ensure they are null-safe as Spark logs can be inconsistent across versions.
+5. **Testability**: Design for testability from the start. Avoid over-using `private` visibility for core logic (prefer package-private/protected to allow unit test access). Avoid reflection as it complicates maintenance. Decompose complex business logic into smaller, discrete methods to enable targeted and granular unit testing.
 
 ### Frontend Rules
 1. **Composition API**: Use `<script setup>` with Vue 3 Composition API.

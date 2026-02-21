@@ -117,6 +117,8 @@ This project follows a strict **Quality First** approach, implementing a four-la
 4.  **Performance Watchdog (JMH)**: Precise micro-benchmarking using **JMH** to monitor processing latency across Medallion layers, ensuring no heavy performance degradation during feature updates.
 5.  **UI Regression Guard**: Structure-based component tests that protect critical UI features (e.g., search, filtering, charts) from accidental breakage.
 
+> **Detailed Strategy**: For a deep dive into our testing philosophy and "Meaningful Coverage" implementation, please refer to the **[Testing Strategy Guide](./docs/en/Testing_Strategy.md)**.
+
 ## 🧪 Manual Connectivity Checks
 
 New users can verify their LLM API keys and network connectivity without running the full application by using the manual test tool:

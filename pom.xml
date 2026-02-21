@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.fluffyeti.spark.performance.insight</groupId>
     <artifactId>spark-performance-insight-parent</artifactId>
-    <version>1.1.0</version>
+    <version>1.2.0</version>
     <packaging>pom</packaging>
     <name>spark-performance-insight-parent</name>
 
@@ -31,6 +31,17 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter</artifactId>
+                <version>3.2.3</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-starter-logging</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
             <dependency>
                 <groupId>com.fluffyeti.spark.performance.insight</groupId>
                 <artifactId>spark-performance-insight-core</artifactId>

@@ -2,7 +2,7 @@
 
 [English](./README.md) | 中文
 
-[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](./CHANGELOG.zh.md)
+[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](./CHANGELOG.zh.md)
 [![Stars](https://img.shields.io/github/stars/petrel2015/Spark-Performance-Insight?style=flat&color=yellow)](https://github.com/petrel2015/Spark-Performance-Insight/stargazers)
 [![AI Powered](https://img.shields.io/badge/Powered%20by-Gemini%20AI-blue.svg)](https://deepmind.google/technologies/gemini/)
 [![Java 21](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/technologies/javase/jdk21-archive-downloads.html)

@@ -1,3 +1,19 @@
+## 1.2.0 - 2026-02-21
+
+### Features
+- Implement Model Context Protocol (MCP) server with HTTP/SSE transport support
+- Support autonomous log analysis for AI Agents (Gemini CLI, Claude Code)
+- Add async Submit-and-Poll pattern for long-running log parsing
+- Implement Spring AI based MCP server for autonomous LLM analysis
+
+### Fixes
+- Localize diagnosis reports and support multi-issue reporting for stages
+- Resolve GitHub Actions path issues and enable JaCoCo coverage reports
+
+### Documentation
+- Update README and MCP user guides with HTTP/SSE instructions and new assets
+- Refine project vision to emphasize AI, LLM insights, and MCP capabilities
+
 ## 1.1.0 - 2026-02-21
 
 ### Features

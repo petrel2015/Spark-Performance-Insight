@@ -1,3 +1,19 @@
+## 1.2.0 - 2026-02-21
+
+### 新功能
+- 实现 MCP (Model Context Protocol) 服务，支持 HTTP/SSE 传输协议
+- 支持 AI Agent (Gemini CLI, Claude Code) 的自主日志分析能力
+- 为耗时较长的日志解析引入异步“提交-轮询”模式
+- 基于 Spring AI 实现 MCP 服务，赋能 LLM 自主分析
+
+### 修复
+- 实现诊断报告国际化，支持单个阶段报告多个性能问题
+- 修复 GitHub Actions 路径问题并开启 JaCoCo 测试覆盖率报告
+
+### 文档
+- 更新 README 和 MCP 使用指南，包含 HTTP/SSE 指令及新版截图
+- 重塑项目愿景，强调 AI、LLM 洞察及 MCP 开放能力
+
 ## 1.1.0 - 2026-02-21
 
 ### 新功能

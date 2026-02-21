@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "spark-insight": {
+      "url": "http://localhost:18082/mcp/sse",
+      "type": "sse"
+    }
+  }
+}

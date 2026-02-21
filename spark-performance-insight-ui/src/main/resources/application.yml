@@ -2,11 +2,6 @@ server:
   port: 18081
 
 spring:
-  ai:
-    mcp:
-      server:
-        stdio:
-          enabled: ${MCP_ENABLED:false}
   profiles:
     active: ${INSIGHT_PROFILE:medium}
   datasource:
@@ -38,6 +33,10 @@ spring:
         options:
           model: gpt-4-turbo
           temperature: 0.1
+    mcp:
+      server:
+        stdio:
+          enabled: ${MCP_ENABLED:false}
 
 mybatis-plus:
   mapper-locations: classpath:mapper/*.xml
@@ -55,11 +54,11 @@ insight:
     temp-directory: ${DUCKDB_TEMP_DIR:out/spark_performance_insight.duckdb.db.tmp}
   scheduler:
     scan-interval-seconds: 60
-  comparison:
-    ignore-categories:
-      - classpath_entries
-
-logging:
-  config: classpath:log4j2.xml
-  level:
-    com.fluffyeti.spark.performance.insight.mapper: info
+    comparison:
+      ignore-categories:
+        - classpath_entries
+  
+  logging:
+    level:
+      com.fluffyeti.spark.performance.insight.mapper: info
+  

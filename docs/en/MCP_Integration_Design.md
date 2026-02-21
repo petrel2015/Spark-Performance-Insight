@@ -17,26 +17,29 @@ To ensure reusability, we will move core logic into a shared base:
 - `spark-performance-insight-mcp`: **(NEW)** Wraps core logic with Spring AI MCP tool definitions.
 
 ### 2. Core Tool Definition
+Due to the long-running nature of Spark log analysis, we use a **Submit-then-Poll** asynchronous pattern:
 
-#### `analyze_spark_application`
+#### `submit_spark_analysis`
 - **Arguments**:
   - `path`: (string, Required) Full path to a Spark EventLog file or a V2 log directory.
-- **Workflow**:
-  1. **Detection**: Identify if the path is a single file (ZSTD/Plain) or a V2 directory.
-  2. **Ingestion**: Trigger `BronzeIngestionService` to load data into memory DuckDB.
-  3. **Transformation**: Execute Silver and Gold layer processing.
-  4. **Extraction**: Call `DiagnosisService` to generate a **structured JSON insight**.
-- **Output**: Clean, machine-readable JSON for LLM reasoning.
+- **Responsibility**: Validates the path, infers the App ID, and submits it to the background parsing queue.
+- **Output**: JSON containing the `appId` and initial status. The LLM should record this ID for future status checks.
+
+#### `get_analysis_status`
+- **Arguments**:
+  - `appId`: (string, Required) The application ID returned by the submission tool.
+- **Responsibility**: Checks the current parsing progress.
+- **Smart Output**: 
+  - If processing: Returns `progress` percentage and `progressText`.
+  - If completed: Returns the **LLM-Ready JSON** performance insights along with the success status.
 
 ## 📊 LLM-Friendly Output Schema
-The response will be stripped of UI elements, focusing on actionable metrics:
+The response focuses on actionable metrics for LLM reasoning:
 
 ```json
 {
   "app_metadata": {
     "app_id": "application_123",
-    "name": "Daily_ETL_Job",
-    "total_duration_ms": 3600000,
     "health_score": 72
   },
   "critical_bottlenecks": [
@@ -46,11 +49,7 @@ The response will be stripped of UI elements, focusing on actionable metrics:
       "stage_id": 15,
       "details": { "skew_ratio": 50.0 }
     }
-  ],
-  "efficiency_metrics": {
-    "cpu_utilization": 0.45,
-    "gc_time_ratio": 0.12
-  }
+  ]
 }
 ```
 

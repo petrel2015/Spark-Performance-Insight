@@ -17,17 +17,21 @@
 - `spark-performance-insight-mcp`: **(新)** 引入 Spring AI MCP 依赖，实现工具注册。
 
 ### 2. 核心工具定义 (MCP Tools)
-我们仅暴露一个核心工具，遵循“极简输入，丰富输出”的原则：
+为了应对长时间的日志解析，我们采用了“提交 + 轮询”的异步设计模式：
 
-#### `analyze_spark_application`
+#### `submit_spark_analysis`
 - **输入参数**:
   - `path`: (string, Required) Spark EventLog 的文件路径或目录路径。
-- **工作流**:
-  1. **路径探测**: 识别是单文件还是 V2 目录。
-  2. **快速导入**: 调用 `BronzeIngestionService` 将日志加载至内存 DuckDB。
-  3. **数据加工**: 依次触发 Silver 和 Gold 层转换。
-  4. **规则提取**: 调用 `DiagnosisService` 的 **JSON 解析器** 提取性能特征。
-- **输出**: 纯净的、LLM 友好的 JSON 字符串。
+- **职责**: 验证路径、推断 App ID 并将其提交至异步解析队列。
+- **输出**: 包含 `appId` 和初始状态的 JSON，LLM 应记录该 ID 以备后续查询。
+
+#### `get_analysis_status`
+- **输入参数**:
+  - `appId`: (string, Required) 由提交工具返回的应用 ID。
+- **职责**: 查询当前解析进度。
+- **智能输出**: 
+  - 若解析中：返回进度百分比 (`progress`) 和阶段描述 (`progressText`)。
+  - 若已完成：除状态外，额外返回 **LLM-Ready JSON** 格式的性能洞察结果。
 
 ## 📊 LLM 友好型数据协议 (Output Schema)
 返回结果将剔除 UI 相关的样式，专注于核心指标，便于 LLM 推理：

@@ -1,0 +1,65 @@
+server:
+  port: 18081
+
+spring:
+  ai:
+    mcp:
+      server:
+        stdio:
+          enabled: ${MCP_ENABLED:false}
+  profiles:
+    active: ${INSIGHT_PROFILE:medium}
+  datasource:
+    url: jdbc:duckdb:out/spark_performance_insight.duckdb.db
+    driver-class-name: org.duckdb.DuckDBDriver
+    username: sa
+    password: ""
+  application:
+    name: spark-performance-insight
+  threads:
+    virtual:
+      enabled: true
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema.sql
+  ai:
+    zhipuai:
+      api-key: ${ZHIPU_API_KEY:fake_api_key}
+      chat:
+        options:
+          model: glm-4.7
+          temperature: 0.1
+          max-tokens: 4096
+    openai:
+      api-key: ${OPENAI_API_KEY:fake_api_key}
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+      chat:
+        options:
+          model: gpt-4-turbo
+          temperature: 0.1
+
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.fluffyeti.spark.performance.insight.model
+  configuration:
+    map-underscore-to-camel-case: true
+
+insight:
+  ai:
+    provider: ${AI_PROVIDER:zhipu}
+  mcp:
+    enabled: ${MCP_ENABLED:false}
+  event-log-path: ./workspace/eventlog
+  duckdb:
+    temp-directory: ${DUCKDB_TEMP_DIR:out/spark_performance_insight.duckdb.db.tmp}
+  scheduler:
+    scan-interval-seconds: 60
+  comparison:
+    ignore-categories:
+      - classpath_entries
+
+logging:
+  config: classpath:log4j2.xml
+  level:
+    com.fluffyeti.spark.performance.insight.mapper: info

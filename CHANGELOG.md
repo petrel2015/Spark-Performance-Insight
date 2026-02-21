@@ -1,3 +1,26 @@
+## 1.1.0 - 2026-02-21
+
+### Features
+- Improve data loading experience with spinners and enhanced duration readability
+- Add custom integrated GitHub Star button to footer and contact link
+- Add manual connectivity check tool for OpenAI and Zhipu AI clients
+- Integrate JMH for precise Medallion pipeline performance benchmarking
+
+### Fixes
+- Fix DuckDB native library conflicts and stabilize CI build
+- Resolve layout distortion and tooltip overlapping in various views
+- Standardize duration formatting across the application
+
+### Tests
+- Set up comprehensive unit testing and CI workflow for both frontend and backend
+- Implement UI regression guards for critical features (AppList, Diagnosis Card)
+- Add Mapper integration tests to ensure SQL compatibility with Schema
+- Implement Medallion pipeline performance watchdog with layer-specific latency audit
+
+### Documentation
+- Add comprehensive Testing Strategy documentation explaining "Meaningful Coverage" philosophy
+- Link detailed testing strategy and quality engineering sections in READMEs
+
 ## 1.0.7 - 2026-02-18
 
 ### Features

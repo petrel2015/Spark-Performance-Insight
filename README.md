@@ -107,6 +107,21 @@ cd frontend && npm run test:coverage
 # Coverage Report: frontend/coverage/index.html
 ```
 
+## 🛡️ Quality Engineering
+
+This project follows a strict **Quality First** approach, implementing a four-layer guardian system to ensure stability and performance:
+
+1.  **Meaningful Coverage**: We target **70% Line** and **80% Branch** coverage on core logic (Services/Utils), intentionally excluding boilerplate code to ensure our CI acts as a true logic sentinel.
+2.  **SQL-Schema Guard**: Integration tests run against a real **DuckDB** instance to ensure MyBatis XML SQLs are always perfectly synchronized with the database schema.
+3.  **E2E Parsing Pipeline**: Validates the full Medallion pipeline using real-world Spark EventLogs (ZSTD, V2 formats) to prevent parsing regressions.
+4.  **Performance Watchdog (JMH)**: Precise micro-benchmarking using **JMH** to monitor processing latency across Medallion layers, ensuring no heavy performance degradation during feature updates.
+5.  **UI Regression Guard**: Structure-based component tests that protect critical UI features (e.g., search, filtering, charts) from accidental breakage.
+
+## 🧪 Manual Connectivity Checks
+
+New users can verify their LLM API keys and network connectivity without running the full application by using the manual test tool:
+`src/test/java/com/fluffyeti/spark/performance/insight/llm/LLMManualConnectionTest.java`
+
 ## 📖 Documentation & Architecture
 
 For deep dives into the system design and technical specifications, please refer to our structured documentation:

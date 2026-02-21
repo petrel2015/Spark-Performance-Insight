@@ -107,6 +107,21 @@ cd frontend && npm run test:coverage
 # 覆盖率报告路径：frontend/coverage/index.html
 ```
 
+## 🛡️ 质量工程
+
+本项目遵循严格的 **“质量第一”** 理念，构建了四层全维度看护体系，确保系统的稳定性与高性能：
+
+1.  **有意义的覆盖率**: 针对核心逻辑（Service/Utils）设定 **70% 行覆盖率** 与 **80% 分支覆盖率** 阈值，剔除样板代码干扰，让 CI 真正发挥逻辑哨兵的作用。
+2.  **SQL-Schema 看护**: 集成测试在真实的 **DuckDB** 实例上运行，确保 MyBatis XML 中的 SQL 语句与数据库表结构始终保持 100% 同步。
+3.  **端到端解析流水线**: 使用真实的 Spark EventLog（支持 ZSTD, V2 格式）进行压力测试，验证全量 Medallion 数据流水线的健壮性。
+4.  **性能监控哨兵 (JMH)**: 引入 **JMH** 微基准测试，精确监控数据处理各层的延迟，防止功能迭代导致性能退化。
+5.  **UI 回归防护**: 基于结构的组件测试，保护核心 UI 功能（如搜索、列筛选、图表卡片）不会因为代码重构而意外消失。
+
+## 🧪 手动连通性校验
+
+新用户可以通过以下手动测试工具，在不启动完整应用的情况下验证 LLM API Key 和网络连通性：
+`src/test/java/com/fluffyeti/spark/performance/insight/llm/LLMManualConnectionTest.java`
+
 ## 📖 文档与架构
 
 如需深入了解系统设计与技术规格，请参阅我们的结构化文档：

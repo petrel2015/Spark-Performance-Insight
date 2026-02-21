@@ -8,7 +8,7 @@
 [![Spring Boot 3](https://img.shields.io/badge/Spring%20Boot-3.x-green.svg)](https://spring.io/projects/spring-boot)
 [![Vue 3](https://img.shields.io/badge/Vue-3.x-42b883.svg)](https://vuejs.org/)
 [![DuckDB](https://img.shields.io/badge/DuckDB-1.1.x-fff000.svg)](https://duckdb.org/)
-[![CI 状态](https://github.com/hongyusu/Spark-Performance-Insight/actions/workflows/ci.yml/badge.svg)](https://github.com/hongyusu/Spark-Performance-Insight/actions/workflows/ci.yml)
+[![CI 状态](https://github.com/petrel2015/Spark-Performance-Insight/actions/workflows/ci.yml/badge.svg)](https://github.com/petrel2015/Spark-Performance-Insight/actions/workflows/ci.yml)
 [![测试覆盖率](https://img.shields.io/badge/%E6%B5%8B%E8%AF%95%E8%A6%86%E7%9B%96%E7%8E%87-70%25%2B-green.svg)](#%E5%8D%95%E5%85%83%E6%B5%8D%E8%AF%95)
 
 ---

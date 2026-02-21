@@ -38,8 +38,8 @@
           <a href="mailto:petrel2015@foxmail.com" class="footer-link">Contact</a>
         </div>
         <div class="footer-right">
-          <a href="https://github.com/hongyusu/Spark-Performance-Insight" target="_blank" class="badge-link">
-            <img src="https://img.shields.io/github/stars/hongyusu/Spark-Performance-Insight?style=flat-square&logo=github&label=Stars&color=2c3e50" alt="GitHub Stars">
+          <a href="https://github.com/petrel2015/Spark-Performance-Insight" target="_blank" class="badge-link">
+            <img src="https://img.shields.io/github/stars/petrel2015/Spark-Performance-Insight?style=flat-square&logo=github&label=Stars&color=2c3e50" alt="GitHub Stars">
           </a>
         </div>
       </div>

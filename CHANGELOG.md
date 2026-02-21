@@ -7,6 +7,7 @@
 - Implement Spring AI based MCP server for autonomous LLM analysis
 
 ### Fixes
+- Resolve footer overlapping issue by standardizing global layout
 - Localize diagnosis reports and support multi-issue reporting for stages
 - Resolve GitHub Actions path issues and enable JaCoCo coverage reports
 

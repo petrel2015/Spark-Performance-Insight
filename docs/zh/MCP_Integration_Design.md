@@ -5,7 +5,7 @@
 
 ## 🛠 技术栈
 - **核心框架**: [Spring AI MCP](https://github.com/spring-projects/spring-ai) (Boot Starters)
-- **协议类型**: `stdio` (标准输入输出，适用于本地 IDE 和桌面 Agent 接入)
+- **协议类型**: `http` (SSE - Server-Sent Events, 适用于远程访问和持久化服务集成)
 - **集成模式**: 作为一个独立的 Maven 模块 `spark-performance-insight-mcp`。
 
 ## 🧱 架构设计
@@ -76,7 +76,7 @@
 1. **Service 重构**: 在 `DiagnosisService` 中抽取 `generateStructuredInsight(appId)` 方法，返回 DTO 而不是渲染好的 Markdown。
 2. **MCP 模块创建**: 新建 Maven Module，引入 `spring-ai-mcp-starter`。
 3. **工具注册**: 使用 `@Tool` 注解包装解析流水线。
-4. **Stdio 适配**: 配置 Spring Boot 启动类，支持标准流交互。
+4. **HTTP/SSE 适配**: 配置 Spring Boot 应用程序，支持基于 HTTP/SSE 的传输。
 
 ---
 *通过此设计，LLM 不再只是一个聊天窗口，而是一个能够直接操作本地数据、深入 Spark 引擎内部的 AI 指挥官。*

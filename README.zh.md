@@ -2,7 +2,8 @@
 
 [English](./README.md) | 中文
 
-[![Version](https://img.shields.io/badge/version-1.0.7-blue.svg)](./CHANGELOG.zh.md)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](./CHANGELOG.zh.md)
+[![Stars](https://img.shields.io/github/stars/petrel2015/Spark-Performance-Insight?style=flat&color=yellow)](https://github.com/petrel2015/Spark-Performance-Insight/stargazers)
 [![AI Powered](https://img.shields.io/badge/Powered%20by-Gemini%20AI-blue.svg)](https://deepmind.google/technologies/gemini/)
 [![Java 21](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/technologies/javase/jdk21-archive-downloads.html)
 [![Spring Boot 3](https://img.shields.io/badge/Spring%20Boot-3.x-green.svg)](https://spring.io/projects/spring-boot)
@@ -22,7 +23,7 @@
 ## 🚀 在线演示
 
 - **Spark Performance Insight:** [http://demo.fluffyeti.com:18081/](http://demo.fluffyeti.com:18081/)
-- **Spark History Server (原生):** [http://demo.fluffyeti.com:18080/](http://demo.fluffyeti.com:18080/)
+- **Spark History Server (原生 - 用于观察对比差异):** [http://demo.fluffyeti.com:18080/](http://demo.fluffyeti.com:18080/)
 
 ---
 
@@ -52,7 +53,14 @@
 
 ![智能化诊断](docs/img/LLM_Diagnostic_Report.png)
 
-### 2. 规则诊断引擎
+### 2. Model Context Protocol (MCP) 集成 🚀
+- **自主日志分析：** 将 Spark Performance Insight 暴露为 **MCP 服务**。AI Agent (如 Claude, Gemini) 可以直接“读取”并分析你的本地 Spark 日志。
+- **自然语言调优：** “帮我分析一下 `/tmp/spark-logs/app-1` 这个日志” —— AI 会自动触发解析流水线，等待完成后直接给出调优建议，无需离开对话窗口。
+- **全平台连接：** 完美支持 **Gemini CLI** 以及 **Claude Code**，采用高性能的 HTTP/SSE 传输协议。
+
+> **[了解更多：MCP 使用指南](./docs/zh/MCP_User_Guide.md)**
+
+### 3. 规则诊断引擎
 - **统计学精度：** 不同于大模型的概率性输出，规则引擎基于严谨的统计阈值，提供确定、稳定且极高准确性的分析结果。
 - **专家启发式规则：** 将多年的 Spark 性能调优经验沉淀为自动化规则，覆盖数据倾斜、Executor GC 压力、磁盘溢写（Spill）及本地化（Locality）等核心维度。
 - **秒级定位根因：** 为性能退化提供即时、可量化的证据，是生产环境排障中无可争议的“黄金标准”。
@@ -171,7 +179,7 @@ mvn clean install -Pbuild-frontend -Prun
 
 2.  **访问地址：**
     -   **本项目 UI:** `http://localhost:18081`
-    -   **Spark History Server:** `http://localhost:18080`
+    -   **Spark History Server (原生 - 用于观察对比差异):** `http://localhost:18080`
 
 ## 致谢
 

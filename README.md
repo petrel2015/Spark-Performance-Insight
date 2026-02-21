@@ -2,7 +2,8 @@
 
 English | [中文](./README.zh.md)
 
-[![Version](https://img.shields.io/badge/version-1.0.7-blue.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](./CHANGELOG.md)
+[![Stars](https://img.shields.io/github/stars/petrel2015/Spark-Performance-Insight?style=flat&color=yellow)](https://github.com/petrel2015/Spark-Performance-Insight/stargazers)
 [![AI Powered](https://img.shields.io/badge/Powered%20by-Gemini%20AI-blue.svg)](https://deepmind.google/technologies/gemini/)
 [![Java 21](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/technologies/javase/jdk21-archive-downloads.html)
 [![Spring Boot 3](https://img.shields.io/badge/Spring%20Boot-3.x-green.svg)](https://spring.io/projects/spring-boot)
@@ -22,7 +23,7 @@ An advanced Spark performance analysis system designed to address the core pain 
 ## 🚀 Live Demo
 
 - **Spark Performance Insight:** [http://demo.fluffyeti.com:18081/](http://demo.fluffyeti.com:18081/)
-- **Spark History Server (Native):** [http://demo.fluffyeti.com:18080/](http://demo.fluffyeti.com:18080/)
+- **Spark History Server (Native - For Comparison):** [http://demo.fluffyeti.com:18080/](http://demo.fluffyeti.com:18080/)
 
 ---
 
@@ -52,7 +53,14 @@ While the native Spark Web UI provides basic monitoring, users often face signif
 
 ![Smart Diagnosis](docs/img/LLM_Diagnostic_Report.png)
 
-### 2. Rule-Based Expert System
+### 2. Model Context Protocol (MCP) Integration 🚀
+- **Autonomous Log Analysis:** Exposes Spark Performance Insight as an **MCP server**. AI Agents (Claude, Gemini) can directly "read" and analyze your local Spark logs.
+- **Natural Language Tuning:** "Analyze the log at `/tmp/spark-logs/app-1`" — the AI will automatically trigger the parsing pipeline, wait for completion, and provide tuning advice without you leaving the chat.
+- **Universal Connectivity:** Supports **Gemini CLI** and **Claude Code** via high-performance HTTP/SSE transport.
+
+> **[Learn more: MCP User Guide](./docs/en/MCP_User_Guide.md)**
+
+### 3. Rule-Based Expert System
 - **Statistical Precision:** Unlike the probabilistic nature of LLMs, the rule engine provides deterministic, stable, and highly accurate analysis based on rigorous statistical thresholds.
 - **Expert Heuristics:** Codifies years of Spark performance tuning expertise into automated rules for detecting Data Skew, Executor GC pressure, Disk Spilling, and Locality issues.
 - **Instant Root Cause:** Provides immediate, quantifiable evidence for performance regressions, serving as the "Gold Standard" for production troubleshooting.
@@ -171,7 +179,7 @@ Starts both **Spark Performance Insight UI** and **Spark History Server** sharin
 
 2.  **Access Points:**
     -   **Spark Performance Insight UI:** `http://localhost:18081`
-    -   **Spark History Server:** `http://localhost:18080`
+    -   **Spark History Server (Native - For Comparison):** `http://localhost:18080`
 
 ## Acknowledgments
 

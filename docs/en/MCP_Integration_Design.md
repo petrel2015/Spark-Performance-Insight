@@ -5,7 +5,7 @@ Expose Spark Performance Insight as a **Model Context Protocol (MCP)** service. 
 
 ## 🛠 Tech Stack
 - **Core Framework**: [Spring AI MCP](https://github.com/spring-projects/spring-ai) (Boot Starters)
-- **Protocol**: `stdio` (Standard input/output, ideal for local IDEs and desktop AI agents)
+- **Protocol**: `http` (SSE - Server-Sent Events, ideal for remote access and persistent service integration)
 - **Module**: A new dedicated Maven module `spark-performance-insight-mcp`.
 
 ## 🧱 Architectural Design
@@ -57,7 +57,7 @@ The response focuses on actionable metrics for LLM reasoning:
 1. **Refactor `DiagnosisService`**: Extract a `generateStructuredInsight(appId)` method returning a DTO.
 2. **Bootstrap MCP Module**: Create the module and add `spring-ai-mcp-starter`.
 3. **Register Tool**: Use the `@Tool` annotation to wrap the parsing pipeline.
-4. **Stdio Configuration**: Configure the Spring Boot runner for standard stream interaction.
+4. **HTTP/SSE Configuration**: Configure the Spring Boot application with SSE transport support.
 
 ---
 *With this integration, the LLM transforms from a chatbot into a powerful Spark Tuning Commander with direct access to local performance data.*

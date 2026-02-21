@@ -211,23 +211,70 @@ public class EventLogWatcherService {
         applicationService.updateById(app);
 
         if ("FULL".equals(type)) {
-            executeFullPipeline(appId, appFiles, onComplete);
+            pipelineExecutor.submit(() -> executeFullPipelineSync(appId, appFiles, onComplete));
         } else if ("BRONZE_TO_GOLD".equals(type)) {
             executeBronzeToGold(appId, appFiles, onComplete);
         } else if ("SILVER_TO_GOLD".equals(type)) {
             executeSilverToGold(appId, appFiles, onComplete);
         } else {
             log.warn("Unknown pipeline type: {}", type);
-            executeFullPipeline(appId, appFiles, onComplete);
+            pipelineExecutor.submit(() -> executeFullPipelineSync(appId, appFiles, onComplete));
+        }
+    }
+
+    /**
+     * Synchronous execution of the full pipeline. Useful for MCP/CLI scenarios.
+     */
+    public boolean executeFullPipelineSync(String appId, List<File> files) {
+        CountDownLatch latch = new CountDownLatch(1);
+        final boolean[] success = {false};
+        executeFullPipelineSync(appId, files, (res) -> {
+            success[0] = res;
+            latch.countDown();
+        });
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return success[0];
+    }
+
+    private void executeFullPipelineSync(String appId, List<File> files, java.util.function.Consumer<Boolean> onComplete) {
+        try {
+            logService.logEvent(appId, "IMPORT", "Bronze Start", "Starting Medallion pipeline (FULL)");
+            
+            // Re-fetch app to get fresh state
+            GoldApplicationModel app = applicationService.getById(appId);
+            
+            // 1. Bronze
+            bronzeIngestionService.ingest(appId, files, (p, m) -> 
+                applicationService.updateStatusAtomic(appId, "INGESTING_BRONZE", p, m));
+            logService.logEvent(appId, "IMPORT", "Bronze Finished", "Duration: " + getDurationSeconds(appId, "Bronze Start") + "s");
+
+            // 2. Silver
+            logService.logEvent(appId, "IMPORT", "Silver Start", "Structuring data");
+            silverTransformationService.transform(appId, (p, m) -> 
+                applicationService.updateStatusAtomic(appId, "TRANSFORMING_SILVER", p, m));
+            logService.logEvent(appId, "IMPORT", "Silver Finished", "Duration: " + getDurationSeconds(appId, "Silver Start") + "s");
+
+            // 3. Gold
+            logService.logEvent(appId, "IMPORT", "Gold Start", "Aggregating metrics");
+            goldAggregationService.aggregate(appId, (p, m) -> 
+                applicationService.updateStatusAtomic(appId, "AGGREGATING_GOLD", p, m));
+            logService.logEvent(appId, "IMPORT", "Gold Finished", "Duration: " + getDurationSeconds(appId, "Gold Start") + "s");
+
+            finalizeSuccess(appId, files, app);
+            onComplete.accept(true);
+        } catch (Exception e) {
+            handleFailure(appId, e);
+            onComplete.accept(false);
         }
     }
 
     private void executeFullPipeline(String appId, List<File> files, java.util.function.Consumer<Boolean> onComplete) {
-        logService.logEvent(appId, "IMPORT", "Bronze Start", "Starting Medallion pipeline (FULL)");
-        
-        pipelineExecutor.submit(() -> {
-            try {
-                // Initialize start time once for the whole pipeline
+        executeFullPipelineSync(appId, files, onComplete);
+    }
                 LocalDateTime pipelineStart = LocalDateTime.now();
                 
                 // Bronze (0-100%)

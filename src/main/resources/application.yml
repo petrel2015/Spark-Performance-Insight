@@ -2,6 +2,11 @@ server:
   port: 18081
 
 spring:
+  ai:
+    mcp:
+      server:
+        stdio:
+          enabled: ${MCP_ENABLED:false}
   profiles:
     active: ${INSIGHT_PROFILE:medium}
   datasource:
@@ -43,6 +48,8 @@ mybatis-plus:
 insight:
   ai:
     provider: ${AI_PROVIDER:zhipu}
+  mcp:
+    enabled: ${MCP_ENABLED:false}
   event-log-path: ./workspace/eventlog
   duckdb:
     temp-directory: ${DUCKDB_TEMP_DIR:out/spark_performance_insight.duckdb.db.tmp}

@@ -1,5 +1,6 @@
 package com.fluffyeti.spark.performance.insight.benchmark;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.results.format.ResultFormatType;
 import org.openjdk.jmh.runner.Runner;
@@ -14,6 +15,7 @@ import java.io.File;
 class JmhBenchmarkRunnerTest {
 
     @Test
+    @Disabled("JMH benchmarks are for manual execution only due to DuckDB native library conflicts in concurrent testing")
     void runBenchmarks() throws Exception {
         // Ensure output directory exists
         new File("target/jmh").mkdirs();

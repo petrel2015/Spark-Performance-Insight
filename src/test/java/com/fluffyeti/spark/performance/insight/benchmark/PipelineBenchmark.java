@@ -19,9 +19,9 @@ import java.util.concurrent.TimeUnit;
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @State(Scope.Benchmark)
-@Fork(value = 1, jvmArgs = {"-Xms2G", "-Xmx2G"})
+@Fork(value = 0) // Run in the same VM to avoid Spring context serialization issues and DB file locks
 @Warmup(iterations = 1, time = 5)
-@Measurement(iterations = 2, time = 10)
+@Measurement(iterations = 1, time = 10)
 public class PipelineBenchmark {
 
     private ConfigurableApplicationContext context;

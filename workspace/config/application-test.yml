@@ -5,7 +5,7 @@ spring:
   profiles:
     active: ${INSIGHT_PROFILE:tiny}
   datasource:
-    url: jdbc:duckdb:out/spark_performance_insight.duckdb.db
+    url: jdbc:duckdb:out/test_spark_insight.db
     driver-class-name: org.duckdb.DuckDBDriver
     username: sa
     password: ""

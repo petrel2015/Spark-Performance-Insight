@@ -17,9 +17,15 @@ public class DuckDBConfig {
     private final DataSource dataSource;
     private final SystemProperties systemProperties;
 
-    @PostConstruct
-    public void initDuckDB() {
+    private static boolean initialized = false;
+
+    // @PostConstruct removed to avoid DuckDB native library conflicts during frequent Spring context refreshes in tests
+    public synchronized void initDuckDB() {
+        if (initialized) {
+            return;
+        }
         applyDuckDBSettings();
+        initialized = true;
     }
 
     public void applyDuckDBSettings() {

@@ -40,6 +40,14 @@
 1.  任一测试用例未通过。
 2.  未能达到“有意义的覆盖”阈值。
 
+## 🧪 手动连通性校验
+
+对于依赖外部供应商的功能（如 LLM），我们提供了一个轻量级的验证路径：
+
+*   **LLM 连通性**: `src/test/java/com/fluffyeti/spark/performance/insight/llm/LLMManualConnectionTest.java`。
+*   **目的**: 允许用户在不启动完整应用或数据库的情况下，验证其 API Key 和网络连通性。
+*   **使用方法**: 在本地变量中填入你的 API Key，并通过 IDE 手动运行。这些测试默认使用 `@Disabled` 标记，以避免在 CI 环境中因缺少 Key 而报错。
+
 ---
 
 *该策略确保了随着项目的增长，我们的维护精力能始终集中在真正核心的逻辑上。*

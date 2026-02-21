@@ -41,6 +41,14 @@ Every Push and Pull Request triggers the GitHub Action defined in `.github/workf
 1.  Any test case fails.
 2.  The "Meaningful Coverage" thresholds are not met.
 
+## 🧪 Manual Connectivity Checks
+
+For features that rely on external providers (like LLMs), we provide a lightweight verification path:
+
+*   **LLM Connectivity**: `src/test/java/com/fluffyeti/spark/performance/insight/llm/LLMManualConnectionTest.java`.
+*   **Purpose**: Allows users to verify their API keys and network connectivity without running the full application or database.
+*   **Usage**: Fill in your API keys in the local variables and run the test manually from your IDE. These tests are `@Disabled` by default to avoid CI failures.
+
 ---
 
 *This strategy ensures that as the project grows, our maintenance effort remains focused on the logic that actually matters.*

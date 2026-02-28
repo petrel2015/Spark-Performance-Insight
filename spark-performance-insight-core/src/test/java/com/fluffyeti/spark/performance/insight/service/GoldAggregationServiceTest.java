@@ -23,9 +23,14 @@ class GoldAggregationServiceTest {
     private GoldAggregationService service;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         MockitoAnnotations.openMocks(this);
-        service = new GoldAggregationService(jdbcTemplate, duckDBManager, stageService);
+        service = new GoldAggregationService(jdbcTemplate, duckDBManager, stageService, Runnable::run);
+        
+        // Inject self reference for internal AOP-proxied calls
+        java.lang.reflect.Field selfField = GoldAggregationService.class.getDeclaredField("self");
+        selfField.setAccessible(true);
+        selfField.set(service, service);
         
         doAnswer(invocation -> {
             Runnable runnable = invocation.getArgument(0);

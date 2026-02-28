@@ -1,50 +1,93 @@
 package com.fluffyeti.spark.performance.insight.service;
 
+import com.fluffyeti.spark.performance.insight.annotation.MonitorStep;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class GoldAggregationService {
 
     private final JdbcTemplate jdbcTemplate;
     private final DuckDBManagerService duckDBManager;
     private final StageService stageService;
+    private final Executor executor;
 
-    @Transactional
-    public void aggregate(String appId, java.util.function.BiConsumer<Double, String> progressReporter) {
+    @Autowired
+    @Lazy
+    private GoldAggregationService self;
+
+    public GoldAggregationService(
+            JdbcTemplate jdbcTemplate, 
+            DuckDBManagerService duckDBManager, 
+            StageService stageService, 
+            @Qualifier("transformationExecutor") Executor executor) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.duckDBManager = duckDBManager;
+        this.stageService = stageService;
+        this.executor = executor;
+    }
+
+    @MonitorStep(value = "Full Gold Aggregation", type = "APP")
+    public void aggregate(String appId, BiConsumer<Double, String> progressReporter) {
         log.info("Starting Gold aggregation and Sync (SQL Recovery Mode) for app: {}", appId);
-        progressReporter.accept(0.0, "Gold: Initializing...");
+        var currentProgress = new AtomicReference<>(0.0);
+        BiConsumer<Double, String> reporter = (increment, message) -> {
+            double next = currentProgress.updateAndGet(v -> v + increment);
+            progressReporter.accept(Math.min(next, 100.0), "Gold: " + message);
+        };
 
-        duckDBManager.runWithRetry(() -> cleanGoldData(appId));
+        reporter.accept(0.0, "Initializing...");
 
-        progressReporter.accept(10.0, "Gold: Aggregating Stages & Tasks (Heavy)...");
-        duckDBManager.runWithRetry(() -> aggregateStages(appId));
-        
-        progressReporter.accept(50.0, "Gold: Calculating Summary Metrics...");
-        duckDBManager.runWithRetry(() -> stageService.calculateStageMetrics(appId));
-        
-        progressReporter.accept(65.0, "Gold: Aggregating Jobs...");
-        duckDBManager.runWithRetry(() -> aggregateJobs(appId));
-        
-        progressReporter.accept(80.0, "Gold: Aggregating Executors...");
-        duckDBManager.runWithRetry(() -> aggregateExecutors(appId));
-        
-        progressReporter.accept(90.0, "Gold: Aggregating SQL...");
-        duckDBManager.runWithRetry(() -> aggregateSql(appId));
-        
-        progressReporter.accept(92.0, "Gold: Aggregating Storage (RDDs & Blocks)...");
-        duckDBManager.runWithRetry(() -> aggregateStorage(appId));
-        
-        progressReporter.accept(95.0, "Gold: Finalizing Application Metrics...");
-        duckDBManager.runWithRetry(() -> {
-            aggregateEnvironment(appId);
-            aggregateApp(appId);
-        });
+        duckDBManager.runWithRetry(() -> self.cleanGoldData(appId));
+        reporter.accept(5.0, "Cleaned old data");
+
+        // Main Path: Sequential execution for dependent tasks
+        var mainPathFuture = CompletableFuture.runAsync(() -> {
+            duckDBManager.runWithRetry(() -> self.aggregateStages(appId));
+            reporter.accept(30.0, "Stages & Tasks aggregated");
+
+            duckDBManager.runWithRetry(() -> stageService.calculateStageMetrics(appId));
+            reporter.accept(15.0, "Summary Metrics calculated");
+
+            duckDBManager.runWithRetry(() -> self.aggregateJobs(appId));
+            reporter.accept(15.0, "Jobs aggregated");
+
+            duckDBManager.runWithRetry(() -> self.aggregateSql(appId));
+            reporter.accept(5.0, "SQL aggregated");
+
+            duckDBManager.runWithRetry(() -> {
+                self.aggregateEnvironment(appId);
+                self.aggregateApp(appId);
+            });
+            reporter.accept(10.0, "Finalized App Metrics");
+        }, executor);
+
+        // Independent tasks: Can run in parallel with the main path
+        var executorsFuture = CompletableFuture.runAsync(() -> {
+            duckDBManager.runWithRetry(() -> self.aggregateExecutors(appId));
+            reporter.accept(10.0, "Executors aggregated");
+        }, executor);
+
+        var storageFuture = CompletableFuture.runAsync(() -> {
+            duckDBManager.runWithRetry(() -> self.aggregateStorage(appId));
+            reporter.accept(10.0, "Storage aggregated");
+        }, executor);
+
+        // Wait for all to complete
+        CompletableFuture.allOf(
+            mainPathFuture, executorsFuture, storageFuture
+        ).join();
 
         progressReporter.accept(100.0, "Gold: Completed");
         log.info("Finished Gold aggregation and Sync for app: {}", appId);
@@ -54,7 +97,8 @@ public class GoldAggregationService {
         aggregate(appId, (p, m) -> {});
     }
 
-    private void cleanGoldData(String appId) {
+    @MonitorStep(value = "Gold Clean", type = "APP")
+    protected void cleanGoldData(String appId) {
         log.info("Cleaning Gold data for app: {}", appId);
         // Clean the actual gold tables
         jdbcTemplate.update("DELETE FROM gold_jobs WHERE app_id = ?", appId);
@@ -67,7 +111,8 @@ public class GoldAggregationService {
         jdbcTemplate.update("DELETE FROM gold_storage_blocks WHERE app_id = ?", appId);
     }
 
-    private void aggregateStorage(String appId) {
+    @MonitorStep(value = "Gold Storage", type = "APP")
+    protected void aggregateStorage(String appId) {
         log.info("Aggregating Storage (RDDs & Blocks) for app: {}", appId);
 
         // 1. Populate gold_storage_blocks (requires SparkListenerBlockUpdated events)
@@ -156,7 +201,8 @@ public class GoldAggregationService {
         jdbcTemplate.update(rddsSql, appId, appId, appId);
     }
 
-    private void aggregateStages(String appId) {
+    @MonitorStep(value = "Gold Stages", type = "STAGE")
+    protected void aggregateStages(String appId) {
         String sql = """
             INSERT INTO gold_stages
             WITH base_metrics AS (
@@ -262,7 +308,8 @@ public class GoldAggregationService {
     }
 
 
-    private void aggregateJobs(String appId) {
+    @MonitorStep(value = "Gold Jobs", type = "JOB")
+    protected void aggregateJobs(String appId) {
         String sql = """
             INSERT INTO gold_jobs
             WITH task_agg AS (
@@ -316,7 +363,8 @@ public class GoldAggregationService {
         jdbcTemplate.update(sql, appId, appId, appId, appId);
     }
 
-    private void aggregateSql(String appId) {
+    @MonitorStep(value = "Gold SQL", type = "APP")
+    protected void aggregateSql(String appId) {
         log.debug("Aggregating Gold SQL Metrics for app: {}", appId);
         String sql = """
             INSERT INTO gold_sql_executions
@@ -332,7 +380,8 @@ public class GoldAggregationService {
         jdbcTemplate.update(sql, appId);
     }
 
-    private void aggregateExecutors(String appId) {
+    @MonitorStep(value = "Gold Executors", type = "APP")
+    protected void aggregateExecutors(String appId) {
         String sql = """
             INSERT INTO gold_executors
             SELECT uuid(), app_id, executor_id, silver_executors.host, add_time, remove_time, total_cores, 0, TRUE,
@@ -351,7 +400,8 @@ public class GoldAggregationService {
         jdbcTemplate.update(sql, appId);
     }
 
-    private void aggregateEnvironment(String appId) {
+    @MonitorStep(value = "Gold Environment", type = "APP")
+    protected void aggregateEnvironment(String appId) {
         jdbcTemplate.update("""
             INSERT INTO gold_environment_configs (id, app_id, param_key, param_value, category)
             SELECT uuid(), app_id, param_key, param_value, category
@@ -360,7 +410,8 @@ public class GoldAggregationService {
             """, appId);
     }
 
-    private void aggregateApp(String appId) {
+    @MonitorStep(value = "Gold App", type = "APP")
+    protected void aggregateApp(String appId) {
         String sql = """
             UPDATE gold_applications
             SET 

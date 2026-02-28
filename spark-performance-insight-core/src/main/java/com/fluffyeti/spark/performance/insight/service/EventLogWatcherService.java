@@ -252,7 +252,7 @@ public class EventLogWatcherService {
         String name = filename.replace(".zstd", "").replace(".lz4", "").replace(".gz", "");
         java.util.regex.Matcher m = APP_ID_PATTERN.matcher(name);
         if (m.find()) return m.group(1);
-        if (name.startsWith("event_")) {
+        if (name.startsWith("events_")) {
             String[] p = name.split("_", 3);
             return p.length >= 3 ? p[2] : null;
         }

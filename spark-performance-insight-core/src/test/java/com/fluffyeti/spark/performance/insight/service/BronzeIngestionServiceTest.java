@@ -12,7 +12,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class BronzeIngestionServiceTest {
 
-    private final BronzeIngestionService service = new BronzeIngestionService(null, null, null);
+    private final BronzeIngestionService service = createService();
+
+    private BronzeIngestionService createService() {
+        BronzeIngestionService s = new BronzeIngestionService(null, null, null);
+        ReflectionTestUtils.setField(s, "self", s);
+        return s;
+    }
 
     @Test
     @DisplayName("Should sort files in natural order (v2 logs support)")

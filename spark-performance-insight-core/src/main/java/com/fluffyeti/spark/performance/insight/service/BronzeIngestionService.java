@@ -1,9 +1,12 @@
 package com.fluffyeti.spark.performance.insight.service;
 
+import com.fluffyeti.spark.performance.insight.annotation.MonitorStep;
 import com.fluffyeti.spark.performance.insight.config.SystemProperties;
 import com.github.luben.zstd.ZstdInputStream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +24,10 @@ public class BronzeIngestionService {
     private final JdbcTemplate jdbcTemplate;
     private final DuckDBManagerService duckDBManager;
     private final SystemProperties properties;
+
+    @Autowired
+    @Lazy
+    private BronzeIngestionService self;
 
     private static final Map<String, String> EVENT_TABLE_MAP = new HashMap<>();
 
@@ -68,7 +75,7 @@ public class BronzeIngestionService {
             long fileStartBytes = processedBytes;
             long fileLength = file.length();
             
-            ingestFileStreaming(appId, file, (p, m) -> {
+            self.ingestFileStreaming(appId, file, (p, m) -> {
                 double overallProgress = calculateProgress(fileStartBytes + (long)(p / 100.0 * fileLength), totalBytes);
                 progressReporter.accept(overallProgress, m);
             });
@@ -79,7 +86,8 @@ public class BronzeIngestionService {
         log.info("Finished Bronze ingestion for app: {}", appId);
     }
 
-    private void ingestFileStreaming(String appId, File file, BiConsumer<Double, String> fileProgressReporter) {
+    @MonitorStep(value = "Bronze File Ingestion", type = "FILE")
+    protected void ingestFileStreaming(String appId, File file, BiConsumer<Double, String> fileProgressReporter) {
         String fileName = file.getName();
         boolean isZstd = fileName.endsWith(".zstd");
         

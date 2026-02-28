@@ -53,6 +53,8 @@ insight:
   event-log-path: ./workspace/eventlog
   duckdb:
     temp-directory: ${DUCKDB_TEMP_DIR:out/spark_performance_insight.duckdb.db.tmp}
+  transformation:
+    threads: ${TRANSFORMATION_THREADS:1}
   scheduler:
     scan-interval-seconds: 60
     comparison:

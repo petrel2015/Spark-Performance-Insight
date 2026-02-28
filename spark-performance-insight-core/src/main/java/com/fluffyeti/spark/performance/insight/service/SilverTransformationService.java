@@ -1,23 +1,50 @@
 package com.fluffyeti.spark.performance.insight.service;
 
+import com.fluffyeti.spark.performance.insight.annotation.MonitorStep;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class SilverTransformationService {
 
     private final JdbcTemplate jdbcTemplate;
     private final DuckDBManagerService duckDBManager;
+    private final Executor executor;
 
-    @Transactional
-    public void transform(String appId, java.util.function.BiConsumer<Double, String> progressReporter) {
+    @Autowired
+    @Lazy
+    private SilverTransformationService self;
+
+    public SilverTransformationService(
+            JdbcTemplate jdbcTemplate, 
+            DuckDBManagerService duckDBManager, 
+            @Qualifier("transformationExecutor") Executor executor) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.duckDBManager = duckDBManager;
+        this.executor = executor;
+    }
+
+    @MonitorStep(value = "Full Silver Transformation", type = "APP")
+    public void transform(String appId, BiConsumer<Double, String> progressReporter) {
         log.info("Starting Silver transformation (Metadata & Feature Recovery) for app: {}", appId);
-        progressReporter.accept(0.0, "Silver: Initializing...");
+        var currentProgress = new AtomicReference<>(0.0);
+        BiConsumer<Double, String> reporter = (increment, message) -> {
+            double next = currentProgress.updateAndGet(v -> v + increment);
+            progressReporter.accept(Math.min(next, 100.0), "Silver: " + message);
+        };
+
+        reporter.accept(0.0, "Initializing...");
         
         duckDBManager.runWithRetry(() -> {
             jdbcTemplate.execute("INSTALL json; LOAD json;");
@@ -25,30 +52,50 @@ public class SilverTransformationService {
         });
 
         // 1. Extract Application Metadata First (to update "Initializing...")
-        progressReporter.accept(5.0, "Silver: Extracting Metadata...");
-        duckDBManager.runWithRetry(() -> transformApplicationMetadata(appId));
+        duckDBManager.runWithRetry(() -> self.transformApplicationMetadata(appId));
+        reporter.accept(10.0, "Extracting Metadata...");
 
-        // 2. Core transformations - Estimated weights based on complexity
-        progressReporter.accept(10.0, "Silver: Transforming Tasks (Heavy)...");
-        duckDBManager.runWithRetry(() -> transformTasks(appId));
+        // 2. Core transformations - Concurrent execution
+        log.info("Submitting Silver transformation tasks for app: {}", appId);
         
-        progressReporter.accept(40.0, "Silver: Transforming Stages...");
-        duckDBManager.runWithRetry(() -> transformStages(appId));
-        
-        progressReporter.accept(60.0, "Silver: Transforming Jobs...");
-        duckDBManager.runWithRetry(() -> transformJobs(appId));
-        
-        progressReporter.accept(75.0, "Silver: Transforming Executors...");
-        duckDBManager.runWithRetry(() -> transformExecutors(appId));
-        
-        progressReporter.accept(85.0, "Silver: Transforming SQL Executions...");
-        duckDBManager.runWithRetry(() -> transformSql(appId));
+        // Sequential Path: Stages depend on Tasks
+        var coreFuture = CompletableFuture.runAsync(() -> {
+            duckDBManager.runWithRetry(() -> self.transformTasks(appId));
+            reporter.accept(30.0, "Tasks completed");
+            
+            duckDBManager.runWithRetry(() -> self.transformStages(appId));
+            reporter.accept(20.0, "Stages completed");
+        }, executor);
 
-        progressReporter.accept(90.0, "Silver: Transforming Storage (RDDs & Blocks)...");
-        duckDBManager.runWithRetry(() -> transformStorage(appId));
-        
-        progressReporter.accept(95.0, "Silver: Finalizing Environment...");
-        duckDBManager.runWithRetry(() -> transformEnvironment(appId));
+        var jobsFuture = CompletableFuture.runAsync(() -> {
+            duckDBManager.runWithRetry(() -> self.transformJobs(appId));
+            reporter.accept(15.0, "Jobs completed");
+        }, executor);
+
+        var executorsFuture = CompletableFuture.runAsync(() -> {
+            duckDBManager.runWithRetry(() -> self.transformExecutors(appId));
+            reporter.accept(10.0, "Executors completed");
+        }, executor);
+
+        var sqlFuture = CompletableFuture.runAsync(() -> {
+            duckDBManager.runWithRetry(() -> self.transformSql(appId));
+            reporter.accept(5.0, "SQL completed");
+        }, executor);
+
+        var storageFuture = CompletableFuture.runAsync(() -> {
+            duckDBManager.runWithRetry(() -> self.transformStorage(appId));
+            reporter.accept(5.0, "Storage completed");
+        }, executor);
+
+        var envFuture = CompletableFuture.runAsync(() -> {
+            duckDBManager.runWithRetry(() -> self.transformEnvironment(appId));
+            reporter.accept(5.0, "Environment completed");
+        }, executor);
+
+        // Wait for all to complete
+        CompletableFuture.allOf(
+            coreFuture, jobsFuture, executorsFuture, sqlFuture, storageFuture, envFuture
+        ).join();
 
         progressReporter.accept(100.0, "Silver: Completed");
         log.info("Finished Silver transformation for app: {}", appId);
@@ -70,7 +117,8 @@ public class SilverTransformationService {
         jdbcTemplate.update("DELETE FROM silver_rdd_info WHERE app_id = ?", appId);
     }
 
-    private void transformApplicationMetadata(String appId) {
+    @MonitorStep(value = "Silver Metadata", type = "APP")
+    protected void transformApplicationMetadata(String appId) {
         log.debug("Updating Application Metadata for app: {}", appId);
         
         // Extract from ApplicationStart and LogStart events
@@ -86,7 +134,8 @@ public class SilverTransformationService {
         jdbcTemplate.update(sql, appId, appId);
     }
 
-    private void transformJobs(String appId) {
+    @MonitorStep(value = "Silver Jobs", type = "JOB")
+    protected void transformJobs(String appId) {
         String sql = """
             WITH js_dedup AS (
                 SELECT DISTINCT ON (app_id, (json_extract(raw_json, '$."Job ID"'))::INT)
@@ -118,7 +167,8 @@ public class SilverTransformationService {
         jdbcTemplate.update(sql, appId, appId);
     }
 
-    private void transformStages(String appId) {
+    @MonitorStep(value = "Silver Stages", type = "STAGE")
+    protected void transformStages(String appId) {
         String sql = """
             WITH stage_job_map AS (
                 SELECT DISTINCT ON (app_id, sid)
@@ -169,7 +219,8 @@ public class SilverTransformationService {
         jdbcTemplate.update(sql, appId, appId, appId, appId);
     }
 
-    private void transformTasks(String appId) {
+    @MonitorStep(value = "Silver Tasks", type = "STAGE")
+    protected void transformTasks(String appId) {
         String sql = """
             WITH task_dedup AS (
                 SELECT DISTINCT ON (app_id, (json_extract(raw_json, '$."Task Info"."Task ID"'))::BIGINT)
@@ -219,7 +270,8 @@ public class SilverTransformationService {
         jdbcTemplate.update(sql, appId);
     }
 
-    private void transformExecutors(String appId) {
+    @MonitorStep(value = "Silver Executors", type = "APP")
+    protected void transformExecutors(String appId) {
         String sql = """
             WITH ea_dedup AS (
                 SELECT DISTINCT ON (app_id, json_extract_string(raw_json, '$."Executor ID"'))
@@ -248,7 +300,8 @@ public class SilverTransformationService {
         jdbcTemplate.update(sql, appId, appId);
     }
 
-    private void transformSql(String appId) {
+    @MonitorStep(value = "Silver SQL", type = "APP")
+    protected void transformSql(String appId) {
         String sql = """
             WITH sql_start AS (
                 SELECT DISTINCT ON (app_id, (json_extract(raw_json, '$."executionId"'))::BIGINT)
@@ -280,7 +333,8 @@ public class SilverTransformationService {
         jdbcTemplate.update(sql, appId, appId);
     }
 
-    private void transformEnvironment(String appId) {
+    @MonitorStep(value = "Silver Environment", type = "APP")
+    protected void transformEnvironment(String appId) {
         log.debug("Transforming Environment Configs for app: {}", appId);
         String sql = """
             INSERT INTO silver_environment_configs
@@ -309,7 +363,8 @@ public class SilverTransformationService {
         }
     }
 
-    private void transformStorage(String appId) {
+    @MonitorStep(value = "Silver Storage", type = "APP")
+    protected void transformStorage(String appId) {
         log.info("Transforming Storage (RDD & Blocks) for app: {}", appId);
 
         // 1. Extract RDD metadata from Stage Submitted events
@@ -342,8 +397,8 @@ public class SilverTransformationService {
                 (regexp_extract(json_extract_string(raw_json, '$."Block ID"'), 'rdd_(\\d+)_', 1))::INT as rdd_id,
                 json_extract_string(raw_json, '$."Block ID"') as name,
                 json_extract_string(raw_json, '$."Storage Level"') as storage_level,
-                (json_extract(raw_json, '$."Memory Size"'))::BIGINT as memory_size,
-                (json_extract(raw_json, '$."Disk Size"'))::BIGINT as disk_size,
+                (json_extract(raw_json, '$.memory_size'))::BIGINT as memory_size,
+                (json_extract(raw_json, '$.disk_size'))::BIGINT as duration_ms,
                 COALESCE(json_extract_string(raw_json, '$."Block Manager ID"."Executor ID"'), json_extract_string(raw_json, '$."Executor ID"')) as executor_id,
                 json_extract_string(raw_json, '$."Block Manager ID".Host') as host,
                 'UPDATED' as status,
@@ -362,7 +417,7 @@ public class SilverTransformationService {
                 b->>'Block ID' as name,
                 b->>'Storage Level' as storage_level,
                 (b->>'Memory Size')::BIGINT as memory_size,
-                (b->>'Disk Size')::BIGINT as disk_size,
+                (b->>'Disk Size')::BIGINT as duration_ms,
                 json_extract_string(raw_json, '$."Task Info"."Executor ID"') as executor_id,
                 json_extract_string(raw_json, '$."Task Info".Host') as host,
                 'UPDATED' as status,

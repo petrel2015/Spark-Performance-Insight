@@ -29,9 +29,22 @@ public class SystemProperties {
     private DuckDB duckdb = new DuckDB();
 
     /**
+     * Transformation configuration for thread pool.
+     */
+    private Transformation transformation = new Transformation();
+
+    /**
      * Ingestion configuration.
      */
     private Ingestion ingestion = new Ingestion();
+
+    @Data
+    public static class Transformation {
+        /**
+         * Number of threads for silver and gold processing.
+         */
+        private int threads = 1;
+    }
 
     @Data
     public static class Scheduler {

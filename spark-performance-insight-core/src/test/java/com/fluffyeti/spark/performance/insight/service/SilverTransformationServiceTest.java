@@ -21,9 +21,14 @@ class SilverTransformationServiceTest {
     private SilverTransformationService service;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         MockitoAnnotations.openMocks(this);
-        service = new SilverTransformationService(jdbcTemplate, duckDBManager);
+        service = new SilverTransformationService(jdbcTemplate, duckDBManager, Runnable::run);
+        
+        // Inject self reference for internal AOP-proxied calls
+        java.lang.reflect.Field selfField = SilverTransformationService.class.getDeclaredField("self");
+        selfField.setAccessible(true);
+        selfField.set(service, service);
         
         // Mock duckDBManager.runWithRetry to execute the runnable immediately
         doAnswer(invocation -> {

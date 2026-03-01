@@ -5,7 +5,7 @@ spring:
   profiles:
     active: ${INSIGHT_PROFILE:tiny}
   datasource:
-    url: jdbc:duckdb:
+    url: "jdbc:duckdb:./insight.db"
     driver-class-name: org.duckdb.DuckDBDriver
     username: sa
     password: ""
@@ -17,7 +17,7 @@ spring:
   sql:
     init:
       mode: always
-      schema-locations: classpath:db/schema.sql
+      schema-locations: classpath:db/insight-schema.sql
   ai:
     zhipuai:
       api-key: ${ZHIPU_API_KEY:4ecbc1a4b6dc4d6f9f1bc73abdffd5fd.uo3r7vdb6Gy3dtQ5}

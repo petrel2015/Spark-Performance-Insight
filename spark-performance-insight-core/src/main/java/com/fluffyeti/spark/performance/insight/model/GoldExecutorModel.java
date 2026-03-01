@@ -4,8 +4,6 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
-import java.time.LocalDateTime;
-
 @Data
 @TableName("gold_executors")
 public class GoldExecutorModel {
@@ -14,8 +12,8 @@ public class GoldExecutorModel {
     private String appId;
     private String executorId;
     private String host;
-    private LocalDateTime addTime;
-    private LocalDateTime removeTime;
+    private Long addTime;
+    private Long removeTime;
     private Long totalCores;
     private Long memory;
     private Boolean isActive;

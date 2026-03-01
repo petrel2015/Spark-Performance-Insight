@@ -5,7 +5,7 @@ spring:
   sql:
     init:
       mode: always
-      schema-locations: classpath:db/schema.sql
+      schema-locations: classpath:db/insight-schema.sql
 
 insight:
   event-log-path: ../workspace/eventlog

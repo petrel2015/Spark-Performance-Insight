@@ -5,7 +5,6 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -19,8 +18,8 @@ public class GoldSqlExecutionModel {
     private String details;
     private String physicalPlan;
     private String planInfo;
-    private LocalDateTime startTime;
-    private LocalDateTime endTime;
+    private Long startTime;
+    private Long endTime;
     private Long duration;
     private String status;
     private Double performanceScore;

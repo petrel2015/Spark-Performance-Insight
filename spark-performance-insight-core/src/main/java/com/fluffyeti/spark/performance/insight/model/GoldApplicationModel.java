@@ -15,8 +15,8 @@ public class GoldApplicationModel {
     private String appId;
     private String appName;
     private String userName;
-    private LocalDateTime startTime;
-    private LocalDateTime endTime;
+    private Long startTime;
+    private Long endTime;
     private Long duration;
     private String sparkVersion;
     private String status;
@@ -25,8 +25,8 @@ public class GoldApplicationModel {
     private String parsingStatus;
     private String parsingProgress;
     private Double parsingProgressValue;
-    private LocalDateTime parsingStartTime;
-    private LocalDateTime parsingEndTime;
+    private Long parsingStartTime;
+    private Long parsingEndTime;
     private String sourceFileMetadata;
     private Integer performanceScore;
     private String diagnosisInfo;

@@ -4,8 +4,6 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
-import java.time.LocalDateTime;
-
 @Data
 @TableName("gold_stages")
 public class GoldStageModel {
@@ -19,8 +17,8 @@ public class GoldStageModel {
     private Long numTasks;
     private Long numCompletedTasks;
     private Long numFailedTasks;
-    private LocalDateTime submissionTime;
-    private LocalDateTime completionTime;
+    private Long submissionTime;
+    private Long completionTime;
     private Long duration;
     private Long inputBytes;
     private Long inputRecords;

@@ -3,8 +3,8 @@ CREATE TABLE IF NOT EXISTS gold_applications (
     app_id VARCHAR PRIMARY KEY,
     app_name VARCHAR,
     user_name VARCHAR,
-    start_time TIMESTAMP,
-    end_time TIMESTAMP,
+    start_time BIGINT,
+    end_time BIGINT,
     duration BIGINT,
     spark_version VARCHAR,
     status VARCHAR,
@@ -13,8 +13,8 @@ CREATE TABLE IF NOT EXISTS gold_applications (
     parsing_status VARCHAR DEFAULT 'READY',
     parsing_progress VARCHAR,
     parsing_progress_value DOUBLE DEFAULT 0.0,
-    parsing_start_time TIMESTAMP,
-    parsing_end_time TIMESTAMP,
+    parsing_start_time BIGINT,
+    parsing_end_time BIGINT,
     source_file_metadata JSON,
     performance_score INTEGER,
     diagnosis_info JSON,
@@ -56,8 +56,8 @@ CREATE TABLE IF NOT EXISTS gold_executors (
     app_id VARCHAR,
     executor_id VARCHAR,
     host VARCHAR,
-    add_time TIMESTAMP,
-    remove_time TIMESTAMP,
+    add_time BIGINT,
+    remove_time BIGINT,
     total_cores BIGINT,
     memory BIGINT,
     is_active BOOLEAN DEFAULT TRUE,
@@ -96,8 +96,8 @@ CREATE TABLE IF NOT EXISTS gold_jobs (
     id VARCHAR PRIMARY KEY,
     app_id VARCHAR,
     job_id BIGINT,
-    submission_time TIMESTAMP,
-    completion_time TIMESTAMP,
+    submission_time BIGINT,
+    completion_time BIGINT,
     duration BIGINT DEFAULT 0,
     status VARCHAR,
     num_stages BIGINT,
@@ -127,8 +127,8 @@ CREATE TABLE IF NOT EXISTS gold_stages (
     num_tasks BIGINT,
     num_completed_tasks BIGINT DEFAULT 0,
     num_failed_tasks BIGINT DEFAULT 0,
-    submission_time TIMESTAMP,
-    completion_time TIMESTAMP,
+    submission_time BIGINT,
+    completion_time BIGINT,
     duration BIGINT DEFAULT 0,
     input_bytes BIGINT DEFAULT 0,
     input_records BIGINT DEFAULT 0,
@@ -216,7 +216,7 @@ CREATE TABLE IF NOT EXISTS gold_tasks (
 
 -- 其他业务支持表
 CREATE TABLE IF NOT EXISTS gold_stage_statistics (id VARCHAR PRIMARY KEY, app_id VARCHAR, stage_id BIGINT, attempt_id BIGINT, metric_name VARCHAR, min_value BIGINT, p25 BIGINT, p50 BIGINT, p75 BIGINT, p95 BIGINT, max_value BIGINT);
-CREATE TABLE IF NOT EXISTS gold_sql_executions (id VARCHAR PRIMARY KEY, app_id VARCHAR, execution_id BIGINT, description TEXT, details TEXT, physical_plan TEXT, plan_info TEXT, start_time TIMESTAMP, end_time TIMESTAMP, duration BIGINT DEFAULT 0, status VARCHAR, performance_score DOUBLE DEFAULT 0.0);
+CREATE TABLE IF NOT EXISTS gold_sql_executions (id VARCHAR PRIMARY KEY, app_id VARCHAR, execution_id BIGINT, description TEXT, details TEXT, physical_plan TEXT, plan_info TEXT, start_time BIGINT, end_time BIGINT, duration BIGINT DEFAULT 0, status VARCHAR, performance_score DOUBLE DEFAULT 0.0);
 CREATE TABLE IF NOT EXISTS gold_storage_rdds (id VARCHAR PRIMARY KEY, app_id VARCHAR, rdd_id BIGINT, name VARCHAR, storage_level VARCHAR, num_partitions BIGINT, num_cached_partitions BIGINT, memory_size BIGINT DEFAULT 0, disk_size BIGINT DEFAULT 0);
 CREATE TABLE IF NOT EXISTS gold_storage_blocks (id VARCHAR PRIMARY KEY, app_id VARCHAR, rdd_id BIGINT, block_name VARCHAR, storage_level VARCHAR, memory_size BIGINT DEFAULT 0, disk_size BIGINT DEFAULT 0, executor_id VARCHAR, host VARCHAR);
 CREATE TABLE IF NOT EXISTS sys_application_logs (id VARCHAR PRIMARY KEY, app_id VARCHAR, event_type VARCHAR, event_name VARCHAR, details TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
@@ -238,9 +238,9 @@ CREATE TABLE IF NOT EXISTS sys_parsing_queue (
     app_id VARCHAR NOT NULL,
     type VARCHAR NOT NULL, -- FULL, BRONZE_TO_GOLD, SILVER_TO_GOLD
     status VARCHAR DEFAULT 'QUEUED', -- QUEUED, RUNNING
-    submit_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    start_time TIMESTAMP,
-    end_time TIMESTAMP
+    submit_time BIGINT,
+    start_time BIGINT,
+    end_time BIGINT
 );
 CREATE INDEX IF NOT EXISTS idx_sys_parsing_queue_status ON sys_parsing_queue(status, submit_time);
 
@@ -270,19 +270,19 @@ CREATE TABLE IF NOT EXISTS bronze_event_unknown (id UUID DEFAULT uuid(), app_id 
 -- ==========================================
 -- SILVER LAYER
 -- ==========================================
-CREATE TABLE IF NOT EXISTS silver_jobs (app_id VARCHAR, job_id BIGINT, submission_time TIMESTAMP, completion_time TIMESTAMP, duration_ms BIGINT, status VARCHAR, num_stages BIGINT, stage_ids JSON, description TEXT, sql_execution_id BIGINT);
+CREATE TABLE IF NOT EXISTS silver_jobs (app_id VARCHAR, job_id BIGINT, submission_time BIGINT, completion_time BIGINT, duration_ms BIGINT, status VARCHAR, num_stages BIGINT, stage_ids JSON, description TEXT, sql_execution_id BIGINT);
 CREATE INDEX IF NOT EXISTS idx_silver_jobs_app_job ON silver_jobs(app_id, job_id);
 
-CREATE TABLE IF NOT EXISTS silver_stages (app_id VARCHAR, stage_id BIGINT, attempt_id BIGINT, job_id BIGINT, name VARCHAR, num_tasks BIGINT, status VARCHAR, submission_time TIMESTAMP, completion_time TIMESTAMP, duration_ms BIGINT, input_bytes BIGINT DEFAULT 0, shuffle_read_bytes BIGINT DEFAULT 0, parent_ids JSON, rdd_info TEXT);
+CREATE TABLE IF NOT EXISTS silver_stages (app_id VARCHAR, stage_id BIGINT, attempt_id BIGINT, job_id BIGINT, name VARCHAR, num_tasks BIGINT, status VARCHAR, submission_time BIGINT, completion_time BIGINT, duration_ms BIGINT, input_bytes BIGINT DEFAULT 0, shuffle_read_bytes BIGINT DEFAULT 0, parent_ids JSON, rdd_info TEXT);
 CREATE INDEX IF NOT EXISTS idx_silver_stages_app_stage ON silver_stages(app_id, stage_id, attempt_id);
 
-CREATE TABLE IF NOT EXISTS silver_tasks (app_id VARCHAR, task_id BIGINT, stage_id BIGINT, stage_attempt_id BIGINT, executor_id VARCHAR, host VARCHAR, index BIGINT, attempt_number BIGINT, launch_time TIMESTAMP, finish_time TIMESTAMP, duration_ms BIGINT, status VARCHAR, locality VARCHAR, speculative BOOLEAN, executor_run_time BIGINT, executor_cpu_time BIGINT, gc_time BIGINT, input_bytes BIGINT, output_bytes BIGINT, shuffle_read_bytes BIGINT, shuffle_fetch_wait_time BIGINT, shuffle_write_bytes BIGINT, shuffle_write_time BIGINT, memory_bytes_spilled BIGINT, disk_bytes_spilled BIGINT, peak_execution_memory BIGINT, executor_deserialize_time BIGINT, result_serialization_time BIGINT, getting_result_time BIGINT, scheduler_delay BIGINT);
+CREATE TABLE IF NOT EXISTS silver_tasks (app_id VARCHAR, task_id BIGINT, stage_id BIGINT, stage_attempt_id BIGINT, executor_id VARCHAR, host VARCHAR, index BIGINT, attempt_number BIGINT, launch_time BIGINT, finish_time BIGINT, duration_ms BIGINT, status VARCHAR, locality VARCHAR, speculative BOOLEAN, executor_run_time BIGINT, executor_cpu_time BIGINT, gc_time BIGINT, input_bytes BIGINT, output_bytes BIGINT, shuffle_read_bytes BIGINT, shuffle_fetch_wait_time BIGINT, shuffle_write_bytes BIGINT, shuffle_write_time BIGINT, memory_bytes_spilled BIGINT, disk_bytes_spilled BIGINT, peak_execution_memory BIGINT, executor_deserialize_time BIGINT, result_serialization_time BIGINT, getting_result_time BIGINT, scheduler_delay BIGINT);
 CREATE INDEX IF NOT EXISTS idx_silver_tasks_app_task ON silver_tasks(app_id, task_id);
 
-CREATE TABLE IF NOT EXISTS silver_executors (app_id VARCHAR, executor_id VARCHAR, host VARCHAR, total_cores BIGINT, add_time TIMESTAMP, remove_time TIMESTAMP, remove_reason TEXT);
+CREATE TABLE IF NOT EXISTS silver_executors (app_id VARCHAR, executor_id VARCHAR, host VARCHAR, total_cores BIGINT, add_time BIGINT, remove_time BIGINT, remove_reason TEXT);
 CREATE INDEX IF NOT EXISTS idx_silver_executors_app_exec ON silver_executors(app_id, executor_id);
 
-CREATE TABLE IF NOT EXISTS silver_sql_executions (app_id VARCHAR, execution_id BIGINT, description TEXT, details TEXT, physical_plan TEXT, plan_info TEXT, start_time TIMESTAMP, end_time TIMESTAMP, duration_ms BIGINT, status VARCHAR);
+CREATE TABLE IF NOT EXISTS silver_sql_executions (app_id VARCHAR, execution_id BIGINT, description TEXT, details TEXT, physical_plan TEXT, plan_info TEXT, start_time BIGINT, end_time BIGINT, duration_ms BIGINT, status VARCHAR);
 CREATE INDEX IF NOT EXISTS idx_silver_sql_app_exec ON silver_sql_executions(app_id, execution_id);
 
 CREATE TABLE IF NOT EXISTS silver_environment_configs (app_id VARCHAR, param_key VARCHAR, param_value VARCHAR, category VARCHAR);
@@ -299,7 +299,7 @@ CREATE TABLE IF NOT EXISTS silver_storage_blocks (
     executor_id VARCHAR,
     host VARCHAR,
     status VARCHAR, -- UPDATED, DELETED
-    event_time TIMESTAMP
+    event_time BIGINT
 );
 CREATE INDEX IF NOT EXISTS idx_silver_storage_app ON silver_storage_blocks(app_id, block_id);
 

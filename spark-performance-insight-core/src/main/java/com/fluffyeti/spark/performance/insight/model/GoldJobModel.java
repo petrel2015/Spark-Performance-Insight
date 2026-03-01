@@ -5,7 +5,6 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -15,8 +14,8 @@ public class GoldJobModel {
     private String id;
     private String appId;
     private Long jobId;
-    private LocalDateTime submissionTime;
-    private LocalDateTime completionTime;
+    private Long submissionTime;
+    private Long completionTime;
     private Long duration;
     private String status;
     private Long numStages;

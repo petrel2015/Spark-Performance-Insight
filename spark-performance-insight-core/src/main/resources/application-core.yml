@@ -17,7 +17,7 @@ spring:
   sql:
     init:
       mode: always
-      schema-locations: classpath:db/schema.sql
+      schema-locations: classpath:db/insight-schema.sql
   ai:
     zhipuai:
       api-key: ${ZHIPU_API_KEY:fake_api_key}

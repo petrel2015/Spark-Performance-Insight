@@ -32,4 +32,84 @@
         WHERE e.app_id = m.app_id AND e.executor_id = m.executor_id
     </update>
 
+    <select id="getExecutorTimeSeries" resultType="map">
+        SELECT 
+            floor(launch_time / 60000) * 60000 as time_window,
+            executor_id,
+            count(*) as task_count,
+            sum(input_bytes) as hdfs_in,
+            sum(output_bytes) as hdfs_out,
+            sum(input_bytes + output_bytes) as hdfs_io,
+            sum(shuffle_read_bytes) as shuffle_read,
+            sum(shuffle_write_bytes) as shuffle_write
+        FROM gold_tasks
+        WHERE app_id = #{appId}
+        GROUP BY 1, 2
+        ORDER BY 1 ASC
+    </select>
+
+    <select id="getExecutorMetricTimeSeries" resultType="map">
+        SELECT 
+            floor(launch_time / 60000) * 60000 as time_window,
+            executor_id,
+            <choose>
+                <when test="metricColumn == 'task_count'">
+                    count(*) as value
+                </when>
+                <when test="metricColumn == 'hdfs_in'">
+                    sum(input_bytes) as value
+                </when>
+                <when test="metricColumn == 'hdfs_out'">
+                    sum(output_bytes) as value
+                </when>
+                <when test="metricColumn == 'hdfs_io'">
+                    sum(input_bytes + output_bytes) as value
+                </when>
+                <when test="metricColumn == 'shuffle_read'">
+                    sum(shuffle_read_bytes) as value
+                </when>
+                <when test="metricColumn == 'shuffle_write'">
+                    sum(shuffle_write_bytes) as value
+                </when>
+                <otherwise>
+                    0 as value
+                </otherwise>
+            </choose>
+        FROM gold_tasks
+        WHERE app_id = #{appId}
+        GROUP BY 1, 2
+        ORDER BY 1 ASC
+    </select>
+
+    <select id="getExecutorEfficiencyMetrics" resultType="map">
+        WITH app_info AS (
+            SELECT app_id, end_time FROM gold_applications WHERE app_id = #{appId}
+        ),
+        exec_durations AS (
+            SELECT 
+                e.executor_id,
+                e.completed_tasks,
+                e.input_bytes,
+                -- Total HDFS I/O (Input + Output)
+                (SELECT sum(input_bytes + output_bytes) FROM gold_tasks gt WHERE gt.app_id = e.app_id AND gt.executor_id = e.executor_id) as total_hdfs_io,
+                e.shuffle_read_bytes,
+                e.shuffle_write_bytes,
+                -- Duration in milliseconds (Explicitly cast to BIGINT to avoid INTERVAL issues)
+                CAST(COALESCE(e.remove_time, a.end_time) - e.add_time AS BIGINT) as duration_ms
+            FROM gold_executors e
+            JOIN app_info a ON e.app_id = a.app_id
+            WHERE e.app_id = #{appId}
+        )
+        SELECT 
+            executor_id,
+            completed_tasks,
+            total_hdfs_io as input_bytes,
+            shuffle_read_bytes,
+            shuffle_write_bytes,
+            duration_ms,
+            CASE WHEN duration_ms > 0 THEN (completed_tasks * 1.0 / (duration_ms / 1000.0)) ELSE 0 END as task_throughput,
+            CASE WHEN duration_ms > 0 THEN (total_hdfs_io * 1.0 / (duration_ms / 1000.0)) ELSE 0 END as hdfs_io_rate,
+            CASE WHEN duration_ms > 0 THEN ((shuffle_read_bytes + shuffle_write_bytes) * 1.0 / (duration_ms / 1000.0)) ELSE 0 END as shuffle_io_rate
+        FROM exec_durations
+    </select>
 </mapper>

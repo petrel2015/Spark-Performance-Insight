@@ -2,6 +2,7 @@ package com.fluffyeti.spark.performance.insight.controller;
 
 import com.fluffyeti.spark.performance.insight.model.*;
 import com.fluffyeti.spark.performance.insight.model.dto.ComparisonResult;
+import com.fluffyeti.spark.performance.insight.model.dto.ExecutorDiagnosisDTO;
 import com.fluffyeti.spark.performance.insight.model.dto.PageResponse;
 import com.fluffyeti.spark.performance.insight.service.*;
 import com.fluffyeti.spark.performance.insight.exception.AppParsingException;
@@ -211,6 +212,33 @@ public class SystemController {
     }
 
     /**
+     * 获取 Executor 诊断信息
+     */
+    @GetMapping("/apps/{appId}/executors/diagnosis")
+    public ExecutorDiagnosisDTO getExecutorDiagnosis(@PathVariable String appId) {
+        checkAppReady(appId);
+        return sparkExecutorService.getExecutorDiagnosis(appId);
+    }
+
+    /**
+     * 获取 Executor 时序数据
+     */
+    @GetMapping("/apps/{appId}/executors/time-series")
+    public List<Map<String, Object>> getExecutorTimeSeries(@PathVariable String appId) {
+        checkAppReady(appId);
+        return sparkExecutorService.getExecutorTimeSeries(appId);
+    }
+
+    /**
+     * 获取特定指标的 Executor 时序数据
+     */
+    @GetMapping("/apps/{appId}/executors/time-series/{metricKey}")
+    public List<Map<String, Object>> getExecutorTimeSeriesMetric(@PathVariable String appId, @PathVariable String metricKey) {
+        checkAppReady(appId);
+        return sparkExecutorService.getExecutorTimeSeriesMetric(appId, metricKey);
+    }
+
+    /**
      * 获取 SQL 执行列表
      */
     @GetMapping("/apps/{appId}/sql")
@@ -347,6 +375,23 @@ public class SystemController {
             if (stage != null) finalAttemptId = stage.getAttemptId();
         }
         return stageService.getStageStats(appId, stageId, finalAttemptId);
+    }
+
+    /**
+     * 获取特定 Stage 的任务时序数据
+     */
+    @GetMapping("/apps/{appId}/stages/{stageId}/timeline")
+    public List<GoldTaskModel> getStageTimeline(@PathVariable String appId, 
+                                            @PathVariable Long stageId,
+                                            @RequestParam(required = false) Long attemptId) {
+        checkAppReady(appId);
+        var query = taskService.lambdaQuery()
+                .eq(GoldTaskModel::getAppId, appId)
+                .eq(GoldTaskModel::getStageId, stageId);
+        if (attemptId != null) {
+            query.eq(GoldTaskModel::getAttemptId, attemptId);
+        }
+        return query.list();
     }
 
     /**

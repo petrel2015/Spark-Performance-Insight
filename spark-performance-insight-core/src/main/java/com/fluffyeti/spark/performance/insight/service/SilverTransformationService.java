@@ -54,7 +54,9 @@ public class SilverTransformationService {
     public void transform(String appId, BiConsumer<Double, String> progressReporter) {
         log.info("Starting Batch Silver transformation for app: {}", appId);
         
+        // 1. Mandatory Clean for non-incremental runs
         duckDBManager.runWithRetry(() -> {
+            self.cleanSilverData(appId);
             jdbcTemplate.execute("INSTALL json; LOAD json;");
             applicationService.executeLocked(appId, () -> {
                 self.transformApplicationMetadata(appId);
@@ -62,7 +64,7 @@ public class SilverTransformationService {
             });
         });
 
-        // 1. Discover all unique Stage IDs
+        // 2. Discover all unique Stage IDs
         List<Long> allStageIds = jdbcTemplate.queryForList(
             "SELECT DISTINCT (json_extract(raw_json, '$.\"Stage ID\"'))::BIGINT FROM bronze_event_task_end WHERE app_id = ? ORDER BY 1",
             Long.class, appId
@@ -72,7 +74,7 @@ public class SilverTransformationService {
         int batchSize = systemProperties.getTransformation().getStageBatchSize();
         log.info("Found {} stages to transform for app: {}. Processing in batches of {}", totalStages, appId, batchSize);
 
-        // 2. Sequential Batch Processing (Prevents OOM from multiple full scans)
+        // 3. Sequential Batch Processing
         int processedCount = 0;
         Set<String> completedStages = progressService.getCompletedTaskIds(appId, PHASE, "STAGE");
 
@@ -80,21 +82,16 @@ public class SilverTransformationService {
             int end = Math.min(i + batchSize, allStageIds.size());
             List<Long> batch = allStageIds.subList(i, end);
             
-            // Filter out stages already completed in this batch to support incremental resume
             List<Long> filteredBatch = batch.stream()
-                    .filter(sid -> !completedStages.contains("stage_" + sid + "_0")) // Simplified: check attempt 0
+                    .filter(sid -> !completedStages.contains("stage_" + sid + "_0"))
                     .collect(Collectors.toList());
 
             if (!filteredBatch.isEmpty()) {
-                String stageIdsStr = filteredBatch.stream().map(String::valueOf).collect(Collectors.joining(","));
-                log.info("Processing Silver batch: stages [{}]", stageIdsStr);
-
                 duckDBManager.runWithRetry(() -> {
                     self.transformTasksForStages(appId, filteredBatch);
                     self.finalizeStagesMetadata(appId, filteredBatch);
                 });
 
-                // Mark progress for each stage in the batch
                 for (Long sid : filteredBatch) {
                     progressService.markCompleted(appId, PHASE, "STAGE", "stage_" + sid + "_0");
                 }
@@ -105,7 +102,7 @@ public class SilverTransformationService {
             progressReporter.accept(pct, String.format("Silver: Processed %d/%d stages (%.2f%%)", processedCount, totalStages, pct));
         }
 
-        // 3. Parallel independent tasks (Keep using executor for smaller non-IO tasks)
+        // 4. Parallel independent tasks
         var currentProgress = new AtomicReference<>(80.0);
         BiConsumer<Double, String> reporter = (increment, message) -> {
             double next = currentProgress.updateAndGet(v -> v + increment);
@@ -181,15 +178,15 @@ public class SilverTransformationService {
     protected void finalizeStagesMetadata(String appId, List<Long> stageIds) {
         String stageIdsIn = stageIds.stream().map(String::valueOf).collect(Collectors.joining(","));
         String sql = "INSERT INTO silver_stages (app_id, stage_id, attempt_id, job_id, name, num_tasks, status, submission_time, completion_time, duration_ms, input_bytes, shuffle_read_bytes, parent_ids, rdd_info) " +
-                     "WITH stage_job_map AS (SELECT DISTINCT sid, job_id FROM (SELECT (json_extract(raw_json, '$.\"Job ID\"'))::BIGINT as job_id, unnest(CAST(json_extract(raw_json, '$.\"Stage IDs\"') AS BIGINT[])) as sid FROM bronze_event_job_start WHERE app_id = ?) WHERE sid IN (" + stageIdsIn + ")), " +
+                     "WITH stage_job_map AS (SELECT sid, MIN(job_id) as job_id FROM (SELECT (json_extract(raw_json, '$.\"Job ID\"'))::BIGINT as job_id, unnest(CAST(json_extract(raw_json, '$.\"Stage IDs\"') AS BIGINT[])) as sid FROM bronze_event_job_start WHERE app_id = ?) WHERE sid IN (" + stageIdsIn + ") GROUP BY sid), " +
                      "ss_info AS (SELECT DISTINCT ON (app_id, sid) (json_extract(raw_json, '$.\"Stage Info\".\"Stage ID\"'))::BIGINT as sid, (json_extract(raw_json, '$.\"Stage Info\".\"Stage Attempt ID\"'))::BIGINT as aid, raw_json FROM bronze_event_stage_submitted WHERE app_id = ? AND sid IN (" + stageIdsIn + ") ORDER BY app_id, sid, aid DESC, ingested_at DESC), " +
                      "sc_info AS (SELECT DISTINCT ON (app_id, sid) (json_extract(raw_json, '$.\"Stage Info\".\"Stage ID\"'))::BIGINT as sid, (json_extract(raw_json, '$.\"Stage Info\".\"Stage Attempt ID\"'))::BIGINT as aid, raw_json FROM bronze_event_stage_completed WHERE app_id = ? AND sid IN (" + stageIdsIn + ") ORDER BY app_id, sid, aid DESC, ingested_at DESC), " +
-                     "task_metrics AS (SELECT stage_id, sum(input_bytes) as input_sum, sum(shuffle_read_bytes) as shuffle_sum FROM silver_tasks WHERE app_id = ? AND stage_id IN (" + stageIdsIn + ") GROUP BY stage_id) " +
-                     "SELECT DISTINCT ON (ss.sid, ss.aid) ?, ss.sid, ss.aid, jm.job_id, json_extract_string(ss.raw_json, '$.\"Stage Info\".\"Stage Name\"'), (json_extract(ss.raw_json, '$.\"Stage Info\".\"Number of Tasks\"'))::BIGINT, CASE WHEN sc.raw_json IS NOT NULL THEN 'COMPLETED' ELSE 'PENDING' END, epoch_ms((json_extract(ss.raw_json, '$.\"Stage Info\".\"Submission Time\"'))::BIGINT), epoch_ms((json_extract(sc.raw_json, '$.\"Stage Info\".\"Completion Time\"'))::BIGINT), (json_extract(sc.raw_json, '$.\"Stage Info\".\"Completion Time\"'))::BIGINT - (json_extract(ss.raw_json, '$.\"Stage Info\".\"Submission Time\"'))::BIGINT, coalesce(tm.input_sum, 0), coalesce(tm.shuffle_sum, 0), json_extract(ss.raw_json, '$.\"Stage Info\".\"Parent IDs\"'), json_extract_string(ss.raw_json, '$.\"Stage Info\".\"RDD Info\"') " +
+                     "task_metrics AS (SELECT stage_id as sid, sum(duration_ms) as dur_sum FROM silver_tasks WHERE app_id = ? AND stage_id IN (" + stageIdsIn + ") GROUP BY stage_id) " +
+                     "SELECT DISTINCT ON (ss.sid, ss.aid) ?, ss.sid, ss.aid, jm.job_id, json_extract_string(ss.raw_json, '$.\"Stage Info\".\"Stage Name\"'), (json_extract(ss.raw_json, '$.\"Stage Info\".\"Number of Tasks\"'))::BIGINT, CASE WHEN sc.raw_json IS NOT NULL THEN 'COMPLETED' ELSE 'PENDING' END, epoch_ms((json_extract(ss.raw_json, '$.\"Stage Info\".\"Submission Time\"'))::BIGINT), epoch_ms((json_extract(sc.raw_json, '$.\"Stage Info\".\"Completion Time\"'))::BIGINT), COALESCE(tm.dur_sum, 0), 0, 0, json_extract(ss.raw_json, '$.\"Stage Info\".\"Parent IDs\"'), json_extract_string(ss.raw_json, '$.\"Stage Info\".\"RDD Info\"') " +
                      "FROM ss_info ss " +
                      "LEFT JOIN stage_job_map jm ON ss.sid = jm.sid " +
                      "LEFT JOIN sc_info sc ON ss.sid = sc.sid AND ss.aid = sc.aid " +
-                     "LEFT JOIN task_metrics tm ON ss.sid = tm.stage_id";
+                     "LEFT JOIN task_metrics tm ON ss.sid = tm.sid";
         jdbcTemplate.update(sql, appId, appId, appId, appId, appId);
     }
 
@@ -214,8 +211,8 @@ public class SilverTransformationService {
                      "    epoch_ms((json_extract(je.raw_json, '$.\"Completion Time\"'))::BIGINT), " +
                      "    (json_extract(je.raw_json, '$.\"Completion Time\"'))::BIGINT - (json_extract(js.raw_json, '$.\"Submission Time\"'))::BIGINT, " +
                      "    json_extract_string(je.raw_json, '$.\"Job Result\".Result'), " +
-                     "    json_array_length(json_extract(js.raw_json, '$.\"Stage IDs\"')), " +
-                     "    json_extract(js.raw_json, '$.\"Stage IDs\"'), " +
+                     "    json_array_length(js.raw_json->'Stage IDs'), " +
+                     "    COALESCE(CAST(js.raw_json->'Stage IDs' AS VARCHAR), '[]'), " +
                      "    json_extract_string(js.raw_json, '$.Properties.\"spark.job.description\"'), " +
                      "    (json_extract(js.raw_json, '$.Properties.\"spark.sql.execution.id\"'))::BIGINT " +
                      "FROM bronze_event_job_start js " +

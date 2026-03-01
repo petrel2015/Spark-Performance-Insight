@@ -54,7 +54,6 @@ public class SilverTransformationService {
     public void transform(String appId, BiConsumer<Double, String> progressReporter) {
         log.info("Starting Batch Silver transformation for app: {}", appId);
         
-        // 1. Mandatory Clean for non-incremental runs
         duckDBManager.runWithRetry(() -> {
             self.cleanSilverData(appId);
             jdbcTemplate.execute("INSTALL json; LOAD json;");
@@ -64,7 +63,6 @@ public class SilverTransformationService {
             });
         });
 
-        // 2. Discover all unique Stage IDs
         List<Long> allStageIds = jdbcTemplate.queryForList(
             "SELECT DISTINCT (json_extract(raw_json, '$.\"Stage ID\"'))::BIGINT FROM bronze_event_task_end WHERE app_id = ? ORDER BY 1",
             Long.class, appId
@@ -74,7 +72,6 @@ public class SilverTransformationService {
         int batchSize = systemProperties.getTransformation().getStageBatchSize();
         log.info("Found {} stages to transform for app: {}. Processing in batches of {}", totalStages, appId, batchSize);
 
-        // 3. Sequential Batch Processing
         int processedCount = 0;
         Set<String> completedStages = progressService.getCompletedTaskIds(appId, PHASE, "STAGE");
 
@@ -102,7 +99,6 @@ public class SilverTransformationService {
             progressReporter.accept(pct, String.format("Silver: Processed %d/%d stages (%.2f%%)", processedCount, totalStages, pct));
         }
 
-        // 4. Parallel independent tasks
         var currentProgress = new AtomicReference<>(80.0);
         BiConsumer<Double, String> reporter = (increment, message) -> {
             double next = currentProgress.updateAndGet(v -> v + increment);
@@ -142,8 +138,8 @@ public class SilverTransformationService {
                      "    json_extract_string(raw_json, '$.\"Task Info\".Host'), " +
                      "    (json_extract(raw_json, '$.\"Task Info\".Index'))::BIGINT, " +
                      "    (json_extract(raw_json, '$.\"Task Info\".Attempt'))::BIGINT, " +
-                     "    epoch_ms((json_extract(raw_json, '$.\"Task Info\".\"Launch Time\"'))::BIGINT), " +
-                     "    epoch_ms((json_extract(raw_json, '$.\"Task Info\".\"Finish Time\"'))::BIGINT), " +
+                     "    (json_extract(raw_json, '$.\"Task Info\".\"Launch Time\"'))::BIGINT, " +
+                     "    (json_extract(raw_json, '$.\"Task Info\".\"Finish Time\"'))::BIGINT, " +
                      "    (json_extract(raw_json, '$.\"Task Info\".\"Finish Time\"'))::BIGINT - (json_extract(raw_json, '$.\"Task Info\".\"Launch Time\"'))::BIGINT, " +
                      "    CASE WHEN (json_extract(raw_json, '$.\"Task Info\".Failed'))::BOOLEAN THEN 'FAILED' ELSE 'SUCCESS' END, " +
                      "    json_extract_string(raw_json, '$.\"Task Info\".Locality'), " +
@@ -182,7 +178,7 @@ public class SilverTransformationService {
                      "ss_info AS (SELECT DISTINCT ON (app_id, sid) (json_extract(raw_json, '$.\"Stage Info\".\"Stage ID\"'))::BIGINT as sid, (json_extract(raw_json, '$.\"Stage Info\".\"Stage Attempt ID\"'))::BIGINT as aid, raw_json FROM bronze_event_stage_submitted WHERE app_id = ? AND sid IN (" + stageIdsIn + ") ORDER BY app_id, sid, aid DESC, ingested_at DESC), " +
                      "sc_info AS (SELECT DISTINCT ON (app_id, sid) (json_extract(raw_json, '$.\"Stage Info\".\"Stage ID\"'))::BIGINT as sid, (json_extract(raw_json, '$.\"Stage Info\".\"Stage Attempt ID\"'))::BIGINT as aid, raw_json FROM bronze_event_stage_completed WHERE app_id = ? AND sid IN (" + stageIdsIn + ") ORDER BY app_id, sid, aid DESC, ingested_at DESC), " +
                      "task_metrics AS (SELECT stage_id as sid, sum(duration_ms) as dur_sum FROM silver_tasks WHERE app_id = ? AND stage_id IN (" + stageIdsIn + ") GROUP BY stage_id) " +
-                     "SELECT DISTINCT ON (ss.sid, ss.aid) ?, ss.sid, ss.aid, jm.job_id, json_extract_string(ss.raw_json, '$.\"Stage Info\".\"Stage Name\"'), (json_extract(ss.raw_json, '$.\"Stage Info\".\"Number of Tasks\"'))::BIGINT, CASE WHEN sc.raw_json IS NOT NULL THEN 'COMPLETED' ELSE 'PENDING' END, epoch_ms((json_extract(ss.raw_json, '$.\"Stage Info\".\"Submission Time\"'))::BIGINT), epoch_ms((json_extract(sc.raw_json, '$.\"Stage Info\".\"Completion Time\"'))::BIGINT), COALESCE(tm.dur_sum, 0), 0, 0, json_extract(ss.raw_json, '$.\"Stage Info\".\"Parent IDs\"'), json_extract_string(ss.raw_json, '$.\"Stage Info\".\"RDD Info\"') " +
+                     "SELECT DISTINCT ON (ss.sid, ss.aid) ?, ss.sid, ss.aid, jm.job_id, json_extract_string(ss.raw_json, '$.\"Stage Info\".\"Stage Name\"'), (json_extract(ss.raw_json, '$.\"Stage Info\".\"Number of Tasks\"'))::BIGINT, CASE WHEN sc.raw_json IS NOT NULL THEN 'COMPLETED' ELSE 'PENDING' END, (json_extract(ss.raw_json, '$.\"Stage Info\".\"Submission Time\"'))::BIGINT, (json_extract(sc.raw_json, '$.\"Stage Info\".\"Completion Time\"'))::BIGINT, COALESCE(tm.dur_sum, 0), 0, 0, json_extract(ss.raw_json, '$.\"Stage Info\".\"Parent IDs\"'), json_extract_string(ss.raw_json, '$.\"Stage Info\".\"RDD Info\"') " +
                      "FROM ss_info ss " +
                      "LEFT JOIN stage_job_map jm ON ss.sid = jm.sid " +
                      "LEFT JOIN sc_info sc ON ss.sid = sc.sid AND ss.aid = sc.aid " +
@@ -195,7 +191,7 @@ public class SilverTransformationService {
         String sql = "UPDATE gold_applications " +
                      "SET app_name = json_extract_string(b.raw_json, '$.\"App Name\"'), " +
                      "    user_name = json_extract_string(b.raw_json, '$.User'), " +
-                     "    start_time = epoch_ms((json_extract(b.raw_json, '$.Timestamp'))::BIGINT), " +
+                     "    start_time = (json_extract(b.raw_json, '$.Timestamp'))::BIGINT, " +
                      "    spark_version = (SELECT json_extract_string(raw_json, '$.\"Spark Version\"') FROM bronze_event_log_start WHERE app_id = ? LIMIT 1) " +
                      "FROM bronze_event_application_start b " +
                      "WHERE gold_applications.app_id = b.app_id AND b.app_id = ?";
@@ -207,8 +203,8 @@ public class SilverTransformationService {
         String sql = "INSERT INTO silver_jobs " +
                      "SELECT DISTINCT ON (js.app_id, (json_extract(js.raw_json, '$.\"Job ID\"'))::BIGINT) " +
                      "    js.app_id, (json_extract(js.raw_json, '$.\"Job ID\"'))::BIGINT, " +
-                     "    epoch_ms((json_extract(js.raw_json, '$.\"Submission Time\"'))::BIGINT), " +
-                     "    epoch_ms((json_extract(je.raw_json, '$.\"Completion Time\"'))::BIGINT), " +
+                     "    (json_extract(js.raw_json, '$.\"Submission Time\"'))::BIGINT, " +
+                     "    (json_extract(je.raw_json, '$.\"Completion Time\"'))::BIGINT, " +
                      "    (json_extract(je.raw_json, '$.\"Completion Time\"'))::BIGINT - (json_extract(js.raw_json, '$.\"Submission Time\"'))::BIGINT, " +
                      "    json_extract_string(je.raw_json, '$.\"Job Result\".Result'), " +
                      "    json_array_length(js.raw_json->'Stage IDs'), " +
@@ -228,8 +224,8 @@ public class SilverTransformationService {
                      "    ea.app_id, json_extract_string(ea.raw_json, '$.\"Executor ID\"'), " +
                      "    json_extract_string(ea.raw_json, '$.\"Executor Info\".Host'), " +
                      "    (json_extract(ea.raw_json, '$.\"Executor Info\".\"Total Cores\"'))::BIGINT, " +
-                     "    epoch_ms((json_extract(ea.raw_json, '$.Timestamp'))::BIGINT), " +
-                     "    epoch_ms((json_extract(er.raw_json, '$.Timestamp'))::BIGINT), " +
+                     "    (json_extract(ea.raw_json, '$.Timestamp'))::BIGINT, " +
+                     "    (json_extract(er.raw_json, '$.Timestamp'))::BIGINT, " +
                      "    json_extract_string(er.raw_json, '$.\"Removed Reason\"') " +
                      "FROM bronze_event_executor_added ea " +
                      "LEFT JOIN bronze_event_executor_removed er ON ea.app_id = er.app_id AND json_extract_string(ea.raw_json, '$.\"Executor ID\"') = json_extract_string(er.raw_json, '$.\"Executor ID\"') " +
@@ -246,8 +242,8 @@ public class SilverTransformationService {
                      "    json_extract_string(s.raw_json, '$.details'), " +
                      "    json_extract_string(s.raw_json, '$.physicalPlanDescription'), " +
                      "    json_extract_string(s.raw_json, '$.sparkPlanInfo'), " +
-                     "    epoch_ms((json_extract(s.raw_json, '$.time'))::BIGINT), " +
-                     "    epoch_ms((json_extract(e.raw_json, '$.time'))::BIGINT), " +
+                     "    (json_extract(s.raw_json, '$.time'))::BIGINT, " +
+                     "    (json_extract(e.raw_json, '$.time'))::BIGINT, " +
                      "    (json_extract(e.raw_json, '$.time'))::BIGINT - (json_extract(s.raw_json, '$.time'))::BIGINT, " +
                      "    CASE WHEN e.raw_json IS NOT NULL THEN 'COMPLETED' ELSE 'RUNNING' END " +
                      "FROM bronze_event_sql_execution_start s " +
@@ -275,7 +271,7 @@ public class SilverTransformationService {
         String rddSql = "INSERT INTO silver_rdd_info SELECT DISTINCT ON (app_id, rdd_id) app_id, (rdd->>'RDD ID')::BIGINT as rdd_id, rdd->>'Name', rdd->>'Storage Level', (rdd->>'Number of Partitions')::BIGINT, rdd->>'Callsite', rdd->>'Scope' FROM (SELECT app_id, unnest(json_transform(json_extract(raw_json, '$.\"Stage Info\".\"RDD Info\"'), '[\"JSON\"]')) as rdd FROM bronze_event_stage_submitted WHERE app_id = ?) WHERE rdd IS NOT NULL ORDER BY app_id, rdd_id";
         jdbcTemplate.update(rddSql, appId);
         
-        String blockSql = "INSERT INTO silver_storage_blocks SELECT app_id, json_extract_string(raw_json, '$.\"Block ID\"'), (regexp_extract(json_extract_string(raw_json, '$.\"Block ID\"'), 'rdd_(\\d+)_', 1))::BIGINT, json_extract_string(raw_json, '$.\"Block ID\"'), json_extract_string(raw_json, '$.\"Storage Level\"'), (json_extract(raw_json, '$.\"Memory Size\"'))::BIGINT, (json_extract(raw_json, '$.\"Disk Size\"'))::BIGINT, COALESCE(json_extract_string(raw_json, '$.\"Block Manager ID\".\"Executor ID\"'), json_extract_string(raw_json, '$.\"Executor ID\"')), json_extract_string(raw_json, '$.\"Block Manager ID\".Host'), 'UPDATED', epoch_ms((json_extract(raw_json, '$.Timestamp'))::BIGINT) FROM bronze_event_block_updated WHERE app_id = ?";
+        String blockSql = "INSERT INTO silver_storage_blocks SELECT app_id, json_extract_string(raw_json, '$.\"Block ID\"'), (regexp_extract(json_extract_string(raw_json, '$.\"Block ID\"'), 'rdd_(\\d+)_', 1))::BIGINT, json_extract_string(raw_json, '$.\"Block ID\"'), json_extract_string(raw_json, '$.\"Storage Level\"'), (json_extract(raw_json, '$.\"Memory Size\"'))::BIGINT, (json_extract(raw_json, '$.\"Disk Size\"'))::BIGINT, COALESCE(json_extract_string(raw_json, '$.\"Block Manager ID\".\"Executor ID\"'), json_extract_string(raw_json, '$.\"Executor ID\"')), json_extract_string(raw_json, '$.\"Block Manager ID\".Host'), 'UPDATED', (json_extract(raw_json, '$.Timestamp'))::BIGINT FROM bronze_event_block_updated WHERE app_id = ?";
         jdbcTemplate.update(blockSql, appId);
     }
 

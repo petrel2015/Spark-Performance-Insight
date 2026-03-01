@@ -6,7 +6,7 @@
         UPDATE gold_jobs
         SET 
             duration = (
-                SELECT COALESCE(CAST((epoch(MAX(completion_time)) - epoch(MIN(submission_time))) * 1000 AS BIGINT), 0)
+                SELECT COALESCE(CAST(MAX(completion_time) - MIN(submission_time) AS BIGINT), 0)
                 FROM gold_stages s
                 WHERE s.app_id = gold_jobs.app_id 
                   AND list_contains(string_split(gold_jobs.stage_ids, ','), CAST(s.stage_id AS VARCHAR))

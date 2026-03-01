@@ -19,13 +19,34 @@ public class DuckDBConfig {
 
     private static boolean initialized = false;
 
-    // @PostConstruct removed to avoid DuckDB native library conflicts during frequent Spring context refreshes in tests
+    @PostConstruct
     public synchronized void initDuckDB() {
         if (initialized) {
             return;
         }
         applyDuckDBSettings();
+        ensureProgressTable();
         initialized = true;
+    }
+
+    private void ensureProgressTable() {
+        log.info("Ensuring pipeline progress table exists...");
+        try (Connection conn = dataSource.getConnection();
+             Statement stmt = conn.createStatement()) {
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS sys_pipeline_progress (
+                    app_id VARCHAR,
+                    phase VARCHAR,
+                    task_type VARCHAR,
+                    task_id VARCHAR,
+                    status VARCHAR,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (app_id, phase, task_type, task_id)
+                )
+                """);
+        } catch (Exception e) {
+            log.error("Failed to ensure sys_pipeline_progress table", e);
+        }
     }
 
     public void applyDuckDBSettings() {

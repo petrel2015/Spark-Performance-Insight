@@ -6,6 +6,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 @Slf4j
@@ -15,6 +18,7 @@ public class DuckDBManagerService {
 
     private final JdbcTemplate jdbcTemplate;
     private final DuckDBConfig duckDBConfig;
+    private final DataSource dataSource;
 
     /**
      * Executes a database operation with automatic OOM detection and retry.
@@ -57,6 +61,21 @@ public class DuckDBManagerService {
                 throw e;
             }
         }
+    }
+
+    /**
+     * Executes a functional interface with a raw DuckDBConnection.
+     * Useful for using native features like DuckDBAppender.
+     */
+    public <T> T executeNative(Function<org.duckdb.DuckDBConnection, T> action) {
+        return executeWithRetry(() -> {
+            try (Connection conn = dataSource.getConnection()) {
+                org.duckdb.DuckDBConnection nativeConn = conn.unwrap(org.duckdb.DuckDBConnection.class);
+                return action.apply(nativeConn);
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to execute native DuckDB action", e);
+            }
+        });
     }
 
     private boolean isOOMError(Throwable e) {

@@ -36,26 +36,42 @@ public class StageService extends ServiceImpl<StageMapper, GoldStageModel> {
         mapper.insertTaskStats(appId);
     }
 
-    public List<GoldStageStatisticsModel> getStageStats(String appId, Integer stageId, Integer attemptId) {
+    public void calculateStageMetrics(String appId, Long stageId, Long attemptId) {
+        log.debug("Calculating advanced metrics for Stage: {}-{}", stageId, attemptId);
+        StageMapper mapper = (StageMapper) getBaseMapper();
+        mapper.updateSpecificStageMetrics(appId, stageId, attemptId);
+        mapper.deleteSpecificStageStats(appId, stageId, attemptId);
+        mapper.insertSpecificTaskStats(appId, stageId, attemptId);
+    }
+
+    public void calculateStageMetricsBatch(String appId, List<Long> stageIds) {
+        log.info("Calculating advanced metrics for {} stages in App: {}", stageIds.size(), appId);
+        StageMapper mapper = (StageMapper) getBaseMapper();
+        mapper.updateBatchStageMetrics(appId, stageIds);
+        mapper.deleteBatchStageStats(appId, stageIds);
+        mapper.insertBatchTaskStats(appId, stageIds);
+    }
+
+    public List<GoldStageStatisticsModel> getStageStats(String appId, Long stageId, Long attemptId) {
         return stageStatisticsMapper.selectList(new QueryWrapper<GoldStageStatisticsModel>()
                 .eq("app_id", appId)
                 .eq("stage_id", stageId)
                 .eq("attempt_id", attemptId));
     }
 
-    public List<java.util.Map<String, Object>> getExecutorSummary(String appId, Integer stageId) {
-        return baseMapper.getExecutorSummary(appId, stageId, null);
+    public List<java.util.Map<String, Object>> getExecutorSummary(String appId, Long stageId) {
+        return ((StageMapper) getBaseMapper()).getExecutorSummary(appId, stageId, null);
     }
 
-    public List<java.util.Map<String, Object>> getExecutorSummary(String appId, Integer stageId, Integer attemptId) {
-        return baseMapper.getExecutorSummary(appId, stageId, attemptId);
+    public List<java.util.Map<String, Object>> getExecutorSummary(String appId, Long stageId, Long attemptId) {
+        return ((StageMapper) getBaseMapper()).getExecutorSummary(appId, stageId, attemptId);
     }
 
-    public List<java.util.Map<String, Object>> getJobExecutorSummary(String appId, Integer jobId) {
-        return baseMapper.getJobExecutorSummary(appId, jobId);
+    public List<java.util.Map<String, Object>> getJobExecutorSummary(String appId, Long jobId) {
+        return ((StageMapper) getBaseMapper()).getJobExecutorSummary(appId, jobId);
     }
 
-    public GoldStageModel getStage(String appId, Integer stageId, Integer attemptId) {
+    public GoldStageModel getStage(String appId, Long stageId, Long attemptId) {
         var query = lambdaQuery()
                 .eq(GoldStageModel::getAppId, appId)
                 .eq(GoldStageModel::getStageId, stageId);

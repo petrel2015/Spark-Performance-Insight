@@ -2,9 +2,9 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.fluffyeti.spark.performance.insight.mapper.StageMapper">
 
-    <!-- 预计算 Stage 的聚合指标 -->
+    <!-- 预计算 Stage 的聚合指标 (全量) -->
     <update id="updateStageMetrics">
-        UPDATE gold_stages s
+        UPDATE gold_stages
         SET 
             gc_time_sum = m.total_gc,
             tasks_duration_sum = m.total_duration,
@@ -19,67 +19,122 @@
             shuffle_write_time_sum = m.total_sw_time,
             num_completed_tasks = m.done_tasks,
             num_failed_tasks = m.failed_tasks,
-            duration = CAST(COALESCE(epoch(s.completion_time) - epoch(s.submission_time), 0) * 1000 AS BIGINT),
-            input_bytes = GREATEST(COALESCE(s.input_bytes, 0), m.total_input),
-            input_records = GREATEST(COALESCE(s.input_records, 0), m.total_input_records),
-            output_bytes = GREATEST(COALESCE(s.output_bytes, 0), m.total_output),
-            output_records = GREATEST(COALESCE(s.output_records, 0), m.total_output_records),
-            shuffle_read_bytes = GREATEST(COALESCE(s.shuffle_read_bytes, 0), m.total_shuffle_read),
-            shuffle_read_records = GREATEST(COALESCE(s.shuffle_read_records, 0), m.total_shuffle_read_records),
-            shuffle_write_bytes = GREATEST(COALESCE(s.shuffle_write_bytes, 0), m.total_shuffle_write),
-            shuffle_write_records = GREATEST(COALESCE(s.shuffle_write_records, 0), m.total_shuffle_write_records),
+            duration = CAST(COALESCE(epoch(gold_stages.completion_time) - epoch(gold_stages.submission_time), 0) * 1000 AS BIGINT),
+            input_bytes = GREATEST(COALESCE(gold_stages.input_bytes, 0), m.total_input),
+            input_records = GREATEST(COALESCE(gold_stages.input_records, 0), m.total_input_records),
+            output_bytes = GREATEST(COALESCE(gold_stages.output_bytes, 0), m.total_output),
+            output_records = GREATEST(COALESCE(gold_stages.output_records, 0), m.total_output_records),
+            shuffle_read_bytes = GREATEST(COALESCE(gold_stages.shuffle_read_bytes, 0), m.total_shuffle_read),
+            shuffle_read_records = GREATEST(COALESCE(gold_stages.shuffle_read_records, 0), m.total_shuffle_read_records),
+            shuffle_write_bytes = GREATEST(COALESCE(gold_stages.shuffle_write_bytes, 0), m.total_shuffle_write),
+            shuffle_write_records = GREATEST(COALESCE(gold_stages.shuffle_write_records, 0), m.total_shuffle_write_records),
             duration_p50 = m.p50,
             duration_p95 = m.p95,
             duration_p99 = m.p99,
             max_task_duration = m.max_dur,
             is_skewed = (CASE WHEN m.max_dur > m.p50 * 2 THEN TRUE ELSE FALSE END),
             locality_summary = m_loc.loc_summary,
-            performance_score = (
-                100.0 - (
-                    COALESCE((m.total_gc * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.15 +
-                    COALESCE((m.total_sw_time / 1000000.0 * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.15 +
-                    COALESCE((m.total_fetch_wait / 1000000.0 * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.15 +
-                    CASE WHEN m.p50 > 0 THEN LEAST(100, (m.max_dur * 1.0 / m.p50 - 1) * 50) ELSE 0 END * 0.15 +
-                    CASE WHEN m.total_disk_spill > 0 THEN 100 ELSE 0 END * 0.15 +
-                    (100.0 - LEAST(100, COALESCE((m.total_cpu_time / 1000000.0 * 100.0 / NULLIF(m.total_run_time, 0)), 100))) * 0.10 +
-                    COALESCE((m.total_delay * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.05 +
-                    COALESCE(((m.total_ser + m.total_deser) * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.05 +
-                    COALESCE((m.total_get_res * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.05
-                )
-            ),
-            diagnosis_info = json_array(
-                json_object('dimension', 'GC Impact', 'score', CAST(100 - COALESCE((m.total_gc * 100.0 / NULLIF(m.total_duration, 0)), 0) AS INTEGER)),
-                json_object('dimension', 'Shuffle Write Impact', 'score', CAST(100 - COALESCE((m.total_sw_time / 1000000.0 * 100.0 / NULLIF(m.total_duration, 0)), 0) AS INTEGER)),
-                json_object('dimension', 'Shuffle Read Blocked', 'score', CAST(100 - COALESCE((m.total_fetch_wait / 1000000.0 * 100.0 / NULLIF(m.total_duration, 0)), 0) AS INTEGER)),
-                json_object('dimension', 'I/O Wait', 'score', CAST(LEAST(100, COALESCE((m.total_cpu_time / 1000000.0 * 100.0 / NULLIF(m.total_run_time, 0)), 100)) AS INTEGER)),
-                json_object('dimension', 'Serialization Impact', 'score', CAST(100 - COALESCE(((m.total_ser + m.total_deser) * 100.0 / NULLIF(m.total_duration, 0)), 0) AS INTEGER)),
-                json_object('dimension', 'Result Fetching', 'score', CAST(100 - COALESCE((m.total_get_res * 100.0 / NULLIF(m.total_duration, 0)), 0) AS INTEGER)),
-                json_object('dimension', 'Scheduler Delay Impact', 'score', CAST(100 - COALESCE((m.total_delay * 100.0 / NULLIF(m.total_duration, 0)), 0) AS INTEGER)),
-                json_object('dimension', 'Data Skew', 'score', CAST(100 - CASE WHEN m.p50 > 0 THEN LEAST(100, (m.max_dur * 1.0 / m.p50 - 1) * 50) ELSE 0 END AS INTEGER)),
-                json_object('dimension', 'Disk Spill', 'score', CASE WHEN m.total_disk_spill > 0 THEN 0 ELSE 100 END)
-            )
+            performance_score = (100.0 - (COALESCE((m.total_gc * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.15 + COALESCE((m.total_sw_time / 1000000.0 * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.15 + COALESCE((m.total_fetch_wait / 1000000.0 * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.15 + CASE WHEN m.p50 > 0 THEN LEAST(100, (m.max_dur * 1.0 / m.p50 - 1) * 50) ELSE 0 END * 0.15 + CASE WHEN m.total_disk_spill > 0 THEN 100 ELSE 0 END * 0.15 + (100.0 - LEAST(100, COALESCE((m.total_cpu_time / 1000000.0 * 100.0 / NULLIF(m.total_run_time, 0)), 100))) * 0.10 + COALESCE((m.total_delay * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.05 + COALESCE(((m.total_ser + m.total_deser) * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.05 + COALESCE((m.total_get_res * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.05)),
+            diagnosis_info = json_array(json_object('dimension', 'GC Impact', 'score', CAST(greatest(0, 100 - COALESCE((m.total_gc * 100.0 / NULLIF(m.total_duration, 0)), 0)) AS INTEGER)), json_object('dimension', 'Shuffle Write Impact', 'score', CAST(greatest(0, 100 - COALESCE((m.total_sw_time / 1000000.0 * 100.0 / NULLIF(m.total_duration, 0)), 0)) AS INTEGER)), json_object('dimension', 'Shuffle Read Blocked', 'score', CAST(greatest(0, 100 - COALESCE((m.total_fetch_wait / 1000000.0 * 100.0 / NULLIF(m.total_duration, 0)), 0)) AS INTEGER)), json_object('dimension', 'I/O Wait', 'score', CAST(LEAST(100, COALESCE((m.total_cpu_time / 1000000.0 * 100.0 / NULLIF(m.total_run_time, 0)), 100)) AS INTEGER)), json_object('dimension', 'Serialization Impact', 'score', CAST(greatest(0, 100 - COALESCE(((m.total_ser + m.total_deser) * 100.0 / NULLIF(m.total_duration, 0)), 0)) AS INTEGER)), json_object('dimension', 'Result Fetching', 'score', CAST(greatest(0, 100 - COALESCE((m.total_get_res * 100.0 / NULLIF(m.total_duration, 0)), 0)) AS INTEGER)), json_object('dimension', 'Scheduler Delay Impact', 'score', CAST(greatest(0, 100 - COALESCE((m.total_delay * 100.0 / NULLIF(m.total_duration, 0)), 0)) AS INTEGER)), json_object('dimension', 'Data Skew', 'score', CAST(greatest(0, 100 - CASE WHEN m.p50 > 0 THEN LEAST(100, (m.max_dur * 1.0 / m.p50 - 1) * 50) ELSE 0 END) AS INTEGER)), json_object('dimension', 'Disk Spill', 'score', CASE WHEN m.total_disk_spill > 0 THEN 0 ELSE 100 END))
+        FROM (
+            <include refid="taskMetricsSubquery">
+                <property name="taskWhere" value="app_id = #{appId}"/>
+            </include>
+        ) m, (
+            <include refid="localitySubquery">
+                <property name="taskWhere" value="app_id = #{appId}"/>
+            </include>
+        ) m_loc
+        WHERE gold_stages.app_id = m.app_id AND gold_stages.stage_id = m.stage_id AND gold_stages.attempt_id = m.attempt_id
+          AND m.app_id = m_loc.app_id AND m.stage_id = m_loc.stage_id AND m.attempt_id = m_loc.attempt_id
+          AND gold_stages.app_id = #{appId}
+    </update>
+
+    <!-- 预计算 Stage 的聚合指标 (特定 Stage) -->
+    <update id="updateSpecificStageMetrics">
+        UPDATE gold_stages
+        SET 
+            gc_time_sum = m.total_gc,
+            tasks_duration_sum = m.total_duration,
+            executor_deserialize_time_sum = m.total_deser,
+            result_serialization_time_sum = m.total_ser,
+            getting_result_time_sum = m.total_get_res,
+            scheduler_delay_sum = m.total_delay,
+            peak_execution_memory_max = m.max_peak_mem,
+            peak_execution_memory_sum = m.total_peak_mem,
+            memory_bytes_spilled_sum = m.total_mem_spill,
+            disk_bytes_spilled_sum = m.total_disk_spill,
+            shuffle_write_time_sum = m.total_sw_time,
+            num_completed_tasks = m.done_tasks,
+            num_failed_tasks = m.failed_tasks,
+            duration = CAST(COALESCE(epoch(gold_stages.completion_time) - epoch(gold_stages.submission_time), 0) * 1000 AS BIGINT),
+            input_bytes = GREATEST(COALESCE(gold_stages.input_bytes, 0), m.total_input),
+            input_records = GREATEST(COALESCE(gold_stages.input_records, 0), m.total_input_records),
+            output_bytes = GREATEST(COALESCE(gold_stages.output_bytes, 0), m.total_output),
+            output_records = GREATEST(COALESCE(gold_stages.output_records, 0), m.total_output_records),
+            shuffle_read_bytes = GREATEST(COALESCE(gold_stages.shuffle_read_bytes, 0), m.total_shuffle_read),
+            shuffle_read_records = GREATEST(COALESCE(gold_stages.shuffle_read_records, 0), m.total_shuffle_read_records),
+            shuffle_write_bytes = GREATEST(COALESCE(gold_stages.shuffle_write_bytes, 0), m.total_shuffle_write),
+            shuffle_write_records = GREATEST(COALESCE(gold_stages.shuffle_write_records, 0), m.total_shuffle_write_records),
+            duration_p50 = m.p50,
+            duration_p95 = m.p95,
+            duration_p99 = m.p99,
+            max_task_duration = m.max_dur,
+            is_skewed = (CASE WHEN m.max_dur > m.p50 * 2 THEN TRUE ELSE FALSE END),
+            locality_summary = m_loc.loc_summary,
+            performance_score = (100.0 - (COALESCE((m.total_gc * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.15 + COALESCE((m.total_sw_time / 1000000.0 * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.15 + COALESCE((m.total_fetch_wait / 1000000.0 * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.15 + CASE WHEN m.p50 > 0 THEN LEAST(100, (m.max_dur * 1.0 / m.p50 - 1) * 50) ELSE 0 END * 0.15 + CASE WHEN m.total_disk_spill > 0 THEN 100 ELSE 0 END * 0.15 + (100.0 - LEAST(100, COALESCE((m.total_cpu_time / 1000000.0 * 100.0 / NULLIF(m.total_run_time, 0)), 100))) * 0.10 + COALESCE((m.total_delay * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.05 + COALESCE(((m.total_ser + m.total_deser) * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.05 + COALESCE((m.total_get_res * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.05)),
+            diagnosis_info = json_array(json_object('dimension', 'GC Impact', 'score', CAST(greatest(0, 100 - COALESCE((m.total_gc * 100.0 / NULLIF(m.total_duration, 0)), 0) ) AS INTEGER)), json_object('dimension', 'Shuffle Write Impact', 'score', CAST(greatest(0, 100 - COALESCE((m.total_sw_time / 1000000.0 * 100.0 / NULLIF(m.total_duration, 0)), 0)) AS INTEGER)), json_object('dimension', 'Shuffle Read Blocked', 'score', CAST(greatest(0, 100 - COALESCE((m.total_fetch_wait / 1000000.0 * 100.0 / NULLIF(m.total_duration, 0)), 0)) AS INTEGER)), json_object('dimension', 'I/O Wait', 'score', CAST(LEAST(100, COALESCE((m.total_cpu_time / 1000000.0 * 100.0 / NULLIF(m.total_run_time, 0)), 100)) AS INTEGER)), json_object('dimension', 'Serialization Impact', 'score', CAST(greatest(0, 100 - COALESCE(((m.total_ser + m.total_deser) * 100.0 / NULLIF(m.total_duration, 0)), 0)) AS INTEGER)), json_object('dimension', 'Result Fetching', 'score', CAST(greatest(0, 100 - COALESCE((m.total_get_res * 100.0 / NULLIF(m.total_duration, 0)), 0)) AS INTEGER)), json_object('dimension', 'Scheduler Delay Impact', 'score', CAST(greatest(0, 100 - COALESCE((m.total_delay * 100.0 / NULLIF(m.total_duration, 0)), 0)) AS INTEGER)), json_object('dimension', 'Data Skew', 'score', CAST(greatest(0, 100 - CASE WHEN m.p50 > 0 THEN LEAST(100, (m.max_dur * 1.0 / m.p50 - 1) * 50) ELSE 0 END) AS INTEGER)), json_object('dimension', 'Disk Spill', 'score', CASE WHEN m.total_disk_spill > 0 THEN 0 ELSE 100 END))
+        FROM (
+            <include refid="taskMetricsSubquery">
+                <property name="taskWhere" value="app_id = #{appId} AND stage_id = #{stageId} AND attempt_id = #{attemptId}"/>
+            </include>
+        ) m, (
+            <include refid="localitySubquery">
+                <property name="taskWhere" value="app_id = #{appId} AND stage_id = #{stageId} AND attempt_id = #{attemptId}"/>
+            </include>
+        ) m_loc
+        WHERE gold_stages.app_id = m.app_id AND gold_stages.stage_id = m.stage_id AND gold_stages.attempt_id = m.attempt_id
+          AND m.app_id = m_loc.app_id AND m.stage_id = m_loc.stage_id AND m.attempt_id = m_loc.attempt_id
+          AND gold_stages.app_id = #{appId} AND gold_stages.stage_id = #{stageId} AND gold_stages.attempt_id = #{attemptId}
+    </update>
+
+    <!-- 预计算 Stage 的聚合指标 (批量) -->
+    <update id="updateBatchStageMetrics">
+        UPDATE gold_stages
+        SET 
+            gc_time_sum = m.total_gc,
+            tasks_duration_sum = m.total_duration,
+            executor_deserialize_time_sum = m.total_deser,
+            result_serialization_time_sum = m.total_ser,
+            getting_result_time_sum = m.total_get_res,
+            scheduler_delay_sum = m.total_delay,
+            peak_execution_memory_max = m.max_peak_mem,
+            peak_execution_memory_sum = m.total_peak_mem,
+            memory_bytes_spilled_sum = m.total_mem_spill,
+            disk_bytes_spilled_sum = m.total_disk_spill,
+            shuffle_write_time_sum = m.total_sw_time,
+            num_completed_tasks = m.done_tasks,
+            num_failed_tasks = m.failed_tasks,
+            duration = CAST(COALESCE(epoch(gold_stages.completion_time) - epoch(gold_stages.submission_time), 0) * 1000 AS BIGINT),
+            input_bytes = GREATEST(COALESCE(gold_stages.input_bytes, 0), m.total_input),
+            input_records = GREATEST(COALESCE(gold_stages.input_records, 0), m.total_input_records),
+            output_bytes = GREATEST(COALESCE(gold_stages.output_bytes, 0), m.total_output),
+            output_records = GREATEST(COALESCE(gold_stages.output_records, 0), m.total_output_records),
+            shuffle_read_bytes = GREATEST(COALESCE(gold_stages.shuffle_read_bytes, 0), m.total_shuffle_read),
+            shuffle_read_records = GREATEST(COALESCE(gold_stages.shuffle_read_records, 0), m.total_shuffle_read_records),
+            shuffle_write_bytes = GREATEST(COALESCE(gold_stages.shuffle_write_bytes, 0), m.total_shuffle_write),
+            shuffle_write_records = GREATEST(COALESCE(gold_stages.shuffle_write_records, 0), m.total_shuffle_write_records),
+            duration_p50 = m.p50,
+            duration_p95 = m.p95,
+            duration_p99 = m.p99,
+            max_task_duration = m.max_dur,
+            is_skewed = (CASE WHEN m.max_dur > m.p50 * 2 THEN TRUE ELSE FALSE END),
+            locality_summary = m_loc.loc_summary,
+            performance_score = (100.0 - (COALESCE((m.total_gc * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.15 + COALESCE((m.total_sw_time / 1000000.0 * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.15 + COALESCE((m.total_fetch_wait / 1000000.0 * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.15 + CASE WHEN m.p50 > 0 THEN LEAST(100, (m.max_dur * 1.0 / m.p50 - 1) * 50) ELSE 0 END * 0.15 + CASE WHEN m.total_disk_spill > 0 THEN 100 ELSE 0 END * 0.15 + (100.0 - LEAST(100, COALESCE((m.total_cpu_time / 1000000.0 * 100.0 / NULLIF(m.total_run_time, 0)), 100))) * 0.10 + COALESCE((m.total_delay * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.05 + COALESCE(((m.total_ser + m.total_deser) * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.05 + COALESCE((m.total_get_res * 100.0 / NULLIF(m.total_duration, 0)), 0) * 0.05)),
+            diagnosis_info = json_array(json_object('dimension', 'GC Impact', 'score', CAST(greatest(0, 100 - COALESCE((m.total_gc * 100.0 / NULLIF(m.total_duration, 0)), 0)) AS INTEGER)), json_object('dimension', 'Shuffle Write Impact', 'score', CAST(greatest(0, 100 - COALESCE((m.total_sw_time / 1000000.0 * 100.0 / NULLIF(m.total_duration, 0)), 0)) AS INTEGER)), json_object('dimension', 'Shuffle Read Blocked', 'score', CAST(greatest(0, 100 - COALESCE((m.total_fetch_wait / 1000000.0 * 100.0 / NULLIF(m.total_duration, 0)), 0)) AS INTEGER)), json_object('dimension', 'I/O Wait', 'score', CAST(LEAST(100, COALESCE((m.total_cpu_time / 1000000.0 * 100.0 / NULLIF(m.total_run_time, 0)), 100)) AS INTEGER)), json_object('dimension', 'Serialization Impact', 'score', CAST(greatest(0, 100 - COALESCE(((m.total_ser + m.total_deser) * 100.0 / NULLIF(m.total_duration, 0)), 0)) AS INTEGER)), json_object('dimension', 'Result Fetching', 'score', CAST(greatest(0, 100 - COALESCE((m.total_get_res * 100.0 / NULLIF(m.total_duration, 0)), 0)) AS INTEGER)), json_object('dimension', 'Scheduler Delay Impact', 'score', CAST(greatest(0, 100 - COALESCE((m.total_delay * 100.0 / NULLIF(m.total_duration, 0)), 0)) AS INTEGER)), json_object('dimension', 'Data Skew', 'score', CAST(greatest(0, 100 - CASE WHEN m.p50 > 0 THEN LEAST(100, (m.max_dur * 1.0 / m.p50 - 1) * 50) ELSE 0 END) AS INTEGER)), json_object('dimension', 'Disk Spill', 'score', CASE WHEN m.total_disk_spill > 0 THEN 0 ELSE 100 END))
         FROM (
             SELECT 
-                base.app_id, 
-                base.stage_id,
-                base.attempt_id,
-                string_agg(k || ': ' || v, ', ') as loc_summary
-            FROM (
-                SELECT app_id, stage_id, attempt_id, locality as k, count(*) as v
-                FROM gold_tasks
-                WHERE app_id = #{appId} AND locality IS NOT NULL
-                GROUP BY app_id, stage_id, attempt_id, locality
-            ) loc_agg
-            RIGHT JOIN (
-                SELECT DISTINCT app_id, stage_id, attempt_id FROM gold_tasks WHERE app_id = #{appId}
-            ) base ON loc_agg.app_id = base.app_id AND loc_agg.stage_id = base.stage_id AND loc_agg.attempt_id = base.attempt_id
-            GROUP BY base.app_id, base.stage_id, base.attempt_id
-        ) m_loc
-        JOIN (
-            SELECT 
-                app_id, 
-                stage_id,
-                attempt_id,
+                app_id, stage_id, attempt_id,
                 count(case when status = 'SUCCESS' or status = 'SUCCEEDED' then 1 end) as done_tasks,
                 count(case when status = 'FAILED' then 1 end) as failed_tasks,
                 COALESCE(sum(gc_time), 0) as total_gc,
@@ -109,24 +164,119 @@
                 COALESCE(approx_quantile(duration, 0.99), 0) as p99,
                 COALESCE(max(duration), 0) as max_dur
             FROM gold_tasks
-            WHERE app_id = #{appId}
+            WHERE app_id = #{appId} AND stage_id IN 
+            <foreach item='id' collection='stageIds' open='(' separator=',' close=')'>#{id}</foreach>
             GROUP BY app_id, stage_id, attempt_id
-        ) m ON m.app_id = m_loc.app_id AND m.stage_id = m_loc.stage_id AND m.attempt_id = m_loc.attempt_id
-        WHERE s.app_id = m.app_id AND s.stage_id = m.stage_id AND s.attempt_id = m.attempt_id
+        ) m, (
+            SELECT 
+                base.app_id, base.stage_id, base.attempt_id,
+                string_agg(k || ': ' || v, ', ') as loc_summary
+            FROM (
+                SELECT app_id, stage_id, attempt_id, locality as k, count(*) as v
+                FROM gold_tasks
+                WHERE app_id = #{appId} AND stage_id IN 
+                <foreach item='id' collection='stageIds' open='(' separator=',' close=')'>#{id}</foreach>
+                AND locality IS NOT NULL
+                GROUP BY app_id, stage_id, attempt_id, locality
+            ) loc_agg
+            RIGHT JOIN (
+                SELECT DISTINCT app_id, stage_id, attempt_id FROM gold_tasks 
+                WHERE app_id = #{appId} AND stage_id IN 
+                <foreach item='id' collection='stageIds' open='(' separator=',' close=')'>#{id}</foreach>
+            ) base ON loc_agg.app_id = base.app_id AND loc_agg.stage_id = base.stage_id AND loc_agg.attempt_id = base.attempt_id
+            GROUP BY base.app_id, base.stage_id, base.attempt_id
+        ) m_loc
+        WHERE gold_stages.app_id = m.app_id AND gold_stages.stage_id = m.stage_id AND gold_stages.attempt_id = m.attempt_id
+          AND m.app_id = m_loc.app_id AND m.stage_id = m_loc.stage_id AND m.attempt_id = m_loc.attempt_id
+          AND gold_stages.app_id = #{appId} AND gold_stages.stage_id IN 
+          <foreach item='id' collection='stageIds' open='(' separator=',' close=')'>#{id}</foreach>
     </update>
+
+    <sql id="taskMetricsSubquery">
+        SELECT 
+            app_id, stage_id, attempt_id,
+            count(case when status = 'SUCCESS' or status = 'SUCCEEDED' then 1 end) as done_tasks,
+            count(case when status = 'FAILED' then 1 end) as failed_tasks,
+            COALESCE(sum(gc_time), 0) as total_gc,
+            COALESCE(sum(duration), 0) as total_duration,
+            COALESCE(sum(executor_deserialize_time), 0) as total_deser,
+            COALESCE(sum(result_serialization_time), 0) as total_ser,
+            COALESCE(sum(getting_result_time), 0) as total_get_res,
+            COALESCE(sum(scheduler_delay), 0) as total_delay,
+            COALESCE(max(peak_execution_memory), 0) as max_peak_mem,
+            COALESCE(sum(peak_execution_memory), 0) as total_peak_mem,
+            COALESCE(sum(memory_bytes_spilled), 0) as total_mem_spill,
+            COALESCE(sum(disk_bytes_spilled), 0) as total_disk_spill,
+            COALESCE(sum(shuffle_write_time), 0) as total_sw_time,
+            COALESCE(sum(shuffle_fetch_wait_time), 0) as total_fetch_wait,
+            COALESCE(sum(executor_cpu_time), 0) as total_cpu_time,
+            COALESCE(sum(executor_run_time), 0) as total_run_time,
+            COALESCE(sum(input_bytes), 0) as total_input,
+            COALESCE(sum(input_records), 0) as total_input_records,
+            COALESCE(sum(output_bytes), 0) as total_output,
+            COALESCE(sum(output_records), 0) as total_output_records,
+            COALESCE(sum(shuffle_read_bytes), 0) as total_shuffle_read,
+            COALESCE(sum(shuffle_read_records), 0) as total_shuffle_read_records,
+            COALESCE(sum(shuffle_write_bytes), 0) as total_shuffle_write,
+            COALESCE(sum(shuffle_write_records), 0) as total_shuffle_write_records,
+            COALESCE(approx_quantile(duration, 0.5), 0) as p50,
+            COALESCE(approx_quantile(duration, 0.95), 0) as p95,
+            COALESCE(approx_quantile(duration, 0.99), 0) as p99,
+            COALESCE(max(duration), 0) as max_dur
+        FROM gold_tasks
+        WHERE ${taskWhere}
+        GROUP BY app_id, stage_id, attempt_id
+    </sql>
+
+    <sql id="localitySubquery">
+        SELECT 
+            base.app_id, base.stage_id, base.attempt_id,
+            string_agg(k || ': ' || v, ', ') as loc_summary
+        FROM (
+            SELECT app_id, stage_id, attempt_id, locality as k, count(*) as v
+            FROM gold_tasks
+            WHERE ${taskWhere} AND locality IS NOT NULL
+            GROUP BY app_id, stage_id, attempt_id, locality
+        ) loc_agg
+        RIGHT JOIN (
+            SELECT DISTINCT app_id, stage_id, attempt_id FROM gold_tasks WHERE ${taskWhere}
+        ) base ON loc_agg.app_id = base.app_id AND loc_agg.stage_id = base.stage_id AND loc_agg.attempt_id = base.attempt_id
+        GROUP BY base.app_id, base.stage_id, base.attempt_id
+    </sql>
 
     <delete id="deleteStageStats">
         DELETE FROM gold_stage_statistics WHERE app_id = #{appId}
     </delete>
 
-    <!-- 计算详细的 Task 分布统计并存入 gold_stage_statistics 表 -->
+    <delete id="deleteSpecificStageStats">
+        DELETE FROM gold_stage_statistics WHERE app_id = #{appId} AND stage_id = #{stageId} AND attempt_id = #{attemptId}
+    </delete>
+
+    <delete id="deleteBatchStageStats">
+        DELETE FROM gold_stage_statistics WHERE app_id = #{appId} AND stage_id IN 
+        <foreach item="id" collection="stageIds" open="(" separator="," close=")">#{id}</foreach>
+    </delete>
+
+    <!-- 计算详细的 Task 分布统计 (全量) -->
     <insert id="insertTaskStats">
+        <include refid="insertTaskStatsSql">
+            <property name="taskWhere" value="app_id = #{appId}"/>
+        </include>
+    </insert>
+
+    <!-- 计算详细的 Task 分布统计 (特定 Stage) -->
+    <insert id="insertSpecificTaskStats">
+        <include refid="insertTaskStatsSql">
+            <property name="taskWhere" value="app_id = #{appId} AND stage_id = #{stageId} AND attempt_id = #{attemptId}"/>
+        </include>
+    </insert>
+
+    <!-- 计算详细的 Task 分布统计 (批量) -->
+    <insert id="insertBatchTaskStats">
         INSERT INTO gold_stage_statistics (id, app_id, stage_id, attempt_id, metric_name, min_value, p25, p50, p75, p95, max_value)
         WITH task_stats AS (
-            SELECT DISTINCT
-                app_id, 
-                stage_id,
-                attempt_id,
+            SELECT 
+                app_id, stage_id, attempt_id,
                 'duration' as metric_name,
                 min(duration) as min_v,
                 approx_quantile(duration, 0.25) as p25,
@@ -134,88 +284,215 @@
                 approx_quantile(duration, 0.75) as p75,
                 approx_quantile(duration, 0.95) as p95,
                 max(duration) as max_v
-            FROM gold_tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
+            FROM gold_tasks 
+            WHERE app_id = #{appId} AND stage_id IN <foreach item='id' collection='stageIds' open='(' separator=',' close=')'>#{id}</foreach>
+            GROUP BY app_id, stage_id, attempt_id
             UNION ALL
-            SELECT DISTINCT
+            SELECT 
                 app_id, stage_id, attempt_id, 'gc_time',
                 min(gc_time), approx_quantile(gc_time, 0.25), approx_quantile(gc_time, 0.5), approx_quantile(gc_time, 0.75), approx_quantile(gc_time, 0.95), max(gc_time)
-            FROM gold_tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
+            FROM gold_tasks 
+            WHERE app_id = #{appId} AND stage_id IN <foreach item='id' collection='stageIds' open='(' separator=',' close=')'>#{id}</foreach>
+            GROUP BY app_id, stage_id, attempt_id
             UNION ALL
-            SELECT DISTINCT
+            SELECT 
                 app_id, stage_id, attempt_id, 'memory_spill',
                 min(memory_bytes_spilled), approx_quantile(memory_bytes_spilled, 0.25), approx_quantile(memory_bytes_spilled, 0.5), approx_quantile(memory_bytes_spilled, 0.75), approx_quantile(memory_bytes_spilled, 0.95), max(memory_bytes_spilled)
-            FROM gold_tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
+            FROM gold_tasks 
+            WHERE app_id = #{appId} AND stage_id IN <foreach item='id' collection='stageIds' open='(' separator=',' close=')'>#{id}</foreach>
+            GROUP BY app_id, stage_id, attempt_id
             UNION ALL
-            SELECT DISTINCT
+            SELECT 
                 app_id, stage_id, attempt_id, 'disk_spill',
                 min(disk_bytes_spilled), approx_quantile(disk_bytes_spilled, 0.25), approx_quantile(disk_bytes_spilled, 0.5), approx_quantile(disk_bytes_spilled, 0.75), approx_quantile(disk_bytes_spilled, 0.95), max(disk_bytes_spilled)
-            FROM gold_tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
+            FROM gold_tasks 
+            WHERE app_id = #{appId} AND stage_id IN <foreach item='id' collection='stageIds' open='(' separator=',' close=')'>#{id}</foreach>
+            GROUP BY app_id, stage_id, attempt_id
             UNION ALL
-            SELECT DISTINCT
+            SELECT 
                 app_id, stage_id, attempt_id, 'shuffle_read',
                 min(shuffle_read_bytes), approx_quantile(shuffle_read_bytes, 0.25), approx_quantile(shuffle_read_bytes, 0.5), approx_quantile(shuffle_read_bytes, 0.75), approx_quantile(shuffle_read_bytes, 0.95), max(shuffle_read_bytes)
-            FROM gold_tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
+            FROM gold_tasks 
+            WHERE app_id = #{appId} AND stage_id IN <foreach item='id' collection='stageIds' open='(' separator=',' close=')'>#{id}</foreach>
+            GROUP BY app_id, stage_id, attempt_id
             UNION ALL
-            SELECT DISTINCT
+            SELECT 
                 app_id, stage_id, attempt_id, 'shuffle_read_records',
                 min(shuffle_read_records), approx_quantile(shuffle_read_records, 0.25), approx_quantile(shuffle_read_records, 0.5), approx_quantile(shuffle_read_records, 0.75), approx_quantile(shuffle_read_records, 0.95), max(shuffle_read_records)
-            FROM gold_tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
+            FROM gold_tasks 
+            WHERE app_id = #{appId} AND stage_id IN <foreach item='id' collection='stageIds' open='(' separator=',' close=')'>#{id}</foreach>
+            GROUP BY app_id, stage_id, attempt_id
             UNION ALL
-            SELECT DISTINCT
+            SELECT 
                 app_id, stage_id, attempt_id, 'shuffle_write',
                 min(shuffle_write_bytes), approx_quantile(shuffle_write_bytes, 0.25), approx_quantile(shuffle_write_bytes, 0.5), approx_quantile(shuffle_write_bytes, 0.75), approx_quantile(shuffle_write_bytes, 0.95), max(shuffle_write_bytes)
-            FROM gold_tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
+            FROM gold_tasks 
+            WHERE app_id = #{appId} AND stage_id IN <foreach item='id' collection='stageIds' open='(' separator=',' close=')'>#{id}</foreach>
+            GROUP BY app_id, stage_id, attempt_id
             UNION ALL
-            SELECT DISTINCT
+            SELECT 
                 app_id, stage_id, attempt_id, 'shuffle_write_records',
                 min(shuffle_write_records), approx_quantile(shuffle_write_records, 0.25), approx_quantile(shuffle_write_records, 0.5), approx_quantile(shuffle_write_records, 0.75), approx_quantile(shuffle_write_records, 0.95), max(shuffle_write_records)
-            FROM gold_tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
+            FROM gold_tasks 
+            WHERE app_id = #{appId} AND stage_id IN <foreach item='id' collection='stageIds' open='(' separator=',' close=')'>#{id}</foreach>
+            GROUP BY app_id, stage_id, attempt_id
             UNION ALL
-            SELECT DISTINCT
+            SELECT 
                 app_id, stage_id, attempt_id, 'task_deserialization_time',
                 min(executor_deserialize_time), approx_quantile(executor_deserialize_time, 0.25), approx_quantile(executor_deserialize_time, 0.5), approx_quantile(executor_deserialize_time, 0.75), approx_quantile(executor_deserialize_time, 0.95), max(executor_deserialize_time)
-            FROM gold_tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
+            FROM gold_tasks 
+            WHERE app_id = #{appId} AND stage_id IN <foreach item='id' collection='stageIds' open='(' separator=',' close=')'>#{id}</foreach>
+            GROUP BY app_id, stage_id, attempt_id
             UNION ALL
-            SELECT DISTINCT
+            SELECT 
                 app_id, stage_id, attempt_id, 'result_serialization_time',
                 min(result_serialization_time), approx_quantile(result_serialization_time, 0.25), approx_quantile(result_serialization_time, 0.5), approx_quantile(result_serialization_time, 0.75), approx_quantile(result_serialization_time, 0.95), max(result_serialization_time)
-            FROM gold_tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
+            FROM gold_tasks 
+            WHERE app_id = #{appId} AND stage_id IN <foreach item='id' collection='stageIds' open='(' separator=',' close=')'>#{id}</foreach>
+            GROUP BY app_id, stage_id, attempt_id
             UNION ALL
-            SELECT DISTINCT
+            SELECT 
                 app_id, stage_id, attempt_id, 'getting_result_time',
                 min(getting_result_time), approx_quantile(getting_result_time, 0.25), approx_quantile(getting_result_time, 0.5), approx_quantile(getting_result_time, 0.75), approx_quantile(getting_result_time, 0.95), max(getting_result_time)
-            FROM gold_tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
+            FROM gold_tasks 
+            WHERE app_id = #{appId} AND stage_id IN <foreach item='id' collection='stageIds' open='(' separator=',' close=')'>#{id}</foreach>
+            GROUP BY app_id, stage_id, attempt_id
             UNION ALL
-            SELECT DISTINCT
+            SELECT 
                 app_id, stage_id, attempt_id, 'scheduler_delay',
                 min(scheduler_delay), approx_quantile(scheduler_delay, 0.25), approx_quantile(scheduler_delay, 0.5), approx_quantile(scheduler_delay, 0.75), approx_quantile(scheduler_delay, 0.95), max(scheduler_delay)
-            FROM gold_tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
+            FROM gold_tasks 
+            WHERE app_id = #{appId} AND stage_id IN <foreach item='id' collection='stageIds' open='(' separator=',' close=')'>#{id}</foreach>
+            GROUP BY app_id, stage_id, attempt_id
             UNION ALL
-            SELECT DISTINCT
+            SELECT 
                 app_id, stage_id, attempt_id, 'peak_execution_memory',
                 min(peak_execution_memory), approx_quantile(peak_execution_memory, 0.25), approx_quantile(peak_execution_memory, 0.5), approx_quantile(peak_execution_memory, 0.75), approx_quantile(peak_execution_memory, 0.95), max(peak_execution_memory)
-            FROM gold_tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
+            FROM gold_tasks 
+            WHERE app_id = #{appId} AND stage_id IN <foreach item='id' collection='stageIds' open='(' separator=',' close=')'>#{id}</foreach>
+            GROUP BY app_id, stage_id, attempt_id
             UNION ALL
-            SELECT DISTINCT
+            SELECT 
                 app_id, stage_id, attempt_id, 'input_bytes',
                 min(input_bytes), approx_quantile(input_bytes, 0.25), approx_quantile(input_bytes, 0.5), approx_quantile(input_bytes, 0.75), approx_quantile(input_bytes, 0.95), max(input_bytes)
-            FROM gold_tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
+            FROM gold_tasks 
+            WHERE app_id = #{appId} AND stage_id IN <foreach item='id' collection='stageIds' open='(' separator=',' close=')'>#{id}</foreach>
+            GROUP BY app_id, stage_id, attempt_id
             UNION ALL
-            SELECT DISTINCT
+            SELECT 
                 app_id, stage_id, attempt_id, 'input_records',
                 min(input_records), approx_quantile(input_records, 0.25), approx_quantile(input_records, 0.5), approx_quantile(input_records, 0.75), approx_quantile(input_records, 0.95), max(input_records)
-            FROM gold_tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
+            FROM gold_tasks 
+            WHERE app_id = #{appId} AND stage_id IN <foreach item='id' collection='stageIds' open='(' separator=',' close=')'>#{id}</foreach>
+            GROUP BY app_id, stage_id, attempt_id
             UNION ALL
-            SELECT DISTINCT
+            SELECT 
                 app_id, stage_id, attempt_id, 'shuffle_write_time',
                 min(shuffle_write_time), approx_quantile(shuffle_write_time, 0.25), approx_quantile(shuffle_write_time, 0.5), approx_quantile(shuffle_write_time, 0.75), approx_quantile(shuffle_write_time, 0.95), max(shuffle_write_time)
-            FROM gold_tasks WHERE app_id = #{appId} GROUP BY app_id, stage_id, attempt_id
+            FROM gold_tasks 
+            WHERE app_id = #{appId} AND stage_id IN <foreach item='id' collection='stageIds' open='(' separator=',' close=')'>#{id}</foreach>
+            GROUP BY app_id, stage_id, attempt_id
         )
         SELECT 
             uuid(),
             app_id, stage_id, attempt_id, metric_name, min_v, p25, p50, p75, p95, max_v
         FROM task_stats
     </insert>
+
+    <sql id="insertTaskStatsSql">
+        INSERT INTO gold_stage_statistics (id, app_id, stage_id, attempt_id, metric_name, min_value, p25, p50, p75, p95, max_value)
+        WITH task_stats AS (
+            SELECT 
+                app_id, stage_id, attempt_id,
+                'duration' as metric_name,
+                min(duration) as min_v,
+                approx_quantile(duration, 0.25) as p25,
+                approx_quantile(duration, 0.5) as p50,
+                approx_quantile(duration, 0.75) as p75,
+                approx_quantile(duration, 0.95) as p95,
+                max(duration) as max_v
+            FROM gold_tasks WHERE ${taskWhere} GROUP BY app_id, stage_id, attempt_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, attempt_id, 'gc_time',
+                min(gc_time), approx_quantile(gc_time, 0.25), approx_quantile(gc_time, 0.5), approx_quantile(gc_time, 0.75), approx_quantile(gc_time, 0.95), max(gc_time)
+            FROM gold_tasks WHERE ${taskWhere} GROUP BY app_id, stage_id, attempt_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, attempt_id, 'memory_spill',
+                min(memory_bytes_spilled), approx_quantile(memory_bytes_spilled, 0.25), approx_quantile(memory_bytes_spilled, 0.5), approx_quantile(memory_bytes_spilled, 0.75), approx_quantile(memory_bytes_spilled, 0.95), max(memory_bytes_spilled)
+            FROM gold_tasks WHERE ${taskWhere} GROUP BY app_id, stage_id, attempt_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, attempt_id, 'disk_spill',
+                min(disk_bytes_spilled), approx_quantile(disk_bytes_spilled, 0.25), approx_quantile(disk_bytes_spilled, 0.5), approx_quantile(disk_bytes_spilled, 0.75), approx_quantile(disk_bytes_spilled, 0.95), max(disk_bytes_spilled)
+            FROM gold_tasks WHERE ${taskWhere} GROUP BY app_id, stage_id, attempt_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, attempt_id, 'shuffle_read',
+                min(shuffle_read_bytes), approx_quantile(shuffle_read_bytes, 0.25), approx_quantile(shuffle_read_bytes, 0.5), approx_quantile(shuffle_read_bytes, 0.75), approx_quantile(shuffle_read_bytes, 0.95), max(shuffle_read_bytes)
+            FROM gold_tasks WHERE ${taskWhere} GROUP BY app_id, stage_id, attempt_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, attempt_id, 'shuffle_read_records',
+                min(shuffle_read_records), approx_quantile(shuffle_read_records, 0.25), approx_quantile(shuffle_read_records, 0.5), approx_quantile(shuffle_read_records, 0.75), approx_quantile(shuffle_read_records, 0.95), max(shuffle_read_records)
+            FROM gold_tasks WHERE ${taskWhere} GROUP BY app_id, stage_id, attempt_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, attempt_id, 'shuffle_write',
+                min(shuffle_write_bytes), approx_quantile(shuffle_write_bytes, 0.25), approx_quantile(shuffle_write_bytes, 0.5), approx_quantile(shuffle_write_bytes, 0.75), approx_quantile(shuffle_write_bytes, 0.95), max(shuffle_write_bytes)
+            FROM gold_tasks WHERE ${taskWhere} GROUP BY app_id, stage_id, attempt_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, attempt_id, 'shuffle_write_records',
+                min(shuffle_write_records), approx_quantile(shuffle_write_records, 0.25), approx_quantile(shuffle_write_records, 0.5), approx_quantile(shuffle_write_records, 0.75), approx_quantile(shuffle_write_records, 0.95), max(shuffle_write_records)
+            FROM gold_tasks WHERE ${taskWhere} GROUP BY app_id, stage_id, attempt_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, attempt_id, 'task_deserialization_time',
+                min(executor_deserialize_time), approx_quantile(executor_deserialize_time, 0.25), approx_quantile(executor_deserialize_time, 0.5), approx_quantile(executor_deserialize_time, 0.75), approx_quantile(executor_deserialize_time, 0.95), max(executor_deserialize_time)
+            FROM gold_tasks WHERE ${taskWhere} GROUP BY app_id, stage_id, attempt_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, attempt_id, 'result_serialization_time',
+                min(result_serialization_time), approx_quantile(result_serialization_time, 0.25), approx_quantile(result_serialization_time, 0.5), approx_quantile(result_serialization_time, 0.75), approx_quantile(result_serialization_time, 0.95), max(result_serialization_time)
+            FROM gold_tasks WHERE ${taskWhere} GROUP BY app_id, stage_id, attempt_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, attempt_id, 'getting_result_time',
+                min(getting_result_time), approx_quantile(getting_result_time, 0.25), approx_quantile(getting_result_time, 0.5), approx_quantile(getting_result_time, 0.75), approx_quantile(getting_result_time, 0.95), max(getting_result_time)
+            FROM gold_tasks WHERE ${taskWhere} GROUP BY app_id, stage_id, attempt_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, attempt_id, 'scheduler_delay',
+                min(scheduler_delay), approx_quantile(scheduler_delay, 0.25), approx_quantile(scheduler_delay, 0.5), approx_quantile(scheduler_delay, 0.75), approx_quantile(scheduler_delay, 0.95), max(scheduler_delay)
+            FROM gold_tasks WHERE ${taskWhere} GROUP BY app_id, stage_id, attempt_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, attempt_id, 'peak_execution_memory',
+                min(peak_execution_memory), approx_quantile(peak_execution_memory, 0.25), approx_quantile(peak_execution_memory, 0.5), approx_quantile(peak_execution_memory, 0.75), approx_quantile(peak_execution_memory, 0.95), max(peak_execution_memory)
+            FROM gold_tasks WHERE ${taskWhere} GROUP BY app_id, stage_id, attempt_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, attempt_id, 'input_bytes',
+                min(input_bytes), approx_quantile(input_bytes, 0.25), approx_quantile(input_bytes, 0.5), approx_quantile(input_bytes, 0.75), approx_quantile(input_bytes, 0.95), max(input_bytes)
+            FROM gold_tasks WHERE ${taskWhere} GROUP BY app_id, stage_id, attempt_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, attempt_id, 'input_records',
+                min(input_records), approx_quantile(input_records, 0.25), approx_quantile(input_records, 0.5), approx_quantile(input_records, 0.75), approx_quantile(input_records, 0.95), max(input_records)
+            FROM gold_tasks WHERE ${taskWhere} GROUP BY app_id, stage_id, attempt_id
+            UNION ALL
+            SELECT 
+                app_id, stage_id, attempt_id, 'shuffle_write_time',
+                min(shuffle_write_time), approx_quantile(shuffle_write_time, 0.25), approx_quantile(shuffle_write_time, 0.5), approx_quantile(shuffle_write_time, 0.75), approx_quantile(shuffle_write_time, 0.95), max(shuffle_write_time)
+            FROM gold_tasks WHERE ${taskWhere} GROUP BY app_id, stage_id, attempt_id
+        )
+        SELECT 
+            uuid(),
+            app_id, stage_id, attempt_id, metric_name, min_v, p25, p50, p75, p95, max_v
+        FROM task_stats
+    </sql>
 
     <!-- 按 Executor 聚合任务指标 -->
     <select id="getExecutorSummary" resultType="map">

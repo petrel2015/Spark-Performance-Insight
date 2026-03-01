@@ -10,8 +10,8 @@ import org.apache.ibatis.annotations.Select;
 public interface TaskMapper extends BaseMapper<GoldTaskModel> {
 
     @Select("SELECT count(DISTINCT executor_id) FROM gold_tasks WHERE app_id = #{appId} AND stage_id = #{stageId}")
-    long getExecutorCountForStage(@Param("appId") String appId, @Param("stageId") int stageId);
+    long getExecutorCountForStage(@Param("appId") String appId, @Param("stageId") long stageId);
 
     @Select("SELECT count(DISTINCT t.executor_id) FROM gold_tasks t JOIN gold_stages s ON t.app_id = s.app_id AND t.stage_id = s.stage_id WHERE t.app_id = #{appId} AND s.job_id = #{jobId}")
-    long getExecutorCountForJob(@Param("appId") String appId, @Param("jobId") int jobId);
+    long getExecutorCountForJob(@Param("appId") String appId, @Param("jobId") long jobId);
 }

@@ -2,6 +2,8 @@ package com.fluffyeti.spark.performance.insight.service;
 
 import com.fluffyeti.spark.performance.insight.annotation.MonitorStep;
 import com.fluffyeti.spark.performance.insight.config.SystemProperties;
+import com.fluffyeti.spark.performance.insight.model.GoldJobModel;
+import com.fluffyeti.spark.performance.insight.model.GoldStageModel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -9,9 +11,12 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -54,96 +59,127 @@ public class GoldAggregationService {
     @MonitorStep(value = "Full Gold Aggregation", type = "APP")
     public void aggregate(String appId, BiConsumer<Double, String> progressReporter) {
         log.info("Starting Batch Gold aggregation for app: {}", appId);
-        
         duckDBManager.runWithRetry(() -> self.cleanGoldData(appId));
 
-        // 1. Discovery Phase
         List<JobInfo> jobs = discoverJobs(appId);
-        List<Long> allStageIds = jobs.stream()
-                .flatMap(j -> j.stageIds.stream())
-                .distinct()
-                .sorted()
-                .collect(Collectors.toList());
+        List<Long> allStageIds = jobs.stream().flatMap(j -> j.stageIds.stream()).distinct().sorted().collect(Collectors.toList());
 
         int totalStages = allStageIds.size();
         int batchSize = systemProperties.getTransformation().getStageBatchSize();
-        log.info("App {} has {} stages to aggregate. Processing in batches of {}", appId, totalStages, batchSize);
-
         Set<String> completedStages = progressService.getCompletedTaskIds(appId, PHASE, "STAGE");
 
-        // 2. Sequential Batch Processing for Stages & Tasks
         int processedCount = 0;
         for (int i = 0; i < allStageIds.size(); i += batchSize) {
             int end = Math.min(i + batchSize, allStageIds.size());
             List<Long> batch = allStageIds.subList(i, end);
-            
-            List<Long> filteredBatch = batch.stream()
-                    .filter(sid -> !completedStages.contains("stage_" + sid + "_0"))
-                    .collect(Collectors.toList());
+            List<Long> filteredBatch = batch.stream().filter(sid -> !completedStages.contains("stage_" + sid + "_0")).collect(Collectors.toList());
 
             if (!filteredBatch.isEmpty()) {
-                log.info("Aggregating Gold batch: stages {}", filteredBatch);
-
                 duckDBManager.runWithRetry(() -> {
                     self.aggregateStagesBatch(appId, filteredBatch);
                     self.aggregateTasksBatch(appId, filteredBatch);
                     stageService.calculateStageMetricsBatch(appId, filteredBatch);
                 });
-
-                for (Long sid : filteredBatch) {
-                    progressService.markCompleted(appId, PHASE, "STAGE", "stage_" + sid + "_0");
-                }
+                for (Long sid : filteredBatch) progressService.markCompleted(appId, PHASE, "STAGE", "stage_" + sid + "_0");
             }
-
             processedCount += batch.size();
-            double pct = (double) processedCount / Math.max(1, totalStages) * 60.0;
-            progressReporter.accept(pct, String.format("Gold: Aggregated %d/%d stages (%.2f%%)", processedCount, totalStages, pct));
+            progressReporter.accept((double) processedCount / totalStages * 60.0, "Gold: Stages processing");
         }
 
-        // 3. Sequential Job Aggregation
-        log.info("Aggregating Gold Jobs for app: {}", appId);
-        duckDBManager.runWithRetry(() -> self.aggregateJobs(appId));
-        progressReporter.accept(70.0, "Gold: Jobs aggregated");
-
-        // 4. Parallel independent tasks (Weights 20% total)
-        var currentProgress = new AtomicReference<>(70.0);
-        BiConsumer<Double, String> reporter = (increment, message) -> {
-            double next = currentProgress.updateAndGet(v -> v + increment);
-            progressReporter.accept(Math.min(next, 100.0), "Gold: " + message);
-        };
-
-        var otherFuture = CompletableFuture.runAsync(() -> {
+        // Job Aggregation using Java-level logic for 100% reliability
+        self.aggregateJobsJava(appId);
+        
+        CompletableFuture.runAsync(() -> {
             self.aggregateExecutors(appId);
-            reporter.accept(10.0, "Executors aggregated");
             self.aggregateStorage(appId);
-            reporter.accept(5.0, "Storage aggregated");
             self.aggregateSql(appId);
-            reporter.accept(5.0, "SQL aggregated");
             self.aggregateEnvironment(appId);
-            reporter.accept(5.0, "Environment aggregated");
-        }, executor);
+        }, executor).join();
 
-        otherFuture.join();
-
-        // 5. Finalize App
         duckDBManager.runWithRetry(() -> self.aggregateApp(appId));
         progressReporter.accept(100.0, "Gold: Completed");
-        log.info("Finished Gold aggregation for app: {}", appId);
     }
 
-    public void aggregate(String appId) {
-        aggregate(appId, (p, m) -> {});
+    public void aggregate(String appId) { aggregate(appId, (p, m) -> {}); }
+
+    protected void aggregateJobsJava(String appId) {
+        log.info("Aggregating Jobs via Java: {}", appId);
+        List<JobInfo> jobs = discoverJobs(appId);
+        
+        for (JobInfo job : jobs) {
+            String stageIdsIn = job.stageIds.stream().map(String::valueOf).collect(Collectors.joining(","));
+            if (stageIdsIn.isEmpty()) continue;
+
+            Map<String, Object> stats = jdbcTemplate.queryForMap(
+                "SELECT count(*) as n_stages, " +
+                "count(case when status = 'COMPLETED' then 1 end) as n_done, " +
+                "COALESCE(sum(num_tasks), 0) as t_tasks, " +
+                "COALESCE(sum(num_completed_tasks), 0) as t_done, " +
+                "COALESCE(avg(performance_score), 100.0) as avg_score " +
+                "FROM gold_stages WHERE app_id = ? AND stage_id IN (" + stageIdsIn + ")",
+                appId
+            );
+
+            Map<String, Object> meta = jdbcTemplate.queryForMap(
+                "SELECT submission_time, completion_time, duration_ms, status, description, sql_execution_id, stage_ids FROM silver_jobs WHERE app_id = ? AND job_id = ?",
+                appId, job.jobId
+            );
+
+            try {
+                jdbcTemplate.update(
+                    "INSERT INTO gold_jobs (id, app_id, job_id, submission_time, completion_time, duration, status, description, sql_execution_id, stage_ids, num_stages, num_completed_stages, num_failed_stages, num_tasks, num_completed_tasks, num_failed_tasks, performance_score) " +
+                    "VALUES (uuid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 0, ?)",
+                    appId, 
+                    toLong(job.jobId), 
+                    toTimestamp(meta.get("submission_time")),
+                    toTimestamp(meta.get("completion_time")),
+                    toLong(meta.get("duration_ms")), 
+                    toString(meta.get("status")),
+                    toString(meta.get("description")),
+                    toLong(meta.get("sql_execution_id")),
+                    toString(meta.get("stage_ids")),
+                    toLong(stats.get("n_stages")),
+                    toLong(stats.get("n_done")),
+                    toLong(stats.get("t_tasks")),
+                    toLong(stats.get("t_done")),
+                    toDouble(stats.get("avg_score"))
+                );
+            } catch (Exception e) {
+                log.error("Failed to insert gold_job: appId={}, jobId={}, error={}", appId, job.jobId, e.getMessage());
+                throw e;
+            }
+        }
     }
 
-    @MonitorStep(value = "Gold Jobs", type = "JOB")
-    protected void aggregateJobs(String appId) {
-        String sql = "INSERT INTO gold_jobs (id, app_id, job_id, submission_time, completion_time, duration, status, description, sql_execution_id, num_stages, num_tasks, num_completed_tasks, num_failed_tasks, performance_score) " +
-            "SELECT uuid(), s.app_id, s.job_id, sj.submission_time, sj.completion_time, sj.duration_ms, sj.status, sj.description, sj.sql_execution_id, count(s.stage_id) as num_stages, sum(s.num_tasks) as num_tasks, sum(s.num_completed_tasks) as num_completed_tasks, sum(s.num_failed_tasks) as num_failed_tasks, COALESCE(avg(s.performance_score), 100.0) as performance_score " +
-            "FROM gold_stages s " +
-            "JOIN silver_jobs sj ON s.app_id = sj.app_id AND s.job_id = sj.job_id " +
-            "WHERE s.app_id = ? " +
-            "GROUP BY s.app_id, s.job_id, sj.submission_time, sj.completion_time, sj.duration_ms, sj.status, sj.description, sj.sql_execution_id";
-        jdbcTemplate.update(sql, appId);
+    private Timestamp toTimestamp(Object obj) {
+        if (obj == null) return null;
+        if (obj instanceof OffsetDateTime odt) return Timestamp.valueOf(odt.toLocalDateTime());
+        if (obj instanceof LocalDateTime ldt) return Timestamp.valueOf(ldt);
+        if (obj instanceof Timestamp ts) return ts;
+        if (obj instanceof java.util.Date date) return new Timestamp(date.getTime());
+        return null;
+    }
+
+    private Long toLong(Object obj) {
+        if (obj == null) return 0L;
+        if (obj instanceof Number num) return num.longValue();
+        if (obj instanceof String s && !s.isEmpty()) {
+            try { return Long.parseLong(s); } catch (Exception e) { return 0L; }
+        }
+        return 0L;
+    }
+
+    private Double toDouble(Object obj) {
+        if (obj == null) return 100.0;
+        if (obj instanceof Number num) return num.doubleValue();
+        if (obj instanceof String s && !s.isEmpty()) {
+            try { return Double.parseDouble(s); } catch (Exception e) { return 100.0; }
+        }
+        return 100.0;
+    }
+
+    private String toString(Object obj) {
+        return obj == null ? "" : obj.toString();
     }
 
     @MonitorStep(value = "Gold Stages Batch", type = "STAGE")
@@ -208,8 +244,10 @@ public class GoldAggregationService {
 
     private List<JobInfo> discoverJobs(String appId) {
         return jdbcTemplate.query("SELECT job_id, stage_ids FROM silver_jobs WHERE app_id = ?", (rs, rowNum) -> {
-            String json = rs.getString("stage_ids");
-            List<Long> sids = Arrays.stream(json.replaceAll("[\\[\\]\\s]", "").split(",")).filter(s -> !s.isEmpty()).map(Long::parseLong).collect(Collectors.toList());
+            String raw = rs.getString("stage_ids");
+            List<Long> sids = new ArrayList<>();
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\d+").matcher(raw);
+            while (m.find()) sids.add(Long.parseLong(m.group()));
             return new JobInfo(rs.getLong("job_id"), sids);
         }, appId);
     }

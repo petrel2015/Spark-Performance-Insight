@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -21,10 +22,6 @@ public class DiagnosisService {
     private final StageService stageService;
     private final JobService jobService;
 
-    /**
-     * Compute a structured insight DTO for an application.
-     * This is the single source of truth for both UI and MCP.
-     */
     public ApplicationInsight computeApplicationInsight(String appId) {
         GoldApplicationModel app = applicationService.getById(appId);
         if (app == null) {
@@ -62,7 +59,7 @@ public class DiagnosisService {
                         .score(j.getPerformanceScore())
                         .durationMs(j.getDuration())
                         .build())
-                .toList();
+                .collect(Collectors.toList());
 
         return ApplicationInsight.builder()
                 .appMetadata(ApplicationInsight.AppMetadata.builder()
@@ -114,7 +111,7 @@ public class DiagnosisService {
             if (builder.build().getType() == null) {
                 builder.type(ApplicationInsight.Bottleneck.Type.MEMORY_PRESSURE);
             }
-            issues.add("内存压力: GC 时间占比超过 10% (实际占比: " + Math.round((double) stage.getGcTimeSum() / stage.getTasksDurationSum() * 100) + "%)，可能存在内存泄漏或配置不足。");
+            issues.add("内存压力: GC 时间占比超过 10%，可能存在内存泄漏或配置不足。");
             metrics.put("gc_time_ms", stage.getGcTimeSum());
         }
 
@@ -128,9 +125,6 @@ public class DiagnosisService {
         return builder.metrics(metrics).build();
     }
 
-    /**
-     * 为指定的 Application 生成 Markdown 格式的规则引擎诊断报告
-     */
     public String generateMarkdownReport(String appId) {
         ApplicationInsight insight = computeApplicationInsight(appId);
         if (insight == null) {
@@ -140,7 +134,6 @@ public class DiagnosisService {
         StringBuilder sb = new StringBuilder();
         sb.append("# <span class=\"material-symbols-outlined\" style=\"vertical-align: middle;\">analytics</span> 规则引擎诊断报告 (Rule-Based Diagnostic Report)\n\n");
 
-        // 1. Executive Summary
         sb.append("## <span class=\"material-symbols-outlined\" style=\"vertical-align: middle;\">dashboard</span> 应用健康概览\n");
         sb.append(String.format("- **整体健康得分**: %s\n", getHealthLabel(insight.getAppMetadata().getHealthScore())));
         sb.append(String.format("- **应用名称**: `%s`\n", insight.getAppMetadata().getName()));
@@ -148,7 +141,6 @@ public class DiagnosisService {
                 insight.getAppMetadata().getDurationMs() != null ? FormatUtils.formatDuration(insight.getAppMetadata().getDurationMs()) : "N/A"));
         sb.append("\n---\n\n");
 
-        // 2. Detailed Stage Analysis
         sb.append("## <span class=\"material-symbols-outlined\" style=\"vertical-align: middle;\">troubleshoot</span> 性能异常阶段分析\n");
         if (insight.getCriticalBottlenecks().isEmpty()) {
             sb.append("> **结论**: <span style=\"color: #27ae60;\">未发现严重性能异常的阶段。应用当前运行状态良好。</span>\n\n");
@@ -164,7 +156,6 @@ public class DiagnosisService {
             }
         }
 
-        // 3. High Impact Jobs
         sb.append("## <span class=\"material-symbols-outlined\" style=\"vertical-align: middle;\">assignment_late</span> 高风险作业排名\n");
         if (insight.getTopImpactJobs().isEmpty()) {
             sb.append("> **结论**: 未发现高风险作业。\n\n");
@@ -179,7 +170,6 @@ public class DiagnosisService {
             }
         }
 
-        // 4. Data Quality Section
         if (!insight.getDataQuality().isHasEndEvent()) {
             sb.append("\n## <span class=\"material-symbols-outlined\" style=\"vertical-align: middle; color: #f39c12;\">warning</span> 数据质量提示\n");
             sb.append("缺失 `ApplicationEnd` 事件，诊断结果基于部分日志生成，可能存在偏差。\n");
@@ -189,25 +179,15 @@ public class DiagnosisService {
     }
 
     private String getHealthLabel(double score) {
-        if (score < 40) {
-            return String.format("<span style=\"color: #e74c3c; font-weight: bold;\">极差 (Critical: %d)</span>", Math.round(score));
-        }
-        if (score < 70) {
-            return String.format("<span style=\"color: #f39c12; font-weight: bold;\">一般 (Warning: %d)</span>", Math.round(score));
-        }
-        if (score < 90) {
-            return String.format("<span style=\"color: #27ae60; font-weight: bold;\">良好 (Good: %d)</span>", Math.round(score));
-        }
+        if (score < 40) return String.format("<span style=\"color: #e74c3c; font-weight: bold;\">极差 (Critical: %d)</span>", Math.round(score));
+        if (score < 70) return String.format("<span style=\"color: #f39c12; font-weight: bold;\">一般 (Warning: %d)</span>", Math.round(score));
+        if (score < 90) return String.format("<span style=\"color: #27ae60; font-weight: bold;\">良好 (Good: %d)</span>", Math.round(score));
         return String.format("<span style=\"color: #27ae60; font-weight: bold;\">健康 (Healthy: %d)</span>", Math.round(score));
     }
 
     private String getHealthColor(double score) {
-        if (score < 40) {
-            return "#e74c3c";
-        }
-        if (score < 70) {
-            return "#f39c12";
-        }
+        if (score < 40) return "#e74c3c";
+        if (score < 70) return "#f39c12";
         return "#27ae60";
     }
 }

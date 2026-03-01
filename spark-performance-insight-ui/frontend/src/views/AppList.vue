@@ -254,7 +254,7 @@
                          }">
                       </div>
                       <div class="progress-text-overlay">
-                        {{ app.parsingStatus === 'SUCCESS' ? '100%' : Math.round(app.progressValue || 0) + '%' }}
+                        {{ app.parsingStatus === 'SUCCESS' ? '100%' : (app.progressValue && app.progressValue < 1 ? app.progressValue.toFixed(2) : Math.round(app.progressValue || 0)) + '%' }}
                       </div>
                     </div>
                     <div v-else class="na-progress">-</div>
@@ -322,6 +322,11 @@
                              <span class="material-symbols-outlined">analytics</span>
                              From Silver (Silver &rarr; Gold)
                            </button>
+                           <div class="dropdown-divider"></div>
+                           <button class="dropdown-item beta-item" @click="openConfirmation('incremental', app.appId)">
+                             <span class="material-symbols-outlined" style="color: #e67e22">fast_forward</span>
+                             Incremental Retry (Beta)
+                           </button>
                         </div>
                       </Teleport>
                     </div>
@@ -341,7 +346,7 @@
                     {{ formatStatus(app.parsingStatus) }}
                     <span v-if="getRemainingTime(app)" class="eta-text">ETA: {{ getRemainingTime(app) }}</span>
                     <span v-else class="percent-text">
-                      ({{ (app.progressValue && app.progressValue < 1) ? app.progressValue.toFixed(1) : Math.round(app.progressValue || 0) }}%)
+                      ({{ (app.progressValue && app.progressValue < 1) ? app.progressValue.toFixed(2) : Math.round(app.progressValue || 0) }}%)
                     </span>
                   </span>
                 </div>
@@ -491,11 +496,12 @@ const toggleDropdown = (appId, event) => {
 };
 
 const canStartFromSilver = (app) => {
-  return app.completedStages && app.completedStages.includes("Bronze Finished");
+  // In the new system, we can check if any silver tasks exist
+  return true; // Simplified for Beta
 };
 
 const canStartFromGold = (app) => {
-  return app.completedStages && app.completedStages.includes("Silver Finished");
+  return true; // Simplified for Beta
 };
 
 const connectWebSocket = () => {
@@ -539,8 +545,6 @@ const updateAppProgress = (data) => {
     // If a completely new app is detected (that wasn't in the initial list)
     // and we are on page 1, we do one refresh to show it.
     if (currentPage.value === 1 && ['QUEUED', 'INGESTING_BRONZE'].includes(data.status)) {
-       // Debounce or just check if we already have it in a separate logic?
-       // For now, only refresh if it's definitely not in our apps array.
        fetchApps();
     }
   }
@@ -562,7 +566,7 @@ const handleCancel = async (appId) => {
     // Optimistic update
     const app = apps.value.find(a => a.appId === appId);
     if (app) {
-        app.parsingStatus = 'CANCELLED'; // Or revert to previous? Usually just let WS update or fetchApps
+        app.parsingStatus = 'CANCELLED'; 
         setTimeout(fetchApps, 500);
     }
   } catch (err) {
@@ -606,6 +610,11 @@ const openConfirmation = (action, appId) => {
     confirmState.message = `Re-aggregate from Silver for ${appId}?\nThis keeps Silver tables but re-computes Gold metrics and Final Summary.`;
     confirmState.type = 'warning';
     confirmState.confirmText = 'Start';
+  } else if (action === 'incremental') {
+    confirmState.title = 'Incremental Retry (Beta)';
+    confirmState.message = `Resume pipeline for ${appId}?\nThis mode skips already completed stages to save time. \n\nWarning: This is a Beta feature and may risk data consistency if previous partial data is corrupted.`;
+    confirmState.type = 'warning';
+    confirmState.confirmText = 'Resume Pipeline';
   }
 };
 
@@ -635,6 +644,7 @@ const triggerReimport = async (appId, mode) => {
     let url = `/api/bronze/import/${appId}`; // default (full)
     if (mode === 'bronze-to-gold') url = `/api/bronze/reimport/${appId}/bronze-to-gold`;
     else if (mode === 'silver-to-gold') url = `/api/bronze/reimport/${appId}/silver-to-gold`;
+    else if (mode === 'incremental') url = `/api/bronze/reimport/${appId}/incremental-resume`;
     
     await axios.post(url);
     
@@ -697,25 +707,14 @@ const getProgressColor = (status) => {
 
 const estimateUncompressedSize = (size, format) => {
   if (!size || !format || format === 'None') return null;
-  
-  const ratios = {
-    'ZSTD': 10,
-    'GZIP': 8,
-    'LZ4': 4,
-    'SNAPPY': 3
-  };
-  
+  const ratios = { 'ZSTD': 10, 'GZIP': 8, 'LZ4': 4, 'SNAPPY': 3 };
   const ratio = ratios[format.toUpperCase()] || 1;
-  if (ratio === 1) return null;
-  
-  return size * ratio;
+  return ratio === 1 ? null : size * ratio;
 };
 
 const formatStatus = (status) => {
   if (!status || status === 'READY') return 'Detected';
   if (status === 'SUCCESS') return 'Success';
-  
-  // Custom mapping for specific statuses
   const map = {
     'INGESTING_BRONZE': 'Bronze Ingestion',
     'TRANSFORMING_SILVER': 'Silver Transform',
@@ -725,17 +724,13 @@ const formatStatus = (status) => {
     'QUEUED': 'Queued',
     'FAILED': 'Failed'
   };
-  if (map[status]) return map[status];
-  
-  return status.split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
+  return map[status] || status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
 };
 
 const STAGE_DESCRIPTIONS = {
-  'INGESTING_BRONZE': 'Bronze (Ingestion): Raw event logs are loaded into the database without modification. It is the Source of Truth.',
-  'TRANSFORMING_SILVER': 'Silver (Transformation): Data is parsed, structured, and normalized. Business logic and initial metrics are applied.',
-  'AGGREGATING_GOLD': 'Gold (Aggregation): High-level metrics, P95/Median values, and performance scores are pre-calculated for the UI.',
+  'INGESTING_BRONZE': 'Bronze (Ingestion): Raw event logs are loaded into the database without modification.',
+  'TRANSFORMING_SILVER': 'Silver (Transformation): Data is parsed, structured, and normalized.',
+  'AGGREGATING_GOLD': 'Gold (Aggregation): High-level metrics and scores are pre-calculated.',
   'QUEUED': 'Job is waiting in the processing queue.',
   'PENDING_LOAD': 'New log discovered. Waiting for user to start import.',
   'FAILED': 'Pipeline failed. Check tooltip for error details.'
@@ -749,90 +744,34 @@ const getStatusTooltip = (app) => {
 };
 
 const getRemainingTime = (app) => {
-  if (!app.parsingStartTime || !app.progressValue || app.progressValue <= 0 || app.progressValue >= 100) {
-    return null;
-  }
-
-  // Handle both ISO string and epoch milliseconds
-  const startTime = typeof app.parsingStartTime === 'number' 
-    ? app.parsingStartTime 
-    : new Date(app.parsingStartTime).getTime();
-    
+  if (!app.parsingStartTime || !app.progressValue || app.progressValue <= 0 || app.progressValue >= 100) return null;
+  const startTime = typeof app.parsingStartTime === 'number' ? app.parsingStartTime : new Date(app.parsingStartTime).getTime();
   const now = Date.now();
   let elapsedMs = now - startTime;
-  
-  // Handle clock skew
-  if (elapsedMs < 0) elapsedMs = 0;
-  
-  // Show estimate after 1 second of processing to provide immediate feedback
   if (elapsedMs < 1000) return null;
-
-  const totalEstimatedMs = (elapsedMs / app.progressValue) * 100;
-  const remainingMs = totalEstimatedMs - elapsedMs;
-
-  if (remainingMs <= 500) return null; // Too close to finish
-
-  return formatTime(remainingMs);
+  const remainingMs = (elapsedMs / app.progressValue) * 100 - elapsedMs;
+  return remainingMs <= 500 ? null : formatTime(remainingMs);
 };
 
 const getProgressTooltip = (app) => {
-  if (!app.parsingStartTime || !app.progressValue || app.progressValue <= 0 || app.progressValue >= 100) {
-    return app.parsingProgress || 'No timing info available';
-  }
-
-  const startTime = typeof app.parsingStartTime === 'number' 
-    ? app.parsingStartTime 
-    : new Date(app.parsingStartTime).getTime();
-    
-  const now = Date.now();
-  let elapsedMs = now - startTime;
-  
-  if (elapsedMs < 0) elapsedMs = 0;
-
+  if (!app.parsingStartTime || !app.progressValue || app.progressValue <= 0 || app.progressValue >= 100) return app.parsingProgress || 'No timing info available';
+  const startTime = typeof app.parsingStartTime === 'number' ? app.parsingStartTime : new Date(app.parsingStartTime).getTime();
+  const elapsedMs = Math.max(0, Date.now() - startTime);
   const remaining = getRemainingTime(app);
   let tip = `Elapsed: ${formatTime(elapsedMs)}`;
-  if (remaining) {
-    tip += `\nEstimated Remaining: ${remaining}`;
-  }
+  if (remaining) tip += `\nEstimated Remaining: ${remaining}`;
   return tip;
 };
 
-const isProcessing = (status) => {
-  if (!status || status === 'READY' || status === 'PENDING_LOAD' || status === 'PENDING_REIMPORT') return false; 
-  return ['INGESTING_BRONZE', 'TRANSFORMING_SILVER', 'AGGREGATING_GOLD', 'LOADING', 'QUEUED', 'PRE_CALCULATING'].includes(status);
-};
-
-const isReady = (status) => {
-  // Only SUCCESS or PENDING_REIMPORT (if it was previously success) should allow entry
-  // For simplicity, let's strictly allow only SUCCESS and PENDING_REIMPORT
-  return ['SUCCESS', 'PENDING_REIMPORT'].includes(status);
-};
-
-const isActivePipeline = (status) => {
-  return ['INGESTING_BRONZE', 'TRANSFORMING_SILVER', 'AGGREGATING_GOLD', 'LOADING', 'PRE_CALCULATING'].includes(status);
-};
-
-const shouldShowProgress = (status) => {
-  if (!status) return false;
-  return [...['INGESTING_BRONZE', 'TRANSFORMING_SILVER', 'AGGREGATING_GOLD', 'LOADING', 'SUCCESS', 'FAILED', 'PRE_CALCULATING']].includes(status);
-};
+const isProcessing = (status) => !(!status || ['READY', 'PENDING_LOAD', 'PENDING_REIMPORT'].includes(status)) && ['INGESTING_BRONZE', 'TRANSFORMING_SILVER', 'AGGREGATING_GOLD', 'LOADING', 'QUEUED', 'PRE_CALCULATING'].includes(status);
+const isReady = (status) => ['SUCCESS', 'PENDING_REIMPORT'].includes(status);
+const isActivePipeline = (status) => ['INGESTING_BRONZE', 'TRANSFORMING_SILVER', 'AGGREGATING_GOLD', 'LOADING', 'PRE_CALCULATING'].includes(status);
+const shouldShowProgress = (status) => status && ['INGESTING_BRONZE', 'TRANSFORMING_SILVER', 'AGGREGATING_GOLD', 'LOADING', 'SUCCESS', 'FAILED', 'PRE_CALCULATING'].includes(status);
 
 const toggleCompare = (app) => {
   const key = `${app.appId}:app:${app.appId}`;
-  if (compareStore.isInWorkspace(app.appId, 'app')) {
-    compareStore.removeItem(key);
-  } else {
-    compareStore.addItem({
-      type: 'app',
-      itemId: app.appId,
-      appId: app.appId,
-      name: app.appName,
-      details: {
-        duration: app.duration,
-        status: app.status
-      }
-    });
-  }
+  if (compareStore.isInWorkspace(app.appId, 'app')) compareStore.removeItem(key);
+  else compareStore.addItem({ type: 'app', itemId: app.appId, appId: app.appId, name: app.appName, details: { duration: app.duration, status: app.status } });
 };
 
 const fetchApps = async () => {
@@ -841,809 +780,178 @@ const fetchApps = async () => {
     const sortStr = sorts.value.map(s => `${s.field},${s.dir}`).join(';');
     const res = await getApps(currentPage.value, pageSize.value, sortStr, searchQuery.value);
     if (res.data && res.data.items) {
-      apps.value = res.data.items.map(app => {
-        // Use the numeric progress value from DB if available
-        app.progressValue = app.parsingProgressValue || 0;
-        return app;
-      });
+      apps.value = res.data.items.map(app => { app.progressValue = app.parsingProgressValue || 0; return app; });
       totalApps.value = res.data.total;
       totalPages.value = res.data.totalPages;
-    } else {
-      apps.value = [];
-      totalApps.value = 0;
-      totalPages.value = 0;
-    }
+    } else { apps.value = []; totalApps.value = 0; totalPages.value = 0; }
     jumpPageInput.value = currentPage.value;
-  } catch (err) {
-    console.error("Failed to fetch apps", err);
-  } finally {
-    isLoading.value = false;
-  }
+  } catch (err) { console.error("Failed to fetch apps", err); }
+  finally { isLoading.value = false; }
 };
 
-const handleSearch = () => {
-  currentPage.value = 1;
-  fetchApps();
-};
-
-const changePage = (delta) => {
-  const newPage = currentPage.value + delta;
-  if (newPage >= 1 && newPage <= totalPages.value) {
-    currentPage.value = newPage;
-    fetchApps();
-  }
-};
-
-const jumpToPage = (page) => {
-  if (page >= 1 && page <= totalPages.value) {
-    currentPage.value = page;
-    fetchApps();
-  } else {
-    jumpPageInput.value = currentPage.value;
-  }
-};
-
-const handleJump = () => {
-  jumpToPage(jumpPageInput.value);
-};
-
-const handleSizeChange = () => {
-  currentPage.value = 1;
-  fetchApps();
-};
+const handleSearch = () => { currentPage.value = 1; fetchApps(); };
+const changePage = (delta) => { const newPage = currentPage.value + delta; if (newPage >= 1 && newPage <= totalPages.value) { currentPage.value = newPage; fetchApps(); } };
+const jumpToPage = (page) => { if (page >= 1 && page <= totalPages.value) { currentPage.value = page; fetchApps(); } else { jumpPageInput.value = currentPage.value; } };
+const handleJump = () => jumpToPage(jumpPageInput.value);
+const handleSizeChange = () => { currentPage.value = 1; fetchApps(); };
 
 const handleSort = (field, event) => {
   const col = columns.value.find(c => c.field === field);
   if (!col || col.sortable === false) return;
-
   const existingIndex = sorts.value.findIndex(s => s.field === field);
-  const isShift = event.shiftKey;
-
   if (existingIndex > -1) {
     const existing = sorts.value[existingIndex];
-    if (existing.dir === 'asc') {
-      existing.dir = 'desc';
-    } else {
-      sorts.value.splice(existingIndex, 1);
-    }
+    if (existing.dir === 'asc') existing.dir = 'desc';
+    else sorts.value.splice(existingIndex, 1);
   } else {
-    if (!isShift) {
-      sorts.value = [];
-    }
+    if (!event.shiftKey) sorts.value = [];
     sorts.value.push({field, dir: 'asc'});
   }
-  currentPage.value = 1;
-  fetchApps();
+  currentPage.value = 1; fetchApps();
 };
 
-const removeSort = (index) => {
-  sorts.value.splice(index, 1);
-  currentPage.value = 1;
-  fetchApps();
-};
-
-const clearSorts = () => {
-  sorts.value = [];
-  currentPage.value = 1;
-  fetchApps();
-};
-
-const getColumnLabel = (field) => {
-  const col = columns.value.find(c => c.field === field);
-  return col ? col.label : field;
-};
-
-const getSortIcon = (field) => {
-  const index = sorts.value.findIndex(x => x.field === field);
-  if (index === -1) return 'unfold_more';
-  const s = sorts.value[index];
-  return s.dir === 'asc' ? 'arrow_upward' : 'arrow_downward';
-};
-
-const getSortOrder = (field) => {
-  const index = sorts.value.findIndex(x => x.field === field);
-  return (index !== -1 && sorts.value.length > 1) ? index + 1 : null;
-};
-
-const isFieldSorted = (field) => {
-  return sorts.value.some(x => x.field === field);
-};
+const removeSort = (index) => { sorts.value.splice(index, 1); currentPage.value = 1; fetchApps(); };
+const clearSorts = () => { sorts.value = []; currentPage.value = 1; fetchApps(); };
+const getColumnLabel = (field) => columns.value.find(c => c.field === field)?.label || field;
+const getSortIcon = (field) => { const s = sorts.value.find(x => x.field === field); return !s ? 'unfold_more' : (s.dir === 'asc' ? 'arrow_upward' : 'arrow_downward'); };
+const getSortOrder = (field) => { const idx = sorts.value.findIndex(x => x.field === field); return (idx !== -1 && sorts.value.length > 1) ? idx + 1 : null; };
+const isFieldSorted = (field) => sorts.value.some(x => x.field === field);
 
 onMounted(() => {
-  if (route.query.processingMsg) {
-    alertMsg.value = route.query.processingMsg;
-    alertType.value = 'info';
-  } else if (route.query.errorMsg) {
-    alertMsg.value = route.query.errorMsg;
-    alertType.value = 'error';
-  }
-  fetchApps();
-  connectWebSocket();
+  if (route.query.processingMsg) { alertMsg.value = route.query.processingMsg; alertType.value = 'info'; }
+  else if (route.query.errorMsg) { alertMsg.value = route.query.errorMsg; alertType.value = 'error'; }
+  fetchApps(); connectWebSocket();
 });
-
-onUnmounted(() => {
-  if (stompClient) {
-    stompClient.disconnect();
-  }
-});
+onUnmounted(() => { if (stompClient) stompClient.disconnect(); });
 </script>
 
 <style scoped>
-.app-list-container {
-  padding: 1.5rem;
-}
-
-.processing-alert {
-  background-color: #fff3cd;
-  color: #856404;
-  border: 1px solid #ffeeba;
-  padding: 1rem;
-  border-radius: 6px;
-  margin-bottom: 1.5rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  animation: fadeIn 0.3s ease-out;
-}
-
-.error-alert {
-  background-color: #f8d7da;
-  color: #721c24;
-  border-color: #f5c6cb;
-}
-
-.alert-content {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 500;
-}
-
-.close-alert {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  color: inherit;
-  line-height: 1;
-  opacity: 0.5;
-}
-
-.close-alert:hover {
-  opacity: 1;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.header-section {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-}
-
+.app-list-container { padding: 1.5rem; }
+.processing-alert { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; padding: 1rem; border-radius: 6px; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; animation: fadeIn 0.3s ease-out; }
+.error-alert { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+.alert-content { display: flex; align-items: center; gap: 10px; font-weight: 500; }
+.close-alert { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: inherit; line-height: 1; opacity: 0.5; }
+.close-alert:hover { opacity: 1; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+.header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
 .header-section h2 { margin: 0; color: #2c3e50; }
-
 .header-actions { display: flex; gap: 20px; align-items: center; }
-
 .search-box { display: flex; gap: 8px; }
-
-.search-input {
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  width: 250px;
-  font-size: 0.9rem;
-}
-
-.search-btn {
-  padding: 8px 16px;
-  background: #f8f9fa;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-
+.search-input { padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; width: 250px; font-size: 0.9rem; }
+.search-btn { padding: 8px 16px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
 .search-btn:hover { background: #e9ecef; }
-
-/* Column Selector Styles */
-.column-selector-card {
-  background: #fdfdfd;
-  padding: 1rem 1.5rem;
-  border-radius: 8px;
-  border: 1px solid #edf2f7;
-  margin-bottom: 1.5rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
-}
-
-.selector-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  border-bottom: 1px solid #f0f0f0;
-  padding-bottom: 8px;
-}
-
-.selector-header strong {
-  font-size: 0.9rem;
-  color: #2c3e50;
-}
-
-.selector-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.selector-actions button {
-  background: none;
-  border: 1px solid #ddd;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  cursor: pointer;
-  color: #666;
-  transition: all 0.2s;
-}
-
-.selector-actions button:hover {
-  border-color: #3498db;
-  color: #3498db;
-  background: #f7fbff;
-}
-
-.checkbox-group {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 10px 15px;
-}
-
-.checkbox-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
-  color: #555;
-  cursor: pointer;
-  white-space: nowrap;
-  user-select: none;
-}
-
-.checkbox-item input {
-  cursor: pointer;
-}
-
-.table-card {
-  background: white;
-  border-radius: 8px;
-  padding: 1.5rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-}
-
-.table-header-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #f0f0f0;
-}
-
+.column-selector-card { background: #fdfdfd; padding: 1rem 1.5rem; border-radius: 8px; border: 1px solid #edf2f7; margin-bottom: 1.5rem; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02); }
+.selector-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px; }
+.selector-header strong { font-size: 0.9rem; color: #2c3e50; }
+.selector-actions { display: flex; gap: 10px; }
+.selector-actions button { background: none; border: 1px solid #ddd; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; color: #666; transition: all 0.2s; }
+.selector-actions button:hover { border-color: #3498db; color: #3498db; background: #f7fbff; }
+.checkbox-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px 15px; }
+.checkbox-item { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #555; cursor: pointer; white-space: nowrap; user-select: none; }
+.table-card { background: white; border-radius: 8px; padding: 1.5rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); }
+.table-header-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid #f0f0f0; }
 .header-left span { color: #7f8c8d; font-size: 0.9rem; font-weight: 500; }
-
 .modern-pagination { display: flex; align-items: center; gap: 20px; }
-
 .page-size-picker { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #606266; }
-
-.modern-select {
-  padding: 4px 24px 4px 8px;
-  border-radius: 4px;
-  border: 1px solid #dcdfe6;
-  outline: none;
-  cursor: pointer;
-  background: white;
-  transition: all 0.2s;
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  font-size: 0.85rem;
-  color: #606266;
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-  background-repeat: no-repeat;
-  background-position: right 6px center;
-  background-size: 14px;
-  min-width: 60px;
-  height: 32px;
-}
-
+.modern-select { padding: 4px 24px 4px 8px; border-radius: 4px; border: 1px solid #dcdfe6; outline: none; cursor: pointer; background: white; transition: all 0.2s; appearance: none; font-size: 0.85rem; color: #606266; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 6px center; background-size: 14px; min-width: 60px; height: 32px; }
 .modern-select:hover { border-color: #3498db; }
-
 .pager-actions { display: flex; align-items: center; gap: 4px; }
-
-.pager-btn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #dcdfe6;
-  background: white;
-  border-radius: 4px;
-  cursor: pointer;
-  color: #606266;
-  transition: all 0.2s;
-}
-
+.pager-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 1px solid #dcdfe6; background: white; border-radius: 4px; cursor: pointer; color: #606266; transition: all 0.2s; }
 .pager-btn:hover:not(:disabled) { border-color: #3498db; color: #3498db; background: #f0f7ff; }
-
 .pager-btn:disabled { color: #c0c4cc; cursor: not-allowed; background: #f5f7fa; }
-
 .pager-btn .material-symbols-outlined { font-size: 1.2rem; }
-
 .pager-info { display: flex; align-items: center; gap: 6px; margin: 0 8px; }
-
-.pager-input {
-  width: 40px;
-  height: 28px;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
-  text-align: center;
-  font-size: 0.85rem;
-  outline: none;
-}
-
+.pager-input { width: 40px; height: 28px; border: 1px solid #dcdfe6; border-radius: 4px; text-align: center; font-size: 0.85rem; outline: none; }
 .pager-input:focus { border-color: #3498db; }
-
 .pager-total { font-size: 0.85rem; color: #909399; }
-
-.active-sorts-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 1rem;
-  padding: 8px 12px;
-  background: #f8f9fa;
-  border-radius: 6px;
-  font-size: 0.85rem;
-}
-
+.active-sorts-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 1rem; padding: 8px 12px; background: #f8f9fa; border-radius: 6px; font-size: 0.85rem; }
 .sort-label { font-weight: 600; color: #555; }
-
 .sort-tags { display: flex; gap: 8px; flex-wrap: wrap; }
-
-.sort-tag {
-  display: inline-flex;
-  align-items: center;
-  background: #e3f2fd;
-  color: #1565c0;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 0.8rem;
-  border: 1px solid #bbdefb;
-}
-
+.sort-tag { display: inline-flex; align-items: center; background: #e3f2fd; color: #1565c0; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; border: 1px solid #bbdefb; }
 .sort-dir { margin-left: 4px; font-size: 0.7rem; opacity: 0.8; font-weight: bold; }
-
 .remove-sort { margin-left: 6px; cursor: pointer; font-weight: bold; opacity: 0.6; }
-
 .remove-sort:hover { opacity: 1; color: #c62828; }
-
-.clear-sort-btn {
-  background: none;
-  border: none;
-  color: #666;
-  text-decoration: underline;
-  cursor: pointer;
-  font-size: 0.8rem;
-  padding: 0 4px;
-}
-
+.clear-sort-btn { background: none; border: none; color: #666; text-decoration: underline; cursor: pointer; font-size: 0.8rem; padding: 0 4px; }
 .clear-sort-btn:hover { color: #d32f2f; }
-
 .sort-hint { margin-left: auto; color: #888; font-style: italic; font-size: 0.8rem; }
-
-.table-wrapper {
-  overflow-x: auto;
-}
-
+.table-wrapper { overflow-x: auto; }
 .styled-table { width: 100%; min-width: 1500px; border-collapse: collapse; font-size: 0.9rem; }
-
-.styled-table th, .styled-table td {
-  padding: 12px 15px;
-  text-align: left;
-  border-bottom: 1px solid #eee;
-  white-space: nowrap;
-  vertical-align: middle;
-}
-
+.styled-table th, .styled-table td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #eee; white-space: nowrap; vertical-align: middle; }
 .styled-table th { background-color: #f8f9fa; font-weight: bold; color: #333; }
-
 .styled-table th.sortable { cursor: pointer; user-select: none; }
-
 .styled-table th.sortable:hover { background: #edf2f7; color: #3498db; }
-
 .header-container { display: flex; align-items: center; gap: 4px; }
-
 .sort-indicator { display: inline-flex; align-items: center; position: relative; }
-
 .sort-icon { font-size: 16px !important; color: #ccc; transition: color 0.2s; }
-
 .sort-icon.active { color: #3498db; }
-
-.sort-order {
-  font-size: 10px;
-  background: #3498db;
-  color: white;
-  border-radius: 50%;
-  width: 14px;
-  height: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: absolute;
-  right: -8px;
-  top: -4px;
-}
-
+.sort-order { font-size: 10px; background: #3498db; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; position: absolute; right: -8px; top: -4px; }
 .styled-table tbody tr:hover { background-color: #fcfcfc; }
-
-.spark-version-badge {
-  background-color: #e8f4f8;
-  color: #2980b9;
-  font-size: 0.7rem;
-  padding: 1px 6px;
-  border-radius: 4px;
-  border: 1px solid #d1e9f0;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.compression-badge {
-  display: inline-block;
-  font-size: 0.7rem;
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-weight: 600;
-  background-color: #f0f0f0;
-  color: #666;
-  border: 1px solid #ddd;
-}
-
+.spark-version-badge { background-color: #e8f4f8; color: #2980b9; font-size: 0.7rem; padding: 1px 6px; border-radius: 4px; border: 1px solid #d1e9f0; font-weight: 600; white-space: nowrap; }
+.compression-badge { display: inline-block; font-size: 0.7rem; padding: 1px 6px; border-radius: 4px; font-weight: 600; background-color: #f0f0f0; color: #666; border: 1px solid #ddd; }
 .compression-badge.zstd { background-color: #e1f5fe; color: #0288d1; border-color: #b3e5fc; }
 .compression-badge.gzip { background-color: #efebe9; color: #5d4037; border-color: #d7ccc8; }
 .compression-badge.lz4 { background-color: #f1f8e9; color: #388e3c; border-color: #dcedc8; }
 .compression-badge.snappy { background-color: #fff3e0; color: #f57c00; border-color: #ffe0b2; }
-
-.size-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.est-size {
-  color: #7f8c8d;
-  font-size: 0.75rem;
-  font-style: italic;
-}
-
+.size-cell { display: flex; flex-direction: column; gap: 2px; }
+.est-size { color: #7f8c8d; font-size: 0.75rem; font-style: italic; }
 .app-link { color: #3498db; text-decoration: none; font-weight: 600; }
-
 .app-link:hover { text-decoration: underline; color: #2980b9; }
-
-.app-id-code {
-  white-space: nowrap;
-  font-family: monospace;
-  font-size: 0.8rem;
-  color: #c7254e;
-  background-color: #f9f2f4;
-  padding: 2px 4px;
-  border-radius: 3px;
-}
-
-.processing-label {
-  color: #3498db;
-  font-size: 0.85rem;
-  font-style: italic;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.eta-text, .percent-text {
-  font-weight: normal;
-  color: #2980b9;
-}
-
-.notes-cell {
-  min-width: 200px;
-  cursor: pointer;
-}
-
-.notes-text {
-  padding: 4px 8px;
-  border-radius: 4px;
-  min-height: 24px;
-  max-width: 250px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.notes-text:hover {
-  background-color: #f0f7ff;
-}
-
-.empty-notes {
-  color: #bdc3c7;
-  font-style: italic;
-  font-size: 0.85rem;
-}
-
-.notes-input {
-  width: 100%;
-  padding: 4px 8px;
-  border: 1px solid #3498db;
-  border-radius: 4px;
-  outline: none;
-  font-size: 0.9rem;
-  background: white;
-}
-
+.app-id-code { white-space: nowrap; font-family: monospace; font-size: 0.8rem; color: #c7254e; background-color: #f9f2f4; padding: 2px 4px; border-radius: 3px; }
+.processing-label { color: #3498db; font-size: 0.85rem; font-style: italic; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.eta-text, .percent-text { font-weight: normal; color: #2980b9; }
+.notes-cell { min-width: 200px; cursor: pointer; }
+.notes-text { padding: 4px 8px; border-radius: 4px; min-height: 24px; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.notes-text:hover { background-color: #f0f7ff; }
+.empty-notes { color: #bdc3c7; font-style: italic; font-size: 0.85rem; }
+.notes-input { width: 100%; padding: 4px 8px; border: 1px solid #3498db; border-radius: 4px; outline: none; font-size: 0.9rem; background: white; }
 .processing-row { opacity: 0.7; background-color: #f9f9f9; }
-
 .disabled-link { pointer-events: none; color: #95a5a6 !important; cursor: default; }
-
 .name-cell-wrapper { display: flex; flex-direction: column; gap: 4px; }
-
-.overwrite-prompt {
-  background: #fff3cd;
-  border: 1px solid #ffeeba;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 4px;
-  pointer-events: auto !important;
-}
-
+.overwrite-prompt { background: #fff3cd; border: 1px solid #ffeeba; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; display: flex; align-items: center; justify-content: space-between; margin-top: 4px; pointer-events: auto !important; }
 .prompt-text { color: #856404; font-weight: 600; }
-
 .prompt-actions { display: flex; gap: 4px; }
-
-.mini-btn {
-  padding: 2px 6px;
-  border-radius: 3px;
-  border: none;
-  cursor: pointer;
-  font-size: 0.7rem;
-  font-weight: bold;
-}
-
+.mini-btn { padding: 2px 6px; border-radius: 3px; border: none; cursor: pointer; font-size: 0.7rem; font-weight: bold; }
 .mini-btn.confirm { background: #27ae60; color: white; }
-
 .mini-btn.cancel { background: #bdc3c7; color: #333; }
-
 .progress-cell { width: 100%; }
-
-.na-progress {
-  text-align: center;
-  color: #bdc3c7;
-  font-family: monospace;
-}
-
-.progress-track {
-  width: 100%;
-  height: 16px;
-  background-color: #e9ecef;
-  border-radius: 4px;
-  overflow: hidden;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #dcdfe6;
-}
-
-.progress-fill {
-  height: 100%;
-  transition: width 0.6s ease;
-  position: absolute;
-  left: 0;
-  top: 0;
-  z-index: 1;
-}
-
-.progress-text-overlay {
-  position: relative;
-  z-index: 2;
-  font-size: 0.7rem;
-  font-weight: bold;
-  color: #333;
-  text-shadow: 0 0 2px rgba(255, 255, 255, 0.8);
-}
-
+.na-progress { text-align: center; color: #bdc3c7; font-family: monospace; }
+.progress-track { width: 100%; height: 16px; background-color: #e9ecef; border-radius: 4px; overflow: hidden; position: relative; display: flex; align-items: center; justify-content: center; border: 1px solid #dcdfe6; }
+.progress-fill { height: 100%; transition: width 0.6s ease; position: absolute; left: 0; top: 0; z-index: 1; }
+.progress-text-overlay { position: relative; z-index: 2; font-size: 0.7rem; font-weight: bold; color: #333; text-shadow: 0 0 2px rgba(255, 255, 255, 0.8); }
 .status-cell { display: flex; align-items: center; }
-
-.status-badge {
-  font-weight: bold;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
+.status-badge { font-weight: bold; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
 .status-SUCCESS, .status-FINISHED { color: #27ae60; background-color: rgba(39, 174, 96, 0.1); }
-
 .status-FAILED { color: #e74c3c; background-color: rgba(231, 76, 60, 0.1); }
-
 .status-INGESTING_BRONZE { color: #cd7f32; background-color: rgba(205, 127, 50, 0.1); }
 .status-TRANSFORMING_SILVER { color: #7f8c8d; background-color: rgba(149, 165, 166, 0.1); }
 .status-AGGREGATING_GOLD { color: #f1c40f; background-color: rgba(241, 196, 15, 0.1); }
-
-.status-LOADING, .status-RUNNING { 
-  color: #3498db; background-color: rgba(52, 152, 219, 0.1); 
-}
-
-.status-PENDING_LOAD, .status-PENDING_TO_LOADING, .status-READY { 
-  color: #95a5a6; background-color: rgba(149, 165, 166, 0.1); 
-}
-
-.status-PENDING_REIMPORT, .status-PENDING_OVERWRITE { 
-  color: #e67e22; background-color: rgba(230, 126, 34, 0.1); 
-}
-
+.status-LOADING, .status-RUNNING { color: #3498db; background-color: rgba(52, 152, 219, 0.1); }
+.status-PENDING_LOAD, .status-PENDING_TO_LOADING, .status-READY { color: #95a5a6; background-color: rgba(149, 165, 166, 0.1); }
+.status-PENDING_REIMPORT, .status-PENDING_OVERWRITE { color: #e67e22; background-color: rgba(230, 126, 34, 0.1); }
 .status-PRE_CALCULATING { color: #9b59b6; background-color: rgba(155, 89, 182, 0.1); }
-
-.select-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #909399;
-  padding: 4px;
-  border-radius: 4px;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
+.select-btn { background: none; border: none; cursor: pointer; color: #909399; padding: 4px; border-radius: 4px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
 .select-btn:hover:not(:disabled) { color: #3498db; background: #f0f7ff; }
-
 .select-btn.selected { color: #3498db; }
-
 .select-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
 .select-btn .material-symbols-outlined { font-size: 20px; }
-
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 20px;
-  color: #3498db;
-  gap: 15px;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #3498db;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.action-cell {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.action-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  border-radius: 4px;
-  border: 1px solid #ddd;
-  background: white;
-  cursor: pointer;
-  font-size: 0.8rem;
-  font-weight: 500;
-  transition: all 0.2s;
-  color: #606266;
-}
-
-.action-btn .material-symbols-outlined {
-  font-size: 16px;
-}
-
-.action-btn:hover:not(:disabled) {
-  background: #f5f7fa;
-}
-
-.action-btn.reimport:hover:not(:disabled) {
-  border-color: #3498db;
-  color: #3498db;
-  background: #f0f7ff;
-}
-
-.action-btn.bronze:hover:not(:disabled) {
-  border-color: #9b59b6;
-  color: #9b59b6;
-  background: #f5ebf7;
-}
-
-.action-btn.delete:hover:not(:disabled) {
-  border-color: #e74c3c;
-  color: #e74c3c;
-  background: #fff5f5;
-}
-
-.action-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  background: #f5f7fa;
-}
-
-.dropdown-trigger-wrapper {
-  display: inline-block;
-}
-
-.dropdown-menu-fixed {
-  position: fixed;
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 9999; /* High z-index to be on top of everything */
-  min-width: 220px;
-  display: flex;
-  flex-direction: column;
-  padding: 4px 0;
-}
-
-.dropdown-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border: none;
-  background: none;
-  width: 100%;
-  text-align: left;
-  cursor: pointer;
-  font-size: 0.85rem;
-  color: #333;
-  transition: background 0.2s;
-}
-
-.dropdown-item:hover {
-  background-color: #f5f7fa;
-  color: #3498db;
-}
-
-.dropdown-item .material-symbols-outlined {
-  font-size: 16px;
-  color: #7f8c8d;
-}
-
-.dropdown-item:hover .material-symbols-outlined {
-  color: #3498db;
-}
+.loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; color: #3498db; gap: 15px; }
+.spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+.action-cell { display: flex; gap: 8px; align-items: center; }
+.action-btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 4px; border: 1px solid #ddd; background: white; cursor: pointer; font-size: 0.8rem; font-weight: 500; transition: all 0.2s; color: #606266; }
+.action-btn .material-symbols-outlined { font-size: 16px; }
+.action-btn:hover:not(:disabled) { background: #f5f7fa; }
+.action-btn.reimport:hover:not(:disabled) { border-color: #3498db; color: #3498db; background: #f0f7ff; }
+.action-btn.bronze:hover:not(:disabled) { border-color: #9b59b6; color: #9b59b6; background: #f5ebf7; }
+.action-btn.delete:hover:not(:disabled) { border-color: #e74c3c; color: #e74c3c; background: #fff5f5; }
+.action-btn:disabled { opacity: 0.5; cursor: not-allowed; background: #f5f7fa; }
+.dropdown-trigger-wrapper { display: inline-block; }
+.dropdown-menu-fixed { position: fixed; background: white; border: 1px solid #ddd; border-radius: 4px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); z-index: 9999; min-width: 220px; display: flex; flex-direction: column; padding: 4px 0; }
+.dropdown-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: none; background: none; width: 100%; text-align: left; cursor: pointer; font-size: 0.85rem; color: #333; transition: background 0.2s; }
+.dropdown-item:hover { background-color: #f5f7fa; color: #3498db; }
+.dropdown-item .material-symbols-outlined { font-size: 16px; color: #7f8c8d; }
+.dropdown-item:hover .material-symbols-outlined { color: #3498db; }
+.dropdown-divider { height: 1px; background-color: #eee; margin: 4px 0; }
+.beta-item { color: #e67e22 !important; font-weight: 600; }
+.beta-item:hover { background-color: rgba(230, 126, 34, 0.05) !important; }
 </style>

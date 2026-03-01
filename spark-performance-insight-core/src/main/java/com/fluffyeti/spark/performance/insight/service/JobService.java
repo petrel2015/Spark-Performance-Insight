@@ -12,7 +12,7 @@ public class JobService extends ServiceImpl<JobMapper, GoldJobModel> {
         baseMapper.calculateJobMetrics(appId);
     }
 
-    public GoldJobModel getJob(String appId, Integer jobId) {
+    public GoldJobModel getJob(String appId, Long jobId) {
         return lambdaQuery()
                 .eq(GoldJobModel::getAppId, appId)
                 .eq(GoldJobModel::getJobId, jobId)

@@ -31,16 +31,16 @@ public class ComparisonService {
     @Nullable
     public ComparisonResult compare(String type, String appId1, String id1, String appId2, String id2) {
         if ("stage".equalsIgnoreCase(type)) {
-            return compareStages(appId1, Integer.parseInt(id1), appId2, Integer.parseInt(id2));
+            return compareStages(appId1, Long.parseLong(id1), appId2, Long.parseLong(id2));
         } else if ("job".equalsIgnoreCase(type)) {
-            return compareJobs(appId1, Integer.parseInt(id1), appId2, Integer.parseInt(id2));
+            return compareJobs(appId1, Long.parseLong(id1), appId2, Long.parseLong(id2));
         } else if ("app".equalsIgnoreCase(type)) {
             return compareApplications(appId1, appId2);
         }
         throw new IllegalArgumentException("Unknown comparison type: " + type);
     }
 
-    private ComparisonResult compareApplications(String appId1, String appId2) {
+    public ComparisonResult compareApplications(String appId1, String appId2) {
         com.fluffyeti.spark.performance.insight.model.GoldApplicationModel app1 = applicationService.getById(appId1);
         com.fluffyeti.spark.performance.insight.model.GoldApplicationModel app2 = applicationService.getById(appId2);
 
@@ -64,35 +64,27 @@ public class ComparisonService {
                 .build();
     }
 
-    private ComparisonResult compareStages(String appId1, int stageId1, String appId2, int stageId2) {
-        GoldStageModel stage1 = stageService.getStage(appId1, stageId1, 0);
-        GoldStageModel stage2 = stageService.getStage(appId2, stageId2, 0);
+    private ComparisonResult compareStages(String appId1, long stageId1, String appId2, long stageId2) {
+        GoldStageModel stage1 = stageService.getStage(appId1, stageId1, 0L);
+        GoldStageModel stage2 = stageService.getStage(appId2, stageId2, 0L);
 
         if (stage1 == null) throw new RuntimeException("Stage " + stageId1 + " not found in application: " + appId1);
         if (stage2 == null) throw new RuntimeException("Stage " + stageId2 + " not found in application: " + appId2);
 
         List<MetricDiff> metrics = new ArrayList<>();
 
-        // 1. Core Performance
         addMetric(metrics, "Duration", "duration", "ms", (double) stage1.getDuration(), (double) stage2.getDuration(), true);
         addMetric(metrics, "GC Time", "gc_time", "ms", (double) stage1.getGcTimeSum(), (double) stage2.getGcTimeSum(), true);
-
-        // 2. Resource Overhead (Spill)
         addMetric(metrics, "Disk Spill", "disk_spill", "bytes", (double) stage1.getDiskBytesSpilledSum(), (double) stage2.getDiskBytesSpilledSum(), true);
         addMetric(metrics, "Memory Spill", "mem_spill", "bytes", (double) stage1.getMemoryBytesSpilledSum(), (double) stage2.getMemoryBytesSpilledSum(), true);
-
-        // 3. I/O & Shuffle
         addMetric(metrics, "Input Size", "input", "bytes", (double) stage1.getInputBytes(), (double) stage2.getInputBytes(), false);
-        // Treat shuffle increase as generally negative for performance stability
         addMetric(metrics, "Shuffle Read", "shuffle_read", "bytes", (double) stage1.getShuffleReadBytes(), (double) stage2.getShuffleReadBytes(), true);
         addMetric(metrics, "Shuffle Write", "shuffle_write", "bytes", (double) stage1.getShuffleWriteBytes(), (double) stage2.getShuffleWriteBytes(), true);
 
-        // 4. Concurrency (Executors)
         long executors1 = taskService.getExecutorCountForStage(appId1, stageId1);
         long executors2 = taskService.getExecutorCountForStage(appId2, stageId2);
         addMetric(metrics, "Executors Involved", "exec_count", "count", (double) executors1, (double) executors2, false);
 
-        // Analyze Conclusion
         double durationDiffPercent = getPctChange((double) stage1.getDuration(), (double) stage2.getDuration());
         String conclusionType = "SIMILAR";
         String conclusion = "Performance is stable.";
@@ -121,7 +113,7 @@ public class ComparisonService {
                 .build();
     }
 
-    private ComparisonResult compareJobs(String appId1, int jobId1, String appId2, int jobId2) {
+    private ComparisonResult compareJobs(String appId1, long jobId1, String appId2, long jobId2) {
         GoldJobModel job1 = jobService.getJob(appId1, jobId1);
         GoldJobModel job2 = jobService.getJob(appId2, jobId2);
 
@@ -152,7 +144,7 @@ public class ComparisonService {
                 .build();
     }
 
-    private ItemMeta buildMeta(String appId, String type, String id, String name, Long duration, Integer stages, Integer tasks) {
+    private ItemMeta buildMeta(String appId, String type, String id, String name, Long duration, Long stages, Long tasks) {
         return ItemMeta.builder()
                 .id(id)
                 .name(name)
@@ -165,11 +157,9 @@ public class ComparisonService {
 
     private List<ConfigDiff> fetchResourceConfigs(String appId1, String appId2) {
         List<ConfigDiff> diffs = new ArrayList<>();
-        // Fetch all configs
         List<GoldEnvironmentConfigModel> list1 = envService.lambdaQuery().eq(GoldEnvironmentConfigModel::getAppId, appId1).list();
         List<GoldEnvironmentConfigModel> list2 = envService.lambdaQuery().eq(GoldEnvironmentConfigModel::getAppId, appId2).list();
 
-        // Use category + key as the map key to avoid collisions
         Map<String, GoldEnvironmentConfigModel> map1 = list1.stream().collect(java.util.stream.Collectors.toMap(
                 config -> config.getCategory() + "||" + config.getParamKey(),
                 config -> config,
@@ -204,10 +194,7 @@ public class ComparisonService {
                         .build());
             }
         }
-
-        // Sort by category then key
         diffs.sort(java.util.Comparator.comparing(ConfigDiff::getCategory).thenComparing(ConfigDiff::getKey));
-
         return diffs;
     }
 
@@ -215,63 +202,31 @@ public class ComparisonService {
                                      @Nullable GoldEnvironmentConfigModel config2) {
         String value1 = config1 != null ? config1.getParamValue() : null;
         String value2 = config2 != null ? config2.getParamValue() : null;
-
-        if (value1 == null && value2 == null) {
-            return false;
-        }
-        if (value1 == null || value2 == null) {
-            return true;
-        }
-
+        if (value1 == null && value2 == null) return false;
+        if (value1 == null || value2 == null) return true;
         String normalized1 = config1.getAppId() != null ? value1.replaceAll(config1.getAppId(), "") : value1;
         String normalized2 = config2.getAppId() != null ? value2.replaceAll(config2.getAppId(), "") : value2;
-
         return !StringUtils.equals(normalized1, normalized2);
     }
 
     private void addMetric(List<MetricDiff> metricsList, String label, String name, String unit, Double value1, Double value2, boolean lowerIsBetter) {
-        if (value1 == null) {
-            value1 = 0.0;
-        }
-        if (value2 == null) {
-            value2 = 0.0;
-        }
-
+        if (value1 == null) value1 = 0.0;
+        if (value2 == null) value2 = 0.0;
         double delta = value2 - value1;
         double percentChange = getPctChange(value1, value2);
-
         String severity = "NEUTRAL";
         if (lowerIsBetter) {
-            if (percentChange > 50) {
-                severity = "CRITICAL";
-            } else if (percentChange > 20) {
-                severity = "WARNING";
-            } else if (percentChange < -10) {
-                severity = "GOOD";
-            }
+            if (percentChange > 50) severity = "CRITICAL";
+            else if (percentChange > 20) severity = "WARNING";
+            else if (percentChange < -10) severity = "GOOD";
         } else {
-            // For neutral metrics, still highlight huge changes
-            if (Math.abs(percentChange) > 50) {
-                severity = "WARNING"; // Use WARNING color for big changes
-            }
+            if (Math.abs(percentChange) > 50) severity = "WARNING";
         }
-
-        metricsList.add(MetricDiff.builder()
-                .label(label)
-                .name(name)
-                .unit(unit)
-                .sourceValue(value1)
-                .targetValue(value2)
-                .delta(delta)
-                .pctChange(percentChange)
-                .severity(severity)
-                .build());
+        metricsList.add(MetricDiff.builder().label(label).name(name).unit(unit).sourceValue(value1).targetValue(value2).delta(delta).pctChange(percentChange).severity(severity).build());
     }
 
     private double getPctChange(Double value1, Double value2) {
-        if (value1 == null || value1 == 0) {
-            return value2 > 0 ? 100.0 : 0.0;
-        }
+        if (value1 == null || value1 == 0) return value2 > 0 ? 100.0 : 0.0;
         return (value2 - value1) / value1 * 100.0;
     }
 }

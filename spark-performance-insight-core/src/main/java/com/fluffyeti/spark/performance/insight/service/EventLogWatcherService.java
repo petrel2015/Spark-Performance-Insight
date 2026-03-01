@@ -34,6 +34,7 @@ public class EventLogWatcherService {
     private final StatusBroadcaster broadcaster;
     private final ApplicationLogService logService;
     private final JdbcTemplate jdbcTemplate;
+    private final PipelineProgressService progressService;
     
     private final BronzeIngestionService bronzeIngestionService;
     private final SilverTransformationService silverTransformationService;
@@ -115,6 +116,13 @@ public class EventLogWatcherService {
     public void executePipeline(String appId, String type, java.util.function.Consumer<Boolean> onComplete) {
         GoldApplicationModel app = applicationService.getById(appId);
         if (app == null) { onComplete.accept(false); return; }
+        
+        // Handle Progress Clearing for non-incremental retries
+        if (!"INCREMENTAL_RESUME".equals(type)) {
+            log.info("Performing Full Reset for app: {} before pipeline execution", appId);
+            progressService.clearAllProgress(appId);
+        }
+
         List<File> allFiles = new ArrayList<>();
         collectFiles(new File(properties.getEventLogPath()), allFiles);
         List<File> appFiles = allFiles.stream().filter(f -> Objects.equals(inferAppId(f.getName()), appId)).sorted(Comparator.comparing(File::getName)).collect(Collectors.toList());
@@ -126,6 +134,7 @@ public class EventLogWatcherService {
             if ("FULL".equals(type)) executeFullPipelineSync(appId, appFiles, onComplete);
             else if ("BRONZE_TO_GOLD".equals(type)) executeBronzeToGold(appId, appFiles, onComplete);
             else if ("SILVER_TO_GOLD".equals(type)) executeSilverToGold(appId, appFiles, onComplete);
+            else if ("INCREMENTAL_RESUME".equals(type)) executeFullPipelineSync(appId, appFiles, onComplete);
             else executeFullPipelineSync(appId, appFiles, onComplete);
         });
     }

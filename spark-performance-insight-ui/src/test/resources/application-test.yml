@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: "jdbc:duckdb:../out/test_spark_insight.db"
+    driver-class-name: org.duckdb.DuckDBDriver
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema.sql
+
+insight:
+  event-log-path: ../workspace/eventlog
+  duckdb:
+    temp-directory: ../out/spark_performance_insight.duckdb.db.tmp
+  transformation:
+    threads: 2
+    stage-batch-size: 20
+
+logging:
+  level:
+    com.fluffyeti.spark.performance.insight: info

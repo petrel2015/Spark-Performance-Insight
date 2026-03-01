@@ -1,3 +1,18 @@
+## 1.3.0 - 2026-03-01
+
+### Performance
+- **High-Performance Bronze Ingestion**: Implemented native streaming ingestion using **DuckDB Appender**, significantly increasing raw log ingestion speed. See [Bronze Appender Ingestion Design](./docs/en/Bronze_Appender_Ingestion_Design.md).
+- **Fine-Grained Batch Transformation**: Refactored Silver and Gold transformation logic to a **Sequential Batching Mode** (default 100 stages/batch), drastically reducing peak memory usage and improving stability for large-scale logs. See [Fine-Grained Transformation Design](./docs/en/Fine-Grained_Transformation_Design.md).
+- **Enhanced Storage Analysis**: Implemented server-side pagination, search, and multi-column sorting for RDD storage lists and block details, optimizing UI responsiveness for massive datasets.
+
+### Fixes
+- **Concurrency Protection**: Introduced application-level `ReentrantLock` and state update throttling (1000ms) to eliminate DuckDB `Conflict on update` errors.
+- **Path Alias Fixes**: Resolved 404 errors for rule-engine and LLM diagnosis reports by standardizing API path aliases.
+- **SQL Syntax Fixes**: Corrected DuckDB `UPDATE...FROM` syntax and JSON path extraction errors (`.` vs `..`).
+
+### Documentation
+- **Roadmap Update**: Added a Roadmap section to README, prioritizing **Executor Performance Diagnosis**. See [Executor Performance Diagnosis Design](./docs/en/Executor_Performance_Diagnosis_Design.md).
+
 ## 1.2.0 - 2026-02-21
 
 ### Features

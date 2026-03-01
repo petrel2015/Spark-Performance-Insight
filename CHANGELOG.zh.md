@@ -1,3 +1,18 @@
+## 1.3.0 - 2026-03-01
+
+### 性能优化
+- **高性能 Bronze 摄入**：实现基于 **DuckDB Appender** 的原生流式导入，大幅提升原始日志摄入速度。参见 [Bronze Appender Ingestion Design](./docs/zh/Bronze_Appender_Ingestion_Design.md)。
+- **精细化批处理转换**：重构 Silver 与 Gold 层转换逻辑为 **顺序批处理模式**（默认 100 Stage/批次），显著降低大数据量下的内存峰值并提升稳定性。参见 [Fine-Grained Transformation Design](./docs/zh/Fine-Grained_Transformation_Design.md)。
+- **存储分析增强**：为 RDD 存储列表和分片明细实现后端分页、搜索及多列排序，优化海量数据下的 UI 响应速度。
+
+### 修复
+- **并发冲突防护**：引入基于应用的 `ReentrantLock` 物理锁与状态更新限流（1000ms），彻底解决 DuckDB 的 `Conflict on update` 错误。
+- **路径别名修正**：修复了规则引擎诊断报告和 LLM 报告接口的 404 错误，统一了 API 路径别名。
+- **SQL 语法修正**：修正了 DuckDB 的 `UPDATE...FROM` 语法以及 JSON 路径语法错误（`.` vs `..`）。
+
+### 文档
+- **路标更新**：在 README 中新增 Roadmap，明确后续 **Executor 性能诊断** 的开发方向。参见 [Executor Performance Diagnosis Design](./docs/zh/Executor_Performance_Diagnosis_Design.md)。
+
 ## 1.2.0 - 2026-02-21
 
 ### 新功能

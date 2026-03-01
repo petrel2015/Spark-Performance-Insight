@@ -10,8 +10,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.lang.Nullable;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
@@ -75,11 +78,21 @@ public class SystemController {
 
         List<GoldJobModel> items = listQuery.list();
         for (GoldJobModel job : items) {
-            List<GoldStageModel> jobStages = stageService.lambdaQuery()
-                    .eq(GoldStageModel::getAppId, appId)
-                    .eq(GoldStageModel::getJobId, job.getJobId())
-                    .list();
-            job.setStageList(jobStages);
+            if (job.getStageIds() != null && !job.getStageIds().isBlank()) {
+                List<Long> sids = Arrays.stream(job.getStageIds().replaceAll("[\\[\\]\\s]", "").split(","))
+                        .filter(s -> !s.isEmpty())
+                        .map(Long::parseLong)
+                        .collect(Collectors.toList());
+                if (!sids.isEmpty()) {
+                    List<GoldStageModel> jobStages = stageService.lambdaQuery()
+                            .eq(GoldStageModel::getAppId, appId)
+                            .in(GoldStageModel::getStageId, sids)
+                            .list();
+                    job.setStageList(jobStages);
+                }
+            } else {
+                job.setStageList(new ArrayList<>());
+            }
         }
         int totalPages = (int) Math.ceil((double) total / size);
         return new PageResponse<>(items, total, page, size, totalPages);
@@ -322,22 +335,24 @@ public class SystemController {
     /**
      * 获取特定 Stage 的统计信息分布
      */
-    @GetMapping("/apps/{appId}/stages/{stageId}/statistics")
+    @GetMapping({"/apps/{appId}/stages/{stageId}/statistics", "/apps/{appId}/stages/{stageId}/{attemptId}/stats"})
     public List<GoldStageStatisticsModel> getStageStatistics(@PathVariable String appId, 
                                                            @PathVariable Long stageId,
-                                                           @RequestParam(required = false) Long attemptId) {
+                                                           @PathVariable(required = false) Long attemptId,
+                                                           @RequestParam(required = false) Long attemptIdParam) {
         checkAppReady(appId);
-        if (attemptId == null) {
+        Long finalAttemptId = attemptId != null ? attemptId : attemptIdParam;
+        if (finalAttemptId == null) {
             GoldStageModel stage = getStage(appId, stageId, null);
-            if (stage != null) attemptId = stage.getAttemptId();
+            if (stage != null) finalAttemptId = stage.getAttemptId();
         }
-        return stageService.getStageStats(appId, stageId, attemptId);
+        return stageService.getStageStats(appId, stageId, finalAttemptId);
     }
 
     /**
      * 获取特定 Stage 的 Executor 汇总
      */
-    @GetMapping("/apps/{appId}/stages/{stageId}/executors")
+    @GetMapping({"/apps/{appId}/stages/{stageId}/executors", "/apps/{appId}/stages/{stageId}/executor-summary"})
     public List<Map<String, Object>> getStageExecutorSummary(@PathVariable String appId, 
                                               @PathVariable Long stageId,
                                               @RequestParam(required = false) Long attemptId) {
@@ -366,14 +381,36 @@ public class SystemController {
                                                @RequestParam(required = false) Long stageId) {
         checkAppReady(appId);
         var query = stageService.lambdaQuery().eq(GoldStageModel::getAppId, appId);
-        if (jobId != null) query.eq(GoldStageModel::getJobId, jobId);
-        if (stageId != null) query.eq(GoldStageModel::getStageId, stageId);
+        if (jobId != null) {
+            // Find job first to get its stage list
+            GoldJobModel job = jobService.lambdaQuery().eq(GoldJobModel::getAppId, appId).eq(GoldJobModel::getJobId, jobId).one();
+            if (job != null && job.getStageIds() != null) {
+                List<Long> sids = Arrays.stream(job.getStageIds().replaceAll("[\\[\\]\\s]", "").split(","))
+                        .filter(s -> !s.isEmpty()).map(Long::parseLong).collect(Collectors.toList());
+                if (!sids.isEmpty()) query.in(GoldStageModel::getStageId, sids);
+                else return new PageResponse<>(List.of(), 0, page, size, 0);
+            } else {
+                return new PageResponse<>(List.of(), 0, page, size, 0);
+            }
+        }
+        if (stageId != null) {
+            query.eq(GoldStageModel::getStageId, stageId);
+        }
 
         long total = query.count();
 
         var listQuery = stageService.lambdaQuery().eq(GoldStageModel::getAppId, appId);
-        if (jobId != null) listQuery.eq(GoldStageModel::getJobId, jobId);
-        if (stageId != null) listQuery.eq(GoldStageModel::getStageId, stageId);
+        if (jobId != null) {
+            GoldJobModel job = jobService.lambdaQuery().eq(GoldJobModel::getAppId, appId).eq(GoldJobModel::getJobId, jobId).one();
+            if (job != null && job.getStageIds() != null) {
+                List<Long> sids = Arrays.stream(job.getStageIds().replaceAll("[\\[\\]\\s]", "").split(","))
+                        .filter(s -> !s.isEmpty()).map(Long::parseLong).collect(Collectors.toList());
+                if (!sids.isEmpty()) listQuery.in(GoldStageModel::getStageId, sids);
+            }
+        }
+        if (stageId != null) {
+            listQuery.eq(GoldStageModel::getStageId, stageId);
+        }
 
         listQuery.last(buildSqlSuffix(sort, page, size, "stage_id ASC"));
 
@@ -385,7 +422,7 @@ public class SystemController {
     private String buildSqlSuffix(String sort, int page, int size, String defaultSort) {
         String orderClause = defaultSort;
         if (sort != null && !sort.isBlank()) {
-            String[] parts = sort.split(",");
+            String[] parts = sort.split(";")[0].split(","); // Take first sort if multiple
             if (parts.length == 2) {
                 String field = camelToSnake(parts[0]);
                 String direction = parts[1].toUpperCase();

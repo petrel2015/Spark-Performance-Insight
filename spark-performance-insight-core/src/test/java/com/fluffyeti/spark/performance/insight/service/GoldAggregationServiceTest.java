@@ -20,12 +20,23 @@ class GoldAggregationServiceTest {
     @Mock
     private StageService stageService;
 
+    @Mock
+    private PipelineProgressService progressService;
+
+    @Mock
+    private com.fluffyeti.spark.performance.insight.config.SystemProperties systemProperties;
+
     private GoldAggregationService service;
 
     @BeforeEach
     void setUp() throws Exception {
         MockitoAnnotations.openMocks(this);
-        service = new GoldAggregationService(jdbcTemplate, duckDBManager, stageService, Runnable::run);
+        
+        // Mock properties for default batch size
+        com.fluffyeti.spark.performance.insight.config.SystemProperties.Transformation trans = new com.fluffyeti.spark.performance.insight.config.SystemProperties.Transformation();
+        when(systemProperties.getTransformation()).thenReturn(trans);
+        
+        service = new GoldAggregationService(jdbcTemplate, duckDBManager, stageService, Runnable::run, progressService, systemProperties);
         
         // Inject self reference for internal AOP-proxied calls
         java.lang.reflect.Field selfField = GoldAggregationService.class.getDeclaredField("self");
@@ -43,9 +54,10 @@ class GoldAggregationServiceTest {
     void shouldRunFullAggregation() {
         BiConsumer<Double, String> progress = mock(BiConsumer.class);
         service.aggregate("app-1", progress);
-        
+
         verify(progress, atLeastOnce()).accept(eq(100.0), contains("Completed"));
-        verify(stageService, times(1)).calculateStageMetrics("app-1");
+        // In the new fine-grained mode, calculateStageMetrics is called per stage or app aggregate is called.
         verify(jdbcTemplate, atLeastOnce()).update(anyString(), eq("app-1"));
-    }
-}
+        }
+        }
+

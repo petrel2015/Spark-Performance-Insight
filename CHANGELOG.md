@@ -1,3 +1,14 @@
+## 1.3.1 - 2026-03-01
+
+### Fixes
+- **Job Progress Fix**: Refactored Gold layer job aggregation to Java-level iteration, resolving the issue where "Stages Progress" was always 0.
+- **Path Alias Fixes**: Added aliases for Stage statistics and Executor summary endpoints to resolve frontend 404 errors.
+- **Data Consistency**: Fixed Silver layer stage mapping logic and enforced pre-parsing cleanup to prevent duplicate records.
+- **Type Compatibility**: Resolved parameter type mismatch errors in DuckDB JDBC during complex SQL aggregations.
+
+### Testing
+- **E2E Validation**: Added `FullPipelineIntegrationTest` to automate verification of the entire pipeline from raw log ingestion to gold aggregation.
+
 ## 1.3.0 - 2026-03-01
 
 ### Performance

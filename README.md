@@ -181,6 +181,12 @@ Starts both **Spark Performance Insight UI** and **Spark History Server** sharin
     -   **Spark Performance Insight UI:** `http://localhost:18081`
     -   **Spark History Server (Native - For Comparison):** `http://localhost:18080`
 
+## 🗺️ Roadmap
+
+- [ ] **Executor Performance Diagnosis**: Implementing deep analysis of executor throughput vs latency to identify resource utilization bottlenecks. See **[Design Doc](./docs/zh/Executor_Performance_Diagnosis_Design.md)**.
+- [ ] **DAG Visualization**: Adding X6 or similar for Job/Stage relationship graphs.
+- [ ] **Advanced Benchmarking**: Cross-cluster performance comparison logic.
+
 ## Acknowledgments
 
 - Special thanks to [JimLiu/baoyu-skills](https://github.com/JimLiu/baoyu-skills.git) for the **release-skills** that streamlines our release workflow.

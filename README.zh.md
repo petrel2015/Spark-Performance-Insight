@@ -181,6 +181,12 @@ mvn clean install -Pbuild-frontend -Prun
     -   **本项目 UI:** `http://localhost:18081`
     -   **Spark History Server (原生 - 用于观察对比差异):** `http://localhost:18080`
 
+## 🗺️ 路标 (Roadmap)
+
+- [ ] **Executor 性能诊断**: 实现 Executor 吞吐量与延迟的深度分析，识别资源利用瓶颈。参见 **[设计文档](./docs/zh/Executor_Performance_Diagnosis_Design.md)**。
+- [ ] **DAG 可视化**: 引入 X6 或类似框架，实现 Job/Stage 关系图的可视化展示。
+- [ ] **高级基准测试**: 跨集群、跨版本的深度性能对比逻辑。
+
 ## 致谢
 
 - 特别感谢 [JimLiu/baoyu-skills](https://github.com/JimLiu/baoyu-skills.git) 为本项目提供自动化的 **release-skills** 发布流程支持。

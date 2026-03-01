@@ -44,37 +44,75 @@
       </div>
 
       <CollapsibleCard title="Data Distribution on Executors">
-        <div v-if="loading" class="loading-state">
+        <div v-if="loadingBlocks" class="loading-state">
           <div class="spinner-small"></div>
           <span>Loading block distribution...</span>
         </div>
-        <div v-else-if="rddBlocks.length > 0" class="table-wrapper">
-          <table class="styled-table">
-            <thead>
-            <tr>
-              <th>Host</th>
-              <th>Executor ID</th>
-              <th>Storage Level</th>
-              <th>Memory Size</th>
-              <th>Disk Size</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr v-for="block in rddBlocks" :key="block.id">
-              <td>{{ block.host }}</td>
-              <td>{{ block.executorId }}</td>
-              <td>
-                <div class="storage-level-tags">
-                  <span v-for="tag in formatStorageLevel(block.storageLevel)" :key="tag" :class="['storage-tag', tag.toLowerCase()]">
-                    {{ tag }}
-                  </span>
-                </div>
-              </td>
-              <td>{{ formatBytes(block.memorySize) }}</td>
-              <td>{{ formatBytes(block.diskSize) }}</td>
-            </tr>
-            </tbody>
-          </table>
+        <div v-else-if="rddBlocks.length > 0">
+          <div class="table-wrapper">
+            <table class="styled-table">
+              <thead>
+              <tr>
+                <th>Host</th>
+                <th>Executor ID</th>
+                <th>Storage Level</th>
+                <th>Memory Size</th>
+                <th>Disk Size</th>
+              </tr>
+              </thead>
+              <tbody>
+              <tr v-for="block in rddBlocks" :key="block.id">
+                <td>{{ block.host }}</td>
+                <td>{{ block.executorId }}</td>
+                <td>
+                  <div class="storage-level-tags">
+                    <span v-for="tag in formatStorageLevel(block.storageLevel)" :key="tag" :class="['storage-tag', tag.toLowerCase()]">
+                      {{ tag }}
+                    </span>
+                  </div>
+                </td>
+                <td>{{ formatBytes(block.memorySize) }}</td>
+                <td>{{ formatBytes(block.diskSize) }}</td>
+              </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination Controls -->
+          <div class="pagination-container">
+            <div class="page-size-picker">
+              <span>Rows per page:</span>
+              <select v-model="pageSize" @change="handleSizeChange" class="modern-select">
+                <option :value="10">10</option>
+                <option :value="20">20</option>
+                <option :value="50">50</option>
+                <option :value="100">100</option>
+              </select>
+            </div>
+            <div class="pager-actions">
+              <button class="pager-btn" @click="jumpToPage(1)" :disabled="currentPage === 1" title="First Page">
+                <span class="material-symbols-outlined">first_page</span>
+              </button>
+              <button class="pager-btn" @click="changePage(-1)" :disabled="currentPage === 1" title="Previous Page">
+                <span class="material-symbols-outlined">chevron_left</span>
+              </button>
+              <div class="pager-info">
+                <input type="number" 
+                       v-model.number="jumpPageInput" 
+                       @keyup.enter="handleJump"
+                       class="pager-input"
+                       min="1"
+                       :max="totalPages"/>
+                <span class="pager-total">/ {{ totalPages }}</span>
+              </div>
+              <button class="pager-btn" @click="changePage(1)" :disabled="currentPage === totalPages" title="Next Page">
+                <span class="material-symbols-outlined">chevron_right</span>
+              </button>
+              <button class="pager-btn" @click="jumpToPage(totalPages)" :disabled="currentPage === totalPages" title="Last Page">
+                <span class="material-symbols-outlined">last_page</span>
+              </button>
+            </div>
+          </div>
         </div>
         <div v-else class="empty-blocks">
           No block distribution data available for this RDD.
@@ -90,7 +128,7 @@
 
 <script setup>
 import { ref, onMounted, watch } from 'vue';
-import { getAppStorage, getRddStorage } from '../../api';
+import { getRddStorage, getRddMetadata } from '../../api';
 import { formatBytes } from '../../utils/format';
 import { parseStorageLevelObject, formatStorageLevel } from '../../utils/storage';
 import CollapsibleCard from '../common/CollapsibleCard.vue';
@@ -105,31 +143,76 @@ const emit = defineEmits(['back']);
 const rdd = ref(null);
 const rddBlocks = ref([]);
 const loading = ref(true);
+const loadingBlocks = ref(false);
 
-const fetchData = async () => {
+// Pagination state
+const totalPages = ref(0);
+const currentPage = ref(1);
+const pageSize = ref(20);
+const jumpPageInput = ref(1);
+
+const fetchRddMetadata = async () => {
   loading.value = true;
   try {
-    // 1. Fetch all RDDs for this app to find the metadata for our specific RDD
-    // Note: If there's an API for single RDD metadata, it would be better.
-    // For now, filtering from the list res.
-    const appRes = await getAppStorage(props.appId);
-    const rdds = appRes.data || [];
-    rdd.value = rdds.find(r => r.rddId === props.rddId);
-
-    // 2. Fetch block details
-    if (rdd.value) {
-      const res = await getRddStorage(props.appId, props.rddId);
-      rddBlocks.value = res.data || [];
-    }
+    const res = await getRddMetadata(props.appId, props.rddId);
+    rdd.value = res.data;
   } catch (err) {
-    console.error("Failed to fetch RDD detail", err);
+    console.error("Failed to fetch RDD metadata", err);
   } finally {
     loading.value = false;
   }
 };
 
-onMounted(fetchData);
-watch(() => props.rddId, fetchData);
+const fetchBlocksData = async () => {
+  if (!props.rddId) return;
+  loadingBlocks.value = true;
+  try {
+    const res = await getRddStorage(props.appId, props.rddId, currentPage.value, pageSize.value);
+    if (res.data && res.data.items) {
+      rddBlocks.value = res.data.items;
+      totalPages.value = res.data.totalPages;
+    } else {
+      rddBlocks.value = [];
+      totalPages.value = 0;
+    }
+    jumpPageInput.value = currentPage.value;
+  } catch (err) {
+    console.error("Failed to fetch block details", err);
+  } finally {
+    loadingBlocks.value = false;
+  }
+};
+
+const changePage = (delta) => {
+  const newPage = currentPage.value + delta;
+  if (newPage >= 1 && newPage <= totalPages.value) {
+    currentPage.value = newPage;
+    fetchBlocksData();
+  }
+};
+
+const jumpToPage = (page) => {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page;
+    fetchBlocksData();
+  } else {
+    jumpPageInput.value = currentPage.value;
+  }
+};
+
+const handleJump = () => jumpToPage(jumpPageInput.value);
+const handleSizeChange = () => { currentPage.value = 1; fetchBlocksData(); };
+
+onMounted(async () => {
+  await fetchRddMetadata();
+  await fetchBlocksData();
+});
+
+watch(() => props.rddId, async () => {
+  currentPage.value = 1;
+  await fetchRddMetadata();
+  await fetchBlocksData();
+});
 </script>
 
 <style scoped>
@@ -314,5 +397,94 @@ watch(() => props.rddId, fetchData);
   text-align: center;
   color: #999;
   font-style: italic;
+}
+
+/* Pagination Styles */
+.pagination-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #f0f0f0;
+}
+
+.page-size-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #606266;
+}
+
+.modern-select {
+  padding: 4px 8px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  outline: none;
+  background: white;
+  cursor: pointer;
+}
+
+.pager-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pager-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dcdfe6;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #606266;
+  transition: all 0.2s;
+}
+
+.pager-btn:hover:not(:disabled) {
+  border-color: #3498db;
+  color: #3498db;
+  background: #f0f7ff;
+}
+
+.pager-btn:disabled {
+  color: #c0c4cc;
+  cursor: not-allowed;
+  background: #f5f7fa;
+}
+
+.pager-btn .material-symbols-outlined {
+  font-size: 1.2rem;
+}
+
+.pager-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 8px;
+}
+
+.pager-input {
+  width: 40px;
+  height: 28px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.pager-input:focus {
+  border-color: #3498db;
+}
+
+.pager-total {
+  font-size: 0.85rem;
+  color: #909399;
 }
 </style>

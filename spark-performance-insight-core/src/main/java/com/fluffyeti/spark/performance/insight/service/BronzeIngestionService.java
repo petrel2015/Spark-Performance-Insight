@@ -1,10 +1,13 @@
 package com.fluffyeti.spark.performance.insight.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fluffyeti.spark.performance.insight.annotation.MonitorStep;
 import com.fluffyeti.spark.performance.insight.config.SystemProperties;
 import com.github.luben.zstd.ZstdInputStream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.duckdb.DuckDBAppender;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -13,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.function.BiConsumer;
 
@@ -24,6 +28,7 @@ public class BronzeIngestionService {
     private final JdbcTemplate jdbcTemplate;
     private final DuckDBManagerService duckDBManager;
     private final SystemProperties properties;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     @Lazy
@@ -53,19 +58,17 @@ public class BronzeIngestionService {
 
     @Transactional
     public void ingest(String appId, List<File> files, BiConsumer<Double, String> progressReporter) {
-        // Step 3: Sort files by name to ensure sequence (important for V2 logs)
         List<File> sortedFiles = new ArrayList<>(files);
         sortedFiles.sort(Comparator.comparing(File::getName, this::naturalOrderCompare));
 
         long totalBytes = sortedFiles.stream().mapToLong(File::length).sum();
         long processedBytes = 0;
         
-        log.info("Starting Bronze ingestion for app: {}, files: {}, total bytes: {}", appId, sortedFiles.size(), totalBytes);
+        log.info("Starting High-Performance Bronze ingestion for app: {}", appId);
         progressReporter.accept(0.0, "Bronze: Initializing...");
         
         jdbcTemplate.execute("INSTALL json; LOAD json;");
 
-        log.debug("Cleaning up old bronze data for app: {}", appId);
         for (String tableName : EVENT_TABLE_MAP.values()) {
             jdbcTemplate.update("DELETE FROM " + tableName + " WHERE app_id = ?", appId);
         }
@@ -86,154 +89,96 @@ public class BronzeIngestionService {
         log.info("Finished Bronze ingestion for app: {}", appId);
     }
 
-    @MonitorStep(value = "Bronze File Ingestion", type = "FILE")
+    @MonitorStep(value = "Bronze File Ingestion (Appender)", type = "FILE")
     protected void ingestFileStreaming(String appId, File file, BiConsumer<Double, String> fileProgressReporter) {
         String fileName = file.getName();
         boolean isZstd = fileName.endsWith(".zstd");
         
-        log.info("Streaming ingestion for {} (Zstd: {})", fileName, isZstd);
+        log.info("Streaming ingestion via Appender for {} (Zstd: {})", fileName, isZstd);
 
-        int batchSize = properties.getIngestion().getBatchSize();
-        List<String> batch = new ArrayList<>(batchSize);
-
-        try (FileInputStream fis = new FileInputStream(file);
-             InputStream is = isZstd ? new ZstdInputStream(fis) : fis;
-             BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
-            
-            String line;
-            long linesRead = 0;
-            long fileLength = file.length();
-            long lastReportedLines = 0;
-            
-            while ((line = reader.readLine()) != null) {
-                if (line.trim().isEmpty()) continue;
-                batch.add(line);
-                linesRead++;
-
-                // Report progress every 5000 lines or when batch is full
-                if (batch.size() >= batchSize || (linesRead - lastReportedLines >= 5000)) {
-                    if (batch.size() >= batchSize) {
-                        processBatch(appId, fileName, batch);
-                        batch.clear();
-                    }
-                    
-                    // Use raw file position for percentage calculation
-                    // This is monotonic and accurate relative to the disk file
-                    long diskPos = fis.getChannel().position();
-                    double filePercent = fileLength > 0 ? 
-                        Math.min(99.9, (double) diskPos / fileLength * 100.0) : 0.0;
-                    
-                    fileProgressReporter.accept(filePercent, String.format("Bronze: Processing %s (%d lines)", fileName, linesRead));
-                    lastReportedLines = linesRead;
+        duckDBManager.executeNative(conn -> {
+            Map<String, DuckDBAppender> appenderMap = new HashMap<>();
+            try {
+                for (String tableName : EVENT_TABLE_MAP.values()) {
+                    appenderMap.put(tableName, conn.createAppender("main", tableName));
                 }
-            }
+                DuckDBAppender unknownAppender = conn.createAppender("main", "bronze_event_unknown");
 
-            if (!batch.isEmpty()) {
-                processBatch(appId, fileName, batch);
+                try (FileInputStream fis = new FileInputStream(file);
+                     InputStream is = isZstd ? new ZstdInputStream(fis) : fis;
+                     BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+                    
+                    String line;
+                    long linesRead = 0;
+                    long fileLength = file.length();
+                    
+                    while ((line = reader.readLine()) != null) {
+                        if (line.trim().isEmpty()) continue;
+                        
+                        try {
+                            JsonNode node = objectMapper.readTree(line);
+                            String eventType = node.get("Event") != null ? node.get("Event").asText() : null;
+                            String tableName = EVENT_TABLE_MAP.get(eventType);
+                            
+                            if (tableName != null) {
+                                appendRow(appenderMap.get(tableName), appId, fileName, line, null);
+                            } else {
+                                appendRow(unknownAppender, appId, fileName, line, eventType);
+                            }
+                        } catch (Exception e) {
+                            appendRow(unknownAppender, appId, fileName, line, "INVALID_JSON");
+                        }
+                        
+                        linesRead++;
+                        if (linesRead % 10000 == 0) {
+                            long diskPos = fis.getChannel().position();
+                            double filePercent = fileLength > 0 ? Math.min(99.9, (double) diskPos / fileLength * 100.0) : 0.0;
+                            fileProgressReporter.accept(filePercent, String.format("Bronze: Processing %s (%d lines)", fileName, linesRead));
+                        }
+                    }
+                }
+                
+                fileProgressReporter.accept(100.0, String.format("Bronze: Finished %s", fileName));
+                return null;
+            } catch (Exception e) {
+                log.error("Fatal appender error for file {}: {}", fileName, e.getMessage());
+                throw new RuntimeException("Appender ingestion failed", e);
+            } finally {
+                appenderMap.values().forEach(a -> { try { a.close(); } catch (Exception ignored) {} });
             }
-            
-            fileProgressReporter.accept(100.0, String.format("Bronze: Finished %s (%d lines)", fileName, linesRead));
+        });
+    }
 
-        } catch (IOException e) {
-            log.error("Failed to read log file: " + file.getAbsolutePath(), e);
-            throw new RuntimeException("Ingestion failed for " + fileName, e);
+    private void appendRow(DuckDBAppender appender, String appId, String fileName, String json, String eventName) throws java.sql.SQLException {
+        appender.beginRow();
+        // 1. id (UUID)
+        appender.append(UUID.randomUUID().toString());
+        // 2. app_id (VARCHAR)
+        appender.append(appId);
+        // 3. file_name (VARCHAR)
+        appender.append(fileName);
+        // 4. event_name (VARCHAR) - ONLY for bronze_event_unknown
+        if (eventName != null) {
+            appender.append(eventName);
         }
-    }
-
-    private void processBatch(String appId, String fileName, List<String> lines) {
-        jdbcTemplate.execute("CREATE TEMPORARY TABLE IF NOT EXISTS temp_raw_lines (line VARCHAR)");
-        jdbcTemplate.execute("DELETE FROM temp_raw_lines");
-
-        // Batch insert lines into temporary table
-        // For performance, we could use DuckDB Appender, but JdbcTemplate batchUpdate is easier for now
-        jdbcTemplate.batchUpdate("INSERT INTO temp_raw_lines (line) VALUES (?)", lines, lines.size(), (ps, argument) -> {
-            ps.setString(1, argument);
-        });
-
-        distributeFromTempTable(appId, fileName);
-        jdbcTemplate.execute("DROP TABLE temp_raw_lines");
-    }
-
-    private void distributeFromTempTable(String appId, String fileName) {
-        duckDBManager.runWithRetry(() -> {
-            jdbcTemplate.execute("CREATE TEMPORARY TABLE IF NOT EXISTS temp_valid_events (line VARCHAR, event_type VARCHAR)");
-            jdbcTemplate.execute("DELETE FROM temp_valid_events");
-
-            String extractSql = """
-                INSERT INTO temp_valid_events
-                SELECT line, event_type
-                FROM (
-                    SELECT line, 
-                           CASE WHEN json_valid(line) THEN json_extract_string(line, '$.Event') ELSE NULL END as event_type
-                    FROM temp_raw_lines
-                ) t
-                WHERE event_type IS NOT NULL
-                """;
-            jdbcTemplate.update(extractSql);
-
-            for (Map.Entry<String, String> entry : EVENT_TABLE_MAP.entrySet()) {
-                String eventName = entry.getKey();
-                String tableName = entry.getValue();
-                
-                String insertSql = """
-                    INSERT INTO %s (app_id, file_name, raw_json)
-                    SELECT ?, ?, line
-                    FROM temp_valid_events
-                    WHERE event_type = ?
-                    """.formatted(tableName);
-                
-                jdbcTemplate.update(insertSql, appId, fileName, eventName);
-            }
-
-            StringBuilder knownEventsPart = new StringBuilder();
-            for (String event : EVENT_TABLE_MAP.keySet()) {
-                if (knownEventsPart.length() > 0) knownEventsPart.append(", ");
-                knownEventsPart.append("'").append(event).append("'");
-            }
-
-            String unknownSql = """
-                INSERT INTO bronze_event_unknown (app_id, file_name, event_name, raw_json)
-                SELECT ?, ?, event_type, line
-                FROM temp_valid_events
-                WHERE event_type NOT IN (%s)
-                """.formatted(knownEventsPart.toString());
-            
-            jdbcTemplate.update(unknownSql, appId, fileName);
-            jdbcTemplate.execute("DROP TABLE temp_valid_events");
-        });
+        // 5. raw_json (JSON)
+        appender.append(json);
+        // 6. ingested_at (TIMESTAMP) - Use formatted string
+        appender.append(LocalDateTime.now().format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+        appender.endRow();
     }
 
     private int naturalOrderCompare(String s1, String s2) {
         if (s1 == null || s2 == null) return 0;
-        
         int i = 0, j = 0;
         while (i < s1.length() && j < s2.length()) {
-            char c1 = s1.charAt(i);
-            char c2 = s2.charAt(j);
-            
+            char c1 = s1.charAt(i); char c2 = s2.charAt(j);
             if (Character.isDigit(c1) && Character.isDigit(c2)) {
-                // Both are digits, extract the full number part
-                StringBuilder num1 = new StringBuilder();
-                while (i < s1.length() && Character.isDigit(s1.charAt(i))) {
-                    num1.append(s1.charAt(i++));
-                }
-                StringBuilder num2 = new StringBuilder();
-                while (j < s2.length() && Character.isDigit(s2.charAt(j))) {
-                    num2.append(s2.charAt(j++));
-                }
-                
-                // Compare numeric values using BigInteger if they are very long, 
-                // or just compare as strings with padding if same length
-                if (num1.length() != num2.length()) {
-                    return num1.length() - num2.length();
-                }
-                int res = num1.toString().compareTo(num2.toString());
-                if (res != 0) return res;
-            } else {
-                if (c1 != c2) return c1 - c2;
-                i++;
-                j++;
-            }
+                StringBuilder num1 = new StringBuilder(); while (i < s1.length() && Character.isDigit(s1.charAt(i))) num1.append(s1.charAt(i++));
+                StringBuilder num2 = new StringBuilder(); while (j < s2.length() && Character.isDigit(s2.charAt(j))) num2.append(s2.charAt(j++));
+                if (num1.length() != num2.length()) return num1.length() - num2.length();
+                int res = num1.toString().compareTo(num2.toString()); if (res != 0) return res;
+            } else { if (c1 != c2) return c1 - c2; i++; j++; }
         }
         return s1.length() - s2.length();
     }

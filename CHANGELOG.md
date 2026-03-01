@@ -1,3 +1,19 @@
+## 1.4.0 - 2026-03-01
+
+### Features
+- **Executor Analysis**: Implemented a consolidated performance and lifecycle correlation dashboard with on-demand loading.
+- **Diagnostic API**: Added executor diagnosis and optimized time-series data with granular on-demand endpoints.
+
+### Fixes
+- **UI Improvements**: Rounded stage diagnosis scores and synchronized tests with model changes.
+- **Data Aggregation**: Corrected field mappings, aggregation order, and dynamic scoring for stage/job statistics.
+
+### Refactor
+- **Storage Consolidation**: Unified timestamp handling to BIGINT milliseconds and consolidated database schema files.
+
+### Maintenance
+- **Cleanup**: Removed obsolete components, scripts, and temporary workspace files.
+
 ## 1.3.1 - 2026-03-01
 
 ### Fixes

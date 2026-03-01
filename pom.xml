@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.fluffyeti.spark.performance.insight</groupId>
     <artifactId>spark-performance-insight-parent</artifactId>
-    <version>1.3.1</version>
+    <version>1.4.0</version>
     <packaging>pom</packaging>
     <name>spark-performance-insight-parent</name>
 

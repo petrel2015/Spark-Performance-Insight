@@ -38,6 +38,9 @@ export const getAppJobs = (appId: string, page = 1, size = 20, sort = '', jobId 
 };
 export const getJob = (appId: string, jobId: number) => request.get(`/apps/${appId}/jobs/${jobId}`);
 export const getAppExecutors = (appId: string) => request.get(`/apps/${appId}/executors`);
+export const getExecutorDiagnosis = (appId: string) => request.get(`/apps/${appId}/executors/diagnosis`);
+export const getExecutorTimeSeries = (appId: string) => request.get(`/apps/${appId}/executors/time-series`);
+export const getExecutorMetricTimeSeries = (appId: string, metricKey: string) => request.get(`/apps/${appId}/executors/time-series/${metricKey}`);
 export const getAppSqlExecutions = (appId: string, page = 1, size = 20, sort = '', jobId = null) => {
     let url = `/apps/${appId}/sql?page=${page}&size=${size}&sort=${sort}`;
     if (jobId !== null && jobId !== '') url += `&jobId=${jobId}`;

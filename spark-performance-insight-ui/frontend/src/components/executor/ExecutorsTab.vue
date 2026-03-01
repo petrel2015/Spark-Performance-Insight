@@ -5,6 +5,9 @@
       <p>Loading executors data...</p>
     </div>
     <template v-else>
+      <!-- 0. Diagnosis Card -->
+      <ExecutorDiagnosisCard v-if="diagnosisData" :anomalies="diagnosisData.anomalies" />
+
       <!-- 1. Column Selector Card -->
       <div class="metric-selector-card">
       <div class="selector-header">
@@ -23,22 +26,8 @@
       </div>
     </div>
 
-    <!-- 2.5. Executor Timeline Card -->
-    <CollapsibleCard title="Executor Lifecycle Timeline" :initial-collapsed="false">
-      <template #actions>
-        <button class="lock-btn"
-                v-if="timelineRef"
-                @click="timelineRef.toggleZoomLock()"
-                :title="timelineRef.isZoomLocked ? 'Unlock Zoom' : 'Lock Zoom'">
-          <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle; margin-right: 4px;">
-            {{ timelineRef.isZoomLocked ? 'lock' : 'lock_open' }}
-          </span>
-          {{ timelineRef.isZoomLocked ? 'Locked' : 'Unlocked' }}
-        </button>
-      </template>
-      <ExecutorTimeline ref="timelineRef" :executors="executors"/>
-    </CollapsibleCard>
-
+    <!-- 2.5. Executor Dashboard (Lifecycle & Performance) -->
+    <ExecutorPerformanceDashboardCard :executors="executors" :performanceData="timeSeriesData" />
     <!-- 3. Executors List Card -->
     <CollapsibleCard title="Executors List">
       <!-- Active Sorts Display (Inside the card now) -->
@@ -146,9 +135,12 @@
 </template>
 
 <script setup>
-import {ref, computed} from 'vue';
+import {ref, computed, onMounted} from 'vue';
+import {useRoute} from 'vue-router';
 import CollapsibleCard from '../common/CollapsibleCard.vue';
-import ExecutorTimeline from './ExecutorTimeline.vue';
+import ExecutorDiagnosisCard from './ExecutorDiagnosisCard.vue';
+import ExecutorPerformanceDashboardCard from './ExecutorPerformanceDashboardCard.vue';
+import {getExecutorDiagnosis, getExecutorTimeSeries} from '../../api';
 import {formatBytes, formatTime, formatNum, formatDateTime} from '../../utils/format';
 
 const props = defineProps({
@@ -156,7 +148,33 @@ const props = defineProps({
   isLoading: {type: Boolean, default: false}
 });
 
-const timelineRef = ref(null);
+const route = useRoute();
+const diagnosisData = ref(null);
+const timeSeriesData = ref([]);
+const isDiagLoading = ref(false);
+
+const fetchExtraData = async () => {
+  const appId = route.params.id;
+  if (!appId) return;
+
+  isDiagLoading.value = true;
+  try {
+    const [diagRes, tsRes] = await Promise.all([
+      getExecutorDiagnosis(appId),
+      getExecutorTimeSeries(appId)
+    ]);
+    diagnosisData.value = diagRes.data;
+    timeSeriesData.value = tsRes.data;
+  } catch (err) {
+    console.error('Failed to fetch executor extra data', err);
+  } finally {
+    isDiagLoading.value = false;
+  }
+};
+
+onMounted(() => {
+  fetchExtraData();
+});
 const sorts = ref([{field: 'executorId', dir: 'asc'}]);
 const selectedFields = ref([
   'executorId', 'host', 'status', 'addTime', 'totalCores', 'storageMemory', 'totalTasks', 'completedTasks', 'failedTasks', 'inputBytes'

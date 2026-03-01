@@ -13,9 +13,8 @@ public class StatusBroadcaster {
 
     private final SimpMessagingTemplate messagingTemplate;
 
-    public void broadcastStatus(String appId, String status, Double progressValue, String progressText, String appName, java.time.LocalDateTime startTime) {
-        Long startTimeMillis = (startTime != null) ? startTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() : null;
-        StatusMessage msg = new StatusMessage(appId, status, progressValue, progressText, appName, startTimeMillis);
+    public void broadcastStatus(String appId, String status, Double progressValue, String progressText, String appName, Long startTime) {
+        StatusMessage msg = new StatusMessage(appId, status, progressValue, progressText, appName, startTime);
         messagingTemplate.convertAndSend("/topic/status", msg);
     }
 

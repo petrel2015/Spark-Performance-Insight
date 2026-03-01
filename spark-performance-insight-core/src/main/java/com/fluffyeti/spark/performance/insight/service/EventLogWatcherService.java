@@ -126,8 +126,8 @@ public class EventLogWatcherService {
         List<File> allFiles = new ArrayList<>();
         collectFiles(new File(properties.getEventLogPath()), allFiles);
         List<File> appFiles = allFiles.stream().filter(f -> Objects.equals(inferAppId(f.getName()), appId)).sorted(Comparator.comparing(File::getName)).collect(Collectors.toList());
-        
-        app.setParsingStartTime(LocalDateTime.now());
+
+        app.setParsingStartTime(System.currentTimeMillis());
         applicationService.updateById(app);
 
         pipelineExecutor.submit(() -> {
@@ -137,9 +137,9 @@ public class EventLogWatcherService {
             else if ("INCREMENTAL_RESUME".equals(type)) executeFullPipelineSync(appId, appFiles, onComplete);
             else executeFullPipelineSync(appId, appFiles, onComplete);
         });
-    }
+        }
 
-    public boolean executeFullPipelineSync(String appId, List<File> files) {
+        public boolean executeFullPipelineSync(String appId, List<File> files) {
         CountDownLatch latch = new CountDownLatch(1);
         final boolean[] success = {false};
         executeFullPipelineSync(appId, files, (res) -> {
@@ -148,14 +148,14 @@ public class EventLogWatcherService {
         });
         try { latch.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
         return success[0];
-    }
+        }
 
-    private void executeFullPipelineSync(String appId, List<File> files, java.util.function.Consumer<Boolean> onComplete) {
+        private void executeFullPipelineSync(String appId, List<File> files, java.util.function.Consumer<Boolean> onComplete) {
         try {
             logService.logEvent(appId, "IMPORT", "Bronze Start", "Starting pipeline");
             GoldApplicationModel app = applicationService.getById(appId);
-            LocalDateTime start = LocalDateTime.now();
-            
+            long start = System.currentTimeMillis();
+
             bronzeIngestionService.ingest(appId, files, (p, m) -> updateStatus(appId, "INGESTING_BRONZE", p, m, start));
             logService.logEvent(appId, "IMPORT", "Bronze Finished", "Duration: " + getDurationSeconds(appId, "Bronze Start") + "s");
 
@@ -171,51 +171,52 @@ public class EventLogWatcherService {
             handleFailure(appId, e);
             onComplete.accept(false);
         }
-    }
+        }
 
-    private void executeBronzeToGold(String appId, List<File> files, java.util.function.Consumer<Boolean> onComplete) {
+        private void executeBronzeToGold(String appId, List<File> files, java.util.function.Consumer<Boolean> onComplete) {
         try {
-            LocalDateTime start = LocalDateTime.now();
+            long start = System.currentTimeMillis();
             silverTransformationService.transform(appId, (p, m) -> updateStatus(appId, "TRANSFORMING_SILVER", p, m, start));
             goldAggregationService.aggregate(appId, (p, m) -> updateStatus(appId, "AGGREGATING_GOLD", p, m, start));
             finalizeSuccess(appId, files, applicationService.getById(appId));
             onComplete.accept(true);
         } catch (Exception e) { handleFailure(appId, e); onComplete.accept(false); }
-    }
+        }
 
-    private void executeSilverToGold(String appId, List<File> files, java.util.function.Consumer<Boolean> onComplete) {
+        private void executeSilverToGold(String appId, List<File> files, java.util.function.Consumer<Boolean> onComplete) {
         try {
-            LocalDateTime start = LocalDateTime.now();
+            long start = System.currentTimeMillis();
             goldAggregationService.aggregate(appId, (p, m) -> updateStatus(appId, "AGGREGATING_GOLD", p, m, start));
             finalizeSuccess(appId, files, applicationService.getById(appId));
             onComplete.accept(true);
         } catch (Exception e) { handleFailure(appId, e); onComplete.accept(false); }
-    }
+        }
 
-    private void finalizeSuccess(String appId, List<File> files, GoldApplicationModel app) throws Exception {
+        private void finalizeSuccess(String appId, List<File> files, GoldApplicationModel app) throws Exception {
         if (app == null) return;
         app.setParsingStatus("SUCCESS");
         app.setParsingProgressValue(100.0);
         app.setParsingProgress("Pipeline completed successfully.");
         app.setSourceFileMetadata(objectMapper.writeValueAsString(generateMetadata(files)));
-        app.setParsingEndTime(LocalDateTime.now());
+        app.setParsingEndTime(System.currentTimeMillis());
         applicationService.updateById(app);
         broadcaster.broadcastStatus(appId, "SUCCESS", 100.0, "Completed", app.getAppName(), app.getParsingStartTime());
         logService.logEvent(appId, "SUCCESS", "Pipeline Finished", "App data fully processed.");
-    }
+        }
 
-    private void handleFailure(String appId, Exception e) {
+        private void handleFailure(String appId, Exception e) {
         log.error("Pipeline failed: " + appId, e);
-        applicationService.lambdaUpdate().eq(GoldApplicationModel::getAppId, appId).set(GoldApplicationModel::getParsingEndTime, LocalDateTime.now()).update();
+        applicationService.lambdaUpdate().eq(GoldApplicationModel::getAppId, appId).set(GoldApplicationModel::getParsingEndTime, System.currentTimeMillis()).update();
         updateStatus(appId, "FAILED", 0.0, "Error: " + e.getMessage(), null);
         logService.logEvent(appId, "FAILED", "Pipeline Error", e.getMessage());
-    }
+        }
 
-    private void updateStatus(String appId, String status, double progress, String msg, LocalDateTime start) {
+        private void updateStatus(String appId, String status, double progress, String msg, Long start) {
         applicationService.updateStatusAtomic(appId, status, progress, String.format("%.0f%% %s", progress, msg), start);
         GoldApplicationModel app = applicationService.getById(appId);
         broadcaster.broadcastStatus(appId, status, progress, msg, app != null ? app.getAppName() : null, (start != null ? start : (app != null ? app.getParsingStartTime() : null)));
-    }
+        }
+
 
     private String getDurationSeconds(String appId, String eventName) {
         try {

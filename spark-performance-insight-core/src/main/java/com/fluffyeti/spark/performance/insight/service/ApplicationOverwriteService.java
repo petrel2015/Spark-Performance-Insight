@@ -98,7 +98,7 @@ public class ApplicationOverwriteService {
         log.info("Deleting App: {}", appId);
         GoldApplicationModel app = applicationMapper.selectById(appId);
         String appName = app != null ? app.getAppName() : null;
-        java.time.LocalDateTime startTime = app != null ? app.getParsingStartTime() : null;
+        Long startTime = app != null ? app.getParsingStartTime() : null;
         
         clearAppData(appId);
         applicationMapper.deleteById(appId);

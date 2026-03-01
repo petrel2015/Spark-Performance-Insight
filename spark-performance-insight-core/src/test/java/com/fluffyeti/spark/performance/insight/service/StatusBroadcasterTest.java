@@ -28,7 +28,7 @@ class StatusBroadcasterTest {
 
     @Test
     void shouldBroadcastStatus() {
-        LocalDateTime now = LocalDateTime.now();
+        long now = System.currentTimeMillis();
         broadcaster.broadcastStatus("app-1", "RUNNING", 50.0, "Testing", "App1", now);
         
         verify(messagingTemplate).convertAndSend(eq("/topic/status"), any(StatusBroadcaster.StatusMessage.class));

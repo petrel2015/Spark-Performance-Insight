@@ -31,7 +31,7 @@
             <span class="material-symbols-outlined help-icon">help</span>
           </div>
           <div class="dim-status-group">
-            <span class="dim-score">{{ item.score }}</span>
+            <span class="dim-score">{{ Math.round(item.score) }}</span>
             <span class="status-dot" :style="{ backgroundColor: getBarColor(item.score) }"></span>
           </div>
           <!-- Tooltip moved to be a direct child of the relative-positioned container -->

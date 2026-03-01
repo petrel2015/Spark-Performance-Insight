@@ -36,7 +36,7 @@ class GoldAggregationServiceTest {
         com.fluffyeti.spark.performance.insight.config.SystemProperties.Transformation trans = new com.fluffyeti.spark.performance.insight.config.SystemProperties.Transformation();
         when(systemProperties.getTransformation()).thenReturn(trans);
         
-        service = new GoldAggregationService(jdbcTemplate, duckDBManager, stageService, Runnable::run, progressService, systemProperties);
+        service = new GoldAggregationService(jdbcTemplate, duckDBManager, stageService, progressService, systemProperties);
         
         // Inject self reference for internal AOP-proxied calls
         java.lang.reflect.Field selfField = GoldAggregationService.class.getDeclaredField("self");

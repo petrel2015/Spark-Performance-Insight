@@ -39,7 +39,13 @@ class ParsingQueueServiceTest {
 
         service.submit(appId, "FULL");
 
-        verify(jdbcTemplate, atLeastOnce()).update(contains("INSERT INTO sys_parsing_queue"), any(), eq(appId), eq("FULL"), eq("QUEUED"), any());
+        // Verify DELETE duplicates
+        verify(jdbcTemplate).update(contains("DELETE FROM sys_parsing_queue"), eq(appId));
+        // Verify UPDATE gold_app
+        verify(jdbcTemplate).update(contains("UPDATE gold_applications"), eq(appId));
+        // Verify INSERT new job. Params: id, appId, type, status, submit_time
+        verify(jdbcTemplate).update(contains("INSERT INTO sys_parsing_queue"), any(), eq(appId), eq("FULL"), anyLong());
+        
         verify(broadcaster).broadcastStatus(eq(appId), eq("QUEUED"), anyDouble(), anyString(), eq("Test App"), any());
     }
 
@@ -62,8 +68,8 @@ class ParsingQueueServiceTest {
         // Verify the DuckDB workaround (DELETE then INSERT with RUNNING status)
         verify(jdbcTemplate).update(eq("DELETE FROM sys_parsing_queue WHERE id = ?"), eq("uuid-1"));
         
-        // Match only the status 'RUNNING' in the INSERT query to be less brittle with argument order
-        verify(jdbcTemplate).update(contains("'RUNNING'"), eq("uuid-1"), eq("app-1"), eq("FULL"), eq("2026-01-01 00:00:00"));
+        // Match only the status 'RUNNING' in the INSERT query. Now has start_time param at the end.
+        verify(jdbcTemplate).update(contains("'RUNNING'"), eq("uuid-1"), eq("app-1"), eq("FULL"), eq("2026-01-01 00:00:00"), anyLong());
         
         verify(eventLogWatcherService).executePipeline(eq("app-1"), eq("FULL"), any());
     }

@@ -46,7 +46,7 @@ public class ApplicationService extends ServiceImpl<ApplicationMapper, GoldAppli
         }
     }
 
-    public void updateStatusAtomic(String appId, String status, Double progressValue, String progressText, java.time.LocalDateTime startTime) {
+    public void updateStatusAtomic(String appId, String status, Double progressValue, String progressText, Long startTime) {
         long now = System.currentTimeMillis();
         boolean isTerminal = "SUCCESS".equals(status) || "FAILED".equals(status);
         
@@ -83,7 +83,7 @@ public class ApplicationService extends ServiceImpl<ApplicationMapper, GoldAppli
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    protected void doUpdateStatus(String appId, String status, Double progressValue, String progressText, java.time.LocalDateTime startTime) {
+    protected void doUpdateStatus(String appId, String status, Double progressValue, String progressText, Long startTime) {
         var updateChain = lambdaUpdate()
                 .eq(GoldApplicationModel::getAppId, appId)
                 .set(GoldApplicationModel::getParsingStatus, status)

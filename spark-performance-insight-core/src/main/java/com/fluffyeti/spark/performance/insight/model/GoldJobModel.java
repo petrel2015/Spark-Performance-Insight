@@ -14,25 +14,25 @@ public class GoldJobModel {
     @TableId
     private String id;
     private String appId;
-    private Integer jobId;
+    private Long jobId;
     private LocalDateTime submissionTime;
     private LocalDateTime completionTime;
     private Long duration;
     private String status;
-    private Integer numStages;
-    private Integer numTasks;
+    private Long numStages;
+    private Long numTasks;
     private String stageIds;
     private String description;
     private String jobGroup;
-    private Integer numCompletedStages;
-    private Integer numFailedStages;
-    private Integer numSkippedStages;
-    private Integer numCompletedTasks;
-    private Integer numFailedTasks;
-    private Integer numActiveTasks;
-    private Integer numSkippedTasks;
+    private Long numCompletedStages;
+    private Long numFailedStages;
+    private Long numSkippedStages;
+    private Long numCompletedTasks;
+    private Long numFailedTasks;
+    private Long numActiveTasks;
+    private Long numSkippedTasks;
     private Long sqlExecutionId;
-    private Double performanceScore; // Weighted score of stages based on duration
+    private Double performanceScore;
 
     @TableField(exist = false)
     private List<GoldStageModel> stageList;

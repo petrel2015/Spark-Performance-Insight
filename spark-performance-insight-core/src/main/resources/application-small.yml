@@ -1,4 +1,7 @@
 insight:
+  transformation:
+    threads: 4
+    stage-batch-size: 50
   duckdb:
     threads: 2
     memory-limit: 2GB

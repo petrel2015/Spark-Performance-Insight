@@ -35,7 +35,7 @@ public class ApplicationInsight {
         
         private Type type;
         private String severity; // HIGH, MEDIUM, LOW
-        private Integer stageId;
+        private Long stageId;
         private String stageName;
         private String description;
         private Map<String, Object> metrics; // Raw numbers for LLM reasoning
@@ -44,7 +44,7 @@ public class ApplicationInsight {
     @Data
     @Builder
     public static class JobScore {
-        private Integer jobId;
+        private Long jobId;
         private String description;
         private Double score;
         private Long durationMs;

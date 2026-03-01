@@ -8,13 +8,13 @@ import lombok.Data;
 @TableName("gold_storage_rdds")
 public class GoldStorageRddModel {
     @TableId
-    private String id; // appId:rddId
+    private String id;
     private String appId;
-    private Integer rddId;
+    private Long rddId;
     private String name;
     private String storageLevel;
-    private Integer numPartitions;
-    private Integer numCached_partitions;
+    private Long numPartitions;
+    private Long numCachedPartitions;
     private Long memorySize;
     private Long diskSize;
 }

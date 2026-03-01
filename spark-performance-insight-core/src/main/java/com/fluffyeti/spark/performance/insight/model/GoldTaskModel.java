@@ -10,10 +10,10 @@ public class GoldTaskModel {
     @TableId
     private String id;
     private String appId;
-    private Integer stageId;
-    private Integer attemptId;
+    private Long stageId;
+    private Long attemptId;
     private Long taskId;
-    private Integer taskIndex;
+    private Long taskIndex;
     private String executorId;
     private String host;
     private Long launchTime;
@@ -27,11 +27,11 @@ public class GoldTaskModel {
     private Long resultSerializationTime;
     private Long executorCpuTime;
     private Long peakExecutionMemory;
-    private Long inputBytes = 0L;
-    private Long inputRecords = 0L;
-    private Long outputBytes = 0L;
-    private Long outputRecords = 0L;
-    private Long memoryBytesSpilled = 0L;
+    private Long inputBytes;
+    private Long inputRecords;
+    private Long outputBytes;
+    private Long outputRecords;
+    private Long memoryBytesSpilled;
     private Long diskBytesSpilled;
     private Long shuffleReadBytes;
     private Long shuffleReadRecords;

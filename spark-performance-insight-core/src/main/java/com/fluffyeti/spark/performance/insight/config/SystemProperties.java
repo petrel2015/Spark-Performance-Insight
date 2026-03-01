@@ -41,9 +41,14 @@ public class SystemProperties {
     @Data
     public static class Transformation {
         /**
-         * Number of threads for silver and gold processing.
+         * Number of threads for gold aggregation. Silver is now single-threaded batch mode.
          */
         private int threads = 1;
+
+        /**
+         * Number of stages to process in a single SQL batch during Silver transformation.
+         */
+        private int stageBatchSize = 500;
     }
 
     @Data

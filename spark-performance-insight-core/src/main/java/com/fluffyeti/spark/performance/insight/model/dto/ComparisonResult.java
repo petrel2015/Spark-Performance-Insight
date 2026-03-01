@@ -44,8 +44,8 @@ public class ComparisonResult {
         private String appId;
         private Long duration;
         private Long startTime;
-        private Integer stageCount;
-        private Integer taskCount;
+        private Long stageCount;
+        private Long taskCount;
     }
 
     @Data
@@ -92,7 +92,7 @@ public class ComparisonResult {
     @AllArgsConstructor
     @NoArgsConstructor
     public static class StageRefDiff {
-        private Integer stageId;
+        private Long stageId;
         private String name;
         private Long sourceDuration;
         private Long targetDuration;

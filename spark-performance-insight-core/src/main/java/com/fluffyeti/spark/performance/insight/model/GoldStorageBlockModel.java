@@ -8,9 +8,9 @@ import lombok.Data;
 @TableName("gold_storage_blocks")
 public class GoldStorageBlockModel {
     @TableId
-    private String id; // appId:rddId:blockName
+    private String id;
     private String appId;
-    private Integer rddId;
+    private Long rddId;
     private String blockName;
     private String storageLevel;
     private Long memorySize;

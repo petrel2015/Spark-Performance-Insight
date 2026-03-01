@@ -26,7 +26,7 @@ public class GoldSqlExecutionModel {
     private Double performanceScore;
 
     @TableField(exist = false)
-    private List<Integer> jobIds;
+    private List<Long> jobIds;
 
     @TableField(exist = false)
     private List<GoldJobModel> jobList;

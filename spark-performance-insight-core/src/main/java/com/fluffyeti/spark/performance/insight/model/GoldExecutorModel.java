@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
+import java.time.LocalDateTime;
+
 @Data
 @TableName("gold_executors")
 public class GoldExecutorModel {
@@ -12,14 +14,12 @@ public class GoldExecutorModel {
     private String appId;
     private String executorId;
     private String host;
-    private java.time.LocalDateTime addTime;
-    private java.time.LocalDateTime removeTime;
-    private Integer totalCores;
+    private LocalDateTime addTime;
+    private LocalDateTime removeTime;
+    private Long totalCores;
     private Long memory;
     private Boolean isActive;
-
-    // 扩展指标
-    private Integer rddBlocks;
+    private Long rddBlocks;
     private Long storageMemory;
     private Long onHeapStorageMemory;
     private Long offHeapStorageMemory;
@@ -33,19 +33,17 @@ public class GoldExecutorModel {
     private Long peakPoolMapped;
     private Long diskUsed;
     private String resources;
-    private Integer resourceProfileId;
-    private Integer activeTasks;
-    private Integer failedTasks;
-    private Integer completedTasks;
-    private Integer totalTasks;
+    private Long resourceProfileId;
+    private Long activeTasks;
+    private Long failedTasks;
+    private Long completedTasks;
+    private Long totalTasks;
     private Long taskTimeMs;
     private Long gcTimeMs;
     private Long inputBytes;
     private Long shuffleReadBytes;
     private Long shuffleWriteBytes;
     private String execLossReason;
-    
-    // Gold layer aggregations
     private Double avgTaskDurationMs;
     private Double cpuUtilizationRatio;
     private Long maxPeakMemory;

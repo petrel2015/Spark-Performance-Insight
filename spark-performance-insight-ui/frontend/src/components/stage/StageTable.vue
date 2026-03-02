@@ -294,11 +294,11 @@ const baseColumns = [
 
 const metricColumnsMap = {
   'duration': {field: 'duration', label: 'Duration', width: '100px', sortable: true, type: 'time'},
-  'gc_time': {field: 'gcTimeSum', label: 'GC Time', width: '100px', sortable: true, type: 'time'},
+  'gc_time': {field: 'gcTimeSum', label: 'GC Time (ms)', width: '120px', sortable: true, type: 'time'},
   'scheduler_delay': {
     field: 'schedulerDelaySum',
-    label: 'Scheduler Delay',
-    width: '130px',
+    label: 'Scheduler Delay (ms)',
+    width: '150px',
     sortable: true,
     type: 'time'
   },
@@ -323,22 +323,22 @@ const metricColumnsMap = {
   'shuffle_write': {field: 'shuffleWriteBytes', label: 'Shuffle Write', width: '140px', sortable: true, type: 'bytes'},
   'task_deserialization_time': {
     field: 'executorDeserializeTimeSum',
-    label: 'Deserialization Time',
-    width: '150px',
+    label: 'Deserialization Time (ms)',
+    width: '180px',
     sortable: true,
     type: 'time'
   },
   'result_serialization_time': {
     field: 'resultSerializationTimeSum',
-    label: 'Serialization Time',
-    width: '150px',
+    label: 'Serialization Time (ms)',
+    width: '180px',
     sortable: true,
     type: 'time'
   },
   'getting_result_time': {
     field: 'gettingResultTimeSum',
-    label: 'Getting Result Time',
-    width: '150px',
+    label: 'Getting Result Time (ms)',
+    width: '180px',
     sortable: true,
     type: 'time'
   }

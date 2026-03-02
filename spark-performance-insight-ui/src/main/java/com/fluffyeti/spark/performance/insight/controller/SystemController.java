@@ -1,5 +1,6 @@
 package com.fluffyeti.spark.performance.insight.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fluffyeti.spark.performance.insight.model.*;
 import com.fluffyeti.spark.performance.insight.model.dto.ComparisonResult;
 import com.fluffyeti.spark.performance.insight.model.dto.ExecutorDiagnosisDTO;
@@ -61,23 +62,29 @@ public class SystemController {
                                            @RequestParam(required = false) String sort,
                                            @RequestParam(required = false) Long jobId,
                                            @RequestParam(required = false) String jobGroup,
+                                           @RequestParam(required = false) String description,
                                            @RequestParam(required = false) Long sqlExecutionId) {
         checkAppReady(appId);
-        var query = jobService.lambdaQuery().eq(GoldJobModel::getAppId, appId);
-        if (jobId != null) query.eq(GoldJobModel::getJobId, jobId);
-        if (sqlExecutionId != null) query.eq(GoldJobModel::getSqlExecutionId, sqlExecutionId);
-        if (jobGroup != null && !jobGroup.isBlank()) query.like(GoldJobModel::getJobGroup, jobGroup);
+        LambdaQueryWrapper<GoldJobModel> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(GoldJobModel::getAppId, appId);
+        if (jobId != null) {
+            wrapper.eq(GoldJobModel::getJobId, jobId);
+        }
+        if (sqlExecutionId != null) {
+            wrapper.eq(GoldJobModel::getSqlExecutionId, sqlExecutionId);
+        }
+        if (jobGroup != null && !jobGroup.isBlank()) {
+            wrapper.like(GoldJobModel::getJobGroup, jobGroup);
+        }
+        if (description != null && !description.isBlank()) {
+            wrapper.like(GoldJobModel::getDescription, description);
+        }
 
-        long total = query.count();
+        long total = jobService.count(wrapper);
 
-        var listQuery = jobService.lambdaQuery().eq(GoldJobModel::getAppId, appId);
-        if (jobId != null) listQuery.eq(GoldJobModel::getJobId, jobId);
-        if (sqlExecutionId != null) listQuery.eq(GoldJobModel::getSqlExecutionId, sqlExecutionId);
-        if (jobGroup != null && !jobGroup.isBlank()) listQuery.like(GoldJobModel::getJobGroup, jobGroup);
+        wrapper.last(buildSqlSuffix(sort, page, size, "job_id ASC"));
 
-        listQuery.last(buildSqlSuffix(sort, page, size, "job_id ASC"));
-
-        List<GoldJobModel> items = listQuery.list();
+        List<GoldJobModel> items = jobService.list(wrapper);
         for (GoldJobModel job : items) {
             if (job.getStageIds() != null && !job.getStageIds().isBlank()) {
                 List<Long> sids = Arrays.stream(job.getStageIds().replaceAll("[\\[\\]\\s]", "").split(","))

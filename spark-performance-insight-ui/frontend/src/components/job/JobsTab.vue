@@ -39,7 +39,9 @@
                    class="search-input"
                    style="width: 100px;">
             <input type="text" v-model="searchJobGroup" placeholder="Job Group" @keyup.enter="handleSearch"
-                   class="search-input" style="width: 180px;">
+                   class="search-input" style="width: 150px;">
+            <input type="text" v-model="searchDescription" placeholder="Description" @keyup.enter="handleSearch"
+                   class="search-input" style="width: 200px;">
             <button @click="handleSearch" class="search-btn">
               <span class="material-symbols-outlined" style="font-size: 18px; vertical-align: middle; margin-right: 4px;">search</span>
               Search
@@ -161,8 +163,8 @@
 
               <!-- 3. Description (Link) -->
               <template v-else-if="col.field === 'description'">
-                <router-link :to="'/app/' + appId + '/job/' + job.jobId" class="job-link">
-                  {{ job.description || 'Job ' + job.jobId }}
+                <router-link :to="'/app/' + appId + '/job/' + job.jobId" class="job-link" :title="job.description">
+                  {{ truncateDescription(job.description || 'Job ' + job.jobId) }}
                 </router-link>
               </template>
 
@@ -266,6 +268,7 @@ const pageSize = ref(20);
 const jumpPageInput = ref(1);
 const searchJobId = ref(null);
 const searchJobGroup = ref('');
+const searchDescription = ref('');
 const sorts = ref([{field: 'jobId', dir: 'desc'}]); // Default sort by Job ID DESC
 const isLoading = ref(true);
 
@@ -289,11 +292,11 @@ const toggleSelection = (job) => {
 
 // 可选列定义
 const AVAILABLE_JOB_COLUMNS = [
-  {key: 'description', label: 'Description', field: 'description', width: '300px', sortable: false},
+  {key: 'description', label: 'Description', field: 'description', width: '300px', sortable: true},
   {key: 'numStages', label: 'Stages Count', field: 'numStages', width: '120px', sortable: true},
   {key: 'stageIds', label: 'Stage IDs', field: 'stageIds', width: '160px', sortable: false},
   {key: 'submissionTime', label: 'Submission Time', field: 'submissionTime', width: '180px', sortable: true},
-  {key: 'duration', label: 'Duration', field: 'duration', width: '100px', sortable: true},
+  {key: 'duration', label: 'Duration (ms)', field: 'duration', width: '120px', sortable: true},
   {key: 'stagesProgress', label: 'Stages Progress', field: 'stagesProgress', width: '150px', sortable: false},
   {key: 'numTasks', label: 'Tasks Progress', field: 'numTasks', width: '150px', sortable: true},
   {key: 'status', label: 'Status', field: 'status', width: '100px', sortable: true}
@@ -334,7 +337,7 @@ const fetchJobs = async () => {
   isLoading.value = true;
   try {
     const sortStr = sorts.value.map(s => `${s.field},${s.dir}`).join(';');
-    const res = await getAppJobs(props.appId, currentPage.value, pageSize.value, sortStr, searchJobId.value, searchJobGroup.value, props.sqlExecutionId);
+    const res = await getAppJobs(props.appId, currentPage.value, pageSize.value, sortStr, searchJobId.value, searchJobGroup.value, props.sqlExecutionId, searchDescription.value);
     if (res.data && res.data.items) {
       jobs.value = res.data.items;
       totalJobs.value = res.data.total;
@@ -453,6 +456,12 @@ const calculateDuration = (s, e) => {
 const calculatePercent = (val, total) => {
   if (!total || total === 0) return 0;
   return Math.min(100, Math.max(0, ((val || 0) / total) * 100));
+};
+
+const truncateDescription = (desc) => {
+  if (!desc) return '';
+  if (desc.length <= 20) return desc;
+  return desc.substring(0, 20) + '...';
 };
 
 const getStageStatusClass = (job, stageId) => {

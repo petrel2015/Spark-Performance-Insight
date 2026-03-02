@@ -176,14 +176,13 @@ public class SilverTransformationService {
         String sql = "INSERT INTO silver_stages (app_id, stage_id, attempt_id, job_id, name, num_tasks, status, submission_time, completion_time, duration_ms, input_bytes, shuffle_read_bytes, parent_ids, rdd_info) " +
                      "WITH stage_job_map AS (SELECT sid, MIN(job_id) as job_id FROM (SELECT (json_extract(raw_json, '$.\"Job ID\"'))::BIGINT as job_id, unnest(CAST(json_extract(raw_json, '$.\"Stage IDs\"') AS BIGINT[])) as sid FROM bronze_event_job_start WHERE app_id = ?) WHERE sid IN (" + stageIdsIn + ") GROUP BY sid), " +
                      "ss_info AS (SELECT DISTINCT ON (app_id, sid) (json_extract(raw_json, '$.\"Stage Info\".\"Stage ID\"'))::BIGINT as sid, (json_extract(raw_json, '$.\"Stage Info\".\"Stage Attempt ID\"'))::BIGINT as aid, raw_json FROM bronze_event_stage_submitted WHERE app_id = ? AND sid IN (" + stageIdsIn + ") ORDER BY app_id, sid, aid DESC, ingested_at DESC), " +
-                     "sc_info AS (SELECT DISTINCT ON (app_id, sid) (json_extract(raw_json, '$.\"Stage Info\".\"Stage ID\"'))::BIGINT as sid, (json_extract(raw_json, '$.\"Stage Info\".\"Stage Attempt ID\"'))::BIGINT as aid, raw_json FROM bronze_event_stage_completed WHERE app_id = ? AND sid IN (" + stageIdsIn + ") ORDER BY app_id, sid, aid DESC, ingested_at DESC), " +
-                     "task_metrics AS (SELECT stage_id as sid, sum(duration_ms) as dur_sum FROM silver_tasks WHERE app_id = ? AND stage_id IN (" + stageIdsIn + ") GROUP BY stage_id) " +
-                     "SELECT DISTINCT ON (ss.sid, ss.aid) ?, ss.sid, ss.aid, jm.job_id, json_extract_string(ss.raw_json, '$.\"Stage Info\".\"Stage Name\"'), (json_extract(ss.raw_json, '$.\"Stage Info\".\"Number of Tasks\"'))::BIGINT, CASE WHEN sc.raw_json IS NOT NULL THEN 'COMPLETED' ELSE 'PENDING' END, (json_extract(ss.raw_json, '$.\"Stage Info\".\"Submission Time\"'))::BIGINT, (json_extract(sc.raw_json, '$.\"Stage Info\".\"Completion Time\"'))::BIGINT, COALESCE(tm.dur_sum, 0), 0, 0, json_extract(ss.raw_json, '$.\"Stage Info\".\"Parent IDs\"'), json_extract_string(ss.raw_json, '$.\"Stage Info\".\"RDD Info\"') " +
+                     "sc_info AS (SELECT DISTINCT ON (app_id, sid) (json_extract(raw_json, '$.\"Stage Info\".\"Stage ID\"'))::BIGINT as sid, (json_extract(raw_json, '$.\"Stage Info\".\"Stage Attempt ID\"'))::BIGINT as aid, raw_json FROM bronze_event_stage_completed WHERE app_id = ? AND sid IN (" + stageIdsIn + ") ORDER BY app_id, sid, aid DESC, ingested_at DESC) " +
+                     "SELECT DISTINCT ON (ss.sid, ss.aid) ?, ss.sid, ss.aid, jm.job_id, json_extract_string(ss.raw_json, '$.\"Stage Info\".\"Stage Name\"'), (json_extract(ss.raw_json, '$.\"Stage Info\".\"Number of Tasks\"'))::BIGINT, CASE WHEN sc.raw_json IS NOT NULL THEN 'COMPLETED' ELSE 'PENDING' END, (json_extract(ss.raw_json, '$.\"Stage Info\".\"Submission Time\"'))::BIGINT, (json_extract(sc.raw_json, '$.\"Stage Info\".\"Completion Time\"'))::BIGINT, " +
+                     "COALESCE((json_extract(sc.raw_json, '$.\"Stage Info\".\"Completion Time\"'))::BIGINT - (json_extract(ss.raw_json, '$.\"Stage Info\".\"Submission Time\"'))::BIGINT, 0), 0, 0, json_extract(ss.raw_json, '$.\"Stage Info\".\"Parent IDs\"'), json_extract_string(ss.raw_json, '$.\"Stage Info\".\"RDD Info\"') " +
                      "FROM ss_info ss " +
                      "LEFT JOIN stage_job_map jm ON ss.sid = jm.sid " +
-                     "LEFT JOIN sc_info sc ON ss.sid = sc.sid AND ss.aid = sc.aid " +
-                     "LEFT JOIN task_metrics tm ON ss.sid = tm.sid";
-        jdbcTemplate.update(sql, appId, appId, appId, appId, appId);
+                     "LEFT JOIN sc_info sc ON ss.sid = sc.sid AND ss.aid = sc.aid";
+        jdbcTemplate.update(sql, appId, appId, appId, appId);
     }
 
     @MonitorStep(value = "Silver Metadata", type = "APP")

@@ -19,6 +19,7 @@ import java.util.Collections;
 
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
@@ -85,7 +86,20 @@ public class FullPipelineIntegrationTest {
         mockMvc.perform(get("/api/apps/" + APP_ID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.appId", is(APP_ID)))
+                .andExpect(jsonPath("$.appName", not(anyOf(nullValue(), is("Unparsed Application"), is("Unknown Application")))))
                 .andExpect(jsonPath("$.status", is("FINISHED")));
+
+        // 1.1 Update Notes
+        String testNotes = "This is a test note " + System.currentTimeMillis();
+        mockMvc.perform(patch("/api/apps/" + APP_ID + "/notes")
+                .contentType(MediaType.TEXT_PLAIN)
+                .content(testNotes))
+                .andExpect(status().isOk());
+
+        // Verify notes updated
+        mockMvc.perform(get("/api/apps/" + APP_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.notes", is(testNotes)));
 
         // 2. Jobs List (Check not empty and progress > 0)
         mockMvc.perform(get("/api/apps/" + APP_ID + "/jobs"))

@@ -203,6 +203,11 @@
                 }}
               </template>
 
+              <!-- 7.5 Cumulative Task Time -->
+              <template v-else-if="col.field === 'tasksDurationSum'">
+                {{ job.tasksDurationSum ? commonFormatTime(job.tasksDurationSum) : '-' }}
+              </template>
+
               <!-- 8. Stages Progress -->
               <template v-else-if="col.field === 'stagesProgress'">
                 <div class="progress-wrapper">
@@ -296,13 +301,14 @@ const AVAILABLE_JOB_COLUMNS = [
   {key: 'numStages', label: 'Stages Count', field: 'numStages', width: '120px', sortable: true},
   {key: 'stageIds', label: 'Stage IDs', field: 'stageIds', width: '160px', sortable: false},
   {key: 'submissionTime', label: 'Submission Time', field: 'submissionTime', width: '180px', sortable: true},
-  {key: 'duration', label: 'Duration (ms)', field: 'duration', width: '120px', sortable: true},
+  {key: 'duration', label: 'Duration', field: 'duration', width: '120px', sortable: true},
+  {key: 'tasks_duration_sum', label: 'Cumulative Task Time', field: 'tasksDurationSum', width: '150px', sortable: true},
   {key: 'stagesProgress', label: 'Stages Progress', field: 'stagesProgress', width: '150px', sortable: false},
   {key: 'numTasks', label: 'Tasks Progress', field: 'numTasks', width: '150px', sortable: true},
   {key: 'status', label: 'Status', field: 'status', width: '100px', sortable: true}
 ];
 
-const selectedMetrics = ref(AVAILABLE_JOB_COLUMNS.map(m => m.key));
+const selectedMetrics = ref(['description', 'numStages', 'submissionTime', 'duration', 'stagesProgress', 'numTasks', 'status']);
 
 const baseColumns = [
   {field: 'jobId', label: 'Job ID', width: '80px', sortable: true},

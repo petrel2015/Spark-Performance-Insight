@@ -103,6 +103,7 @@ public class GoldAggregationService {
                 "count(case when UPPER(status) = 'COMPLETED' or UPPER(status) = 'SUCCEEDED' then 1 end) as n_done, " +
                 "COALESCE(sum(num_tasks), 0) as t_tasks, " +
                 "COALESCE(sum(num_completed_tasks), 0) as t_done, " +
+                "COALESCE(sum(tasks_duration_sum), 0) as t_task_dur, " +
                 "COALESCE(avg(performance_score), 100.0) as avg_score " +
                 "FROM gold_stages WHERE app_id = ? AND stage_id IN (" + stageIdsIn + ")",
                 appId
@@ -113,13 +114,13 @@ public class GoldAggregationService {
                 appId, job.jobId
             );
 
-            log.info("Job {} aggregation - n_stages: {}, n_done: {}, t_tasks: {}, t_done: {}", 
-                job.jobId, stats.get("n_stages"), stats.get("n_done"), stats.get("t_tasks"), stats.get("t_done"));
+            log.info("Job {} aggregation - n_stages: {}, n_done: {}, t_tasks: {}, t_done: {}, t_task_dur: {}", 
+                job.jobId, stats.get("n_stages"), stats.get("n_done"), stats.get("t_tasks"), stats.get("t_done"), stats.get("t_task_dur"));
 
             try {
                 jdbcTemplate.update(
-                    "INSERT INTO gold_jobs (id, app_id, job_id, submission_time, completion_time, duration, status, description, sql_execution_id, stage_ids, num_stages, num_completed_stages, num_failed_stages, num_tasks, num_completed_tasks, num_failed_tasks, performance_score) " +
-                    "VALUES (uuid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 0, ?)",
+                    "INSERT INTO gold_jobs (id, app_id, job_id, submission_time, completion_time, duration, status, description, sql_execution_id, stage_ids, num_stages, num_completed_stages, num_failed_stages, num_tasks, num_completed_tasks, num_failed_tasks, performance_score, tasks_duration_sum) " +
+                    "VALUES (uuid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 0, ?, ?)",
                     appId, 
                     toLong(job.jobId), 
                     toLong(meta.get("submission_time")),
@@ -133,7 +134,8 @@ public class GoldAggregationService {
                     toLong(stats.get("n_done")),
                     toLong(stats.get("t_tasks")),
                     toLong(stats.get("t_done")),
-                    toDouble(stats.get("avg_score"))
+                    toDouble(stats.get("avg_score")),
+                    toLong(stats.get("t_task_dur"))
                 );
             } catch (Exception e) {
                 log.error("Failed to insert gold_job: appId={}, jobId={}, error={}", appId, job.jobId, e.getMessage());
@@ -181,7 +183,7 @@ public class GoldAggregationService {
             "CAST(greatest(0, 100 - (total_delay * 100.0 / dur_denom)) AS DOUBLE) as sc_del, " +
             "CAST(CASE WHEN total_disk_spill > 0 THEN 0 ELSE 100 END AS DOUBLE) as sc_spill " +
             "FROM calculated_scores) " +
-            "SELECT uuid(), s.app_id, s.stage_id, s.job_id, s.attempt_id, s.name, s.num_tasks, fs.done_tasks, fs.failed_tasks, s.submission_time, s.completion_time, fs.total_duration, fs.i_bytes, 0, fs.o_bytes, fs.s_read, 0, 0, 0, 0, fs.total_gc, fs.total_duration, fs.total_deser, fs.total_ser, fs.total_get_res, fs.total_delay, fs.max_peak_mem, fs.total_peak_mem, fs.total_mem_spill, fs.total_disk_spill, fs.total_sw_time, fs.p50, fs.p75, fs.p95, fs.p99, fs.max_dur, s.status, (fs.s_ratio > 2.0), fs.s_ratio, fs.g_ratio, replace(replace(replace(CAST(s.parent_ids AS VARCHAR), '[', ''), ']', ''), ' ', ''), s.rdd_info, (SELECT string_agg(locality || ': ' || cnt, ', ') FROM (SELECT locality, count(*) as cnt FROM silver_tasks st WHERE st.app_id = s.app_id AND st.stage_id = s.stage_id AND st.stage_attempt_id = s.attempt_id AND locality IS NOT NULL GROUP BY locality) loc), " +
+            "SELECT uuid(), s.app_id, s.stage_id, s.job_id, s.attempt_id, s.name, s.num_tasks, fs.done_tasks, fs.failed_tasks, s.submission_time, s.completion_time, s.duration_ms, fs.i_bytes, 0, fs.o_bytes, fs.s_read, 0, 0, 0, 0, fs.total_gc, fs.total_duration, fs.total_deser, fs.total_ser, fs.total_get_res, fs.total_delay, fs.max_peak_mem, fs.total_peak_mem, fs.total_mem_spill, fs.total_disk_spill, fs.total_sw_time, fs.p50, fs.p75, fs.p95, fs.p99, fs.max_dur, s.status, (fs.s_ratio > 2.0), fs.s_ratio, fs.g_ratio, replace(replace(replace(CAST(s.parent_ids AS VARCHAR), '[', ''), ']', ''), ' ', ''), s.rdd_info, (SELECT string_agg(locality || ': ' || cnt, ', ') FROM (SELECT locality, count(*) as cnt FROM silver_tasks st WHERE st.app_id = s.app_id AND st.stage_id = s.stage_id AND st.stage_attempt_id = s.attempt_id AND locality IS NOT NULL GROUP BY locality) loc), " +
             "json_array(json_object('dimension', 'Data Skew', 'score', fs.sc_skew), json_object('dimension', 'GC Impact', 'score', fs.sc_gc), json_object('dimension', 'Shuffle Write Impact', 'score', fs.sc_sw), json_object('dimension', 'Shuffle Read Blocked', 'score', fs.sc_sr), json_object('dimension', 'I/O Wait', 'score', fs.sc_io), json_object('dimension', 'Serialization Impact', 'score', fs.sc_ser), json_object('dimension', 'Result Fetching', 'score', fs.sc_res), json_object('dimension', 'Scheduler Delay Impact', 'score', fs.sc_del), json_object('dimension', 'Disk Spill', 'score', fs.sc_spill)), " +
             "((fs.sc_skew + fs.sc_gc + fs.sc_sw + fs.sc_sr + fs.sc_io + fs.sc_ser + fs.sc_res + fs.sc_del + fs.sc_spill) / 9.0), " +
             "fs.sc_skew, fs.sc_gc, 100.0, fs.sc_sw, fs.sc_sr, fs.sc_io, fs.sc_ser, fs.sc_res, fs.sc_del, fs.sc_spill " +

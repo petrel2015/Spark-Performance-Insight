@@ -113,7 +113,8 @@ CREATE TABLE IF NOT EXISTS gold_jobs (
     num_active_tasks BIGINT DEFAULT 0,
     num_skipped_tasks BIGINT DEFAULT 0,
     sql_execution_id BIGINT,
-    performance_score DOUBLE DEFAULT 0.0
+    performance_score DOUBLE DEFAULT 0.0,
+    tasks_duration_sum BIGINT DEFAULT 0
 );
 
 -- Gold Stages

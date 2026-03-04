@@ -9,6 +9,7 @@ export interface MetricDef {
 export const AVAILABLE_METRICS: MetricDef[] = [
     {key: 'task_deserialization_time', label: 'Task Deserialization Time', type: 'time'},
     {key: 'duration', label: 'Duration', type: 'time'},
+    {key: 'tasks_duration_sum', label: 'Cumulative Task Time', type: 'time'},
     {key: 'gc_time', label: 'GC Time', type: 'time'},
     {key: 'result_serialization_time', label: 'Result Serialization Time', type: 'time'},
     {key: 'getting_result_time', label: 'Getting Result Time', type: 'time'},

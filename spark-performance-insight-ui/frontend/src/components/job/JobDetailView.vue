@@ -101,6 +101,7 @@
             :hide-title="true"
             :plain="true"
             :visible-metrics="selectedMetrics"
+            :hide-toolbar="true"
             @view-stage-detail="onViewStage"
         />
       </CollapsibleCard>

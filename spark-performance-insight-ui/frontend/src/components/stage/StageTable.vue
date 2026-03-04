@@ -1,5 +1,22 @@
 <template>
   <div class="stage-table-view" :class="{ 'plain-mode': plain }">
+    <!-- Metric Visibility Selector (Separate Card) -->
+    <div class="metric-selector-card" v-if="!hideToolbar">
+      <div class="selector-header">
+        <strong>Select Columns to Display:</strong>
+        <div class="selector-actions">
+          <button @click="selectAllMetrics">Select All</button>
+          <button @click="clearAllMetrics">Clear All</button>
+        </div>
+      </div>
+      <div class="checkbox-group">
+        <label v-for="m in AVAILABLE_STAGE_METRICS" :key="m.key" class="checkbox-item">
+          <input type="checkbox" :value="m.key" v-model="selectedMetrics">
+          {{ m.label }}
+        </label>
+      </div>
+    </div>
+
     <div v-if="combinedLoading" class="loading-state">
       <div class="spinner"></div>
       <p>Loading stages data...</p>
@@ -190,8 +207,12 @@
                         </div>
                       </template>
             
-                      <!-- 7. Dynamic Metric Columns (Bytes) -->            <template v-else-if="col.type === 'bytes'">
+                      <!-- 7. Dynamic Metric Columns (Bytes & Time) -->
+            <template v-else-if="col.type === 'bytes'">
               {{ formatBytes(stage[col.field]) }}
+            </template>
+            <template v-else-if="col.type === 'time'">
+              {{ formatTime(stage[col.field]) }}
             </template>
 
             <!-- Fallback -->
@@ -221,7 +242,8 @@ const props = defineProps({
   jobId: Number, // Optional filter
   hideTitle: {type: Boolean, default: false},
   plain: {type: Boolean, default: false},
-  visibleMetrics: {type: Array, default: null}, // If null, show all default columns
+  visibleMetrics: {type: Array, default: null}, // If null, use internal selection
+  hideToolbar: {type: Boolean, default: false},
   isLoading: {type: Boolean, default: false}
 });
 
@@ -292,79 +314,43 @@ const baseColumns = [
   {field: 'progress', label: 'Progress: Succeeded/Total', width: '180px', sortable: false}
 ];
 
-const metricColumnsMap = {
-  'duration': {field: 'duration', label: 'Duration', width: '100px', sortable: true, type: 'time'},
-  'gc_time': {field: 'gcTimeSum', label: 'GC Time (ms)', width: '120px', sortable: true, type: 'time'},
-  'scheduler_delay': {
-    field: 'schedulerDelaySum',
-    label: 'Scheduler Delay (ms)',
-    width: '150px',
-    sortable: true,
-    type: 'time'
-  },
-  'peak_execution_memory': {
-    field: 'peakExecutionMemoryMax',
-    label: 'Peak Exec Memory',
-    width: '150px',
-    sortable: true,
-    type: 'bytes'
-  },
-  'memory_spill': {
-    field: 'memoryBytesSpilledSum',
-    label: 'Spill (memory)',
-    width: '120px',
-    sortable: true,
-    type: 'bytes'
-  },
-  'disk_spill': {field: 'diskBytesSpilledSum', label: 'Spill (disk)', width: '120px', sortable: true, type: 'bytes'},
-  'input': {field: 'inputBytes', label: 'Input', width: '100px', sortable: true, type: 'bytes'},
-  'output': {field: 'outputBytes', label: 'Output', width: '100px', sortable: true, type: 'bytes'},
-  'shuffle_read': {field: 'shuffleReadBytes', label: 'Shuffle Read', width: '140px', sortable: true, type: 'bytes'},
-  'shuffle_write': {field: 'shuffleWriteBytes', label: 'Shuffle Write', width: '140px', sortable: true, type: 'bytes'},
-  'task_deserialization_time': {
-    field: 'executorDeserializeTimeSum',
-    label: 'Deserialization Time (ms)',
-    width: '180px',
-    sortable: true,
-    type: 'time'
-  },
-  'result_serialization_time': {
-    field: 'resultSerializationTimeSum',
-    label: 'Serialization Time (ms)',
-    width: '180px',
-    sortable: true,
-    type: 'time'
-  },
-  'getting_result_time': {
-    field: 'gettingResultTimeSum',
-    label: 'Getting Result Time (ms)',
-    width: '180px',
-    sortable: true,
-    type: 'time'
-  }
-};
+const AVAILABLE_STAGE_METRICS = [
+  {key: 'duration', label: 'Duration', field: 'duration', width: '100px', sortable: true, type: 'time'},
+  {key: 'tasks_duration_sum', label: 'Cumulative Task Time', field: 'tasksDurationSum', width: '150px', sortable: true, type: 'time'},
+  {key: 'gc_time', label: 'GC Time', field: 'gcTimeSum', width: '120px', sortable: true, type: 'time'},
+  {key: 'input', label: 'Input', field: 'inputBytes', width: '100px', sortable: true, type: 'bytes'},
+  {key: 'output', label: 'Output', field: 'outputBytes', width: '100px', sortable: true, type: 'bytes'},
+  {key: 'shuffle_read', label: 'Shuffle Read', field: 'shuffleReadBytes', width: '140px', sortable: true, type: 'bytes'},
+  {key: 'shuffle_write', label: 'Shuffle Write', field: 'shuffleWriteBytes', width: '140px', sortable: true, type: 'bytes'},
+  {key: 'scheduler_delay', label: 'Scheduler Delay', field: 'schedulerDelaySum', width: '150px', sortable: true, type: 'time'},
+  {key: 'peak_execution_memory', label: 'Peak Exec Memory', field: 'peakExecutionMemoryMax', width: '150px', sortable: true, type: 'bytes'},
+  {key: 'memory_spill', label: 'Spill (memory)', field: 'memoryBytesSpilledSum', width: '120px', sortable: true, type: 'bytes'},
+  {key: 'disk_spill', label: 'Spill (disk)', field: 'diskBytesSpilledSum', width: '120px', sortable: true, type: 'bytes'},
+  {key: 'task_deserialization_time', label: 'Deserialization Time', field: 'executorDeserializeTimeSum', width: '180px', sortable: true, type: 'time'},
+  {key: 'result_serialization_time', label: 'Serialization Time', field: 'resultSerializationTimeSum', width: '180px', sortable: true, type: 'time'},
+  {key: 'getting_result_time', label: 'Getting Result Time', field: 'gettingResultTimeSum', width: '180px', sortable: true, type: 'time'}
+];
+
+const selectedMetrics = ref(['duration', 'input', 'output', 'shuffle_read', 'shuffle_write']);
 
 const columns = computed(() => {
-  if (!props.visibleMetrics) {
-    return [
-      ...baseColumns,
-      metricColumnsMap['duration'],
-      metricColumnsMap['input'],
-      metricColumnsMap['output'],
-      metricColumnsMap['shuffle_read'],
-      metricColumnsMap['shuffle_write']
-    ];
-  }
-
+  const effectiveMetrics = props.visibleMetrics || selectedMetrics.value;
   const cols = [...baseColumns];
-  // Ensure the order follows AVAILABLE_METRICS defined in constants
-  props.visibleMetrics.forEach(key => {
-    if (metricColumnsMap[key]) {
-      cols.push(metricColumnsMap[key]);
+  AVAILABLE_STAGE_METRICS.forEach(m => {
+    if (effectiveMetrics.includes(m.key)) {
+      cols.push(m);
     }
   });
   return cols;
 });
+
+const selectAllMetrics = () => {
+  selectedMetrics.value = AVAILABLE_STAGE_METRICS.map(m => m.key);
+};
+
+const clearAllMetrics = () => {
+  selectedMetrics.value = [];
+};
 
 const formatDuration = (start, end) => {
   if (!start || !end) return '-';
@@ -514,6 +500,73 @@ watch(() => props.appId, () => {
   padding: 0;
   box-shadow: none;
   border-radius: 0;
+}
+
+/* Metric Selector Styles */
+.metric-selector-card {
+  background: #fdfdfd;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #edf2f7;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 8px;
+}
+
+.selector-header strong {
+  font-size: 0.9rem;
+  color: #2c3e50;
+}
+
+.selector-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.selector-actions button {
+  background: none;
+  border: 1px solid #ddd;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  color: #666;
+  transition: all 0.2s;
+}
+
+.selector-actions button:hover {
+  border-color: #3498db;
+  color: #3498db;
+  background: #f7fbff;
+}
+
+.checkbox-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px 15px;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #555;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.checkbox-item input {
+  cursor: pointer;
 }
 
 .table-header-toolbar {

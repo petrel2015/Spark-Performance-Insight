@@ -32,6 +32,7 @@ public class GoldJobModel {
     private Long numSkippedTasks;
     private Long sqlExecutionId;
     private Double performanceScore;
+    private Long tasksDurationSum;
 
     @TableField(exist = false)
     private List<GoldStageModel> stageList;

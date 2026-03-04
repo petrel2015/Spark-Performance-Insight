@@ -165,7 +165,7 @@ public class EventLogWatcherService {
             goldAggregationService.aggregate(appId, (p, m) -> updateStatus(appId, "AGGREGATING_GOLD", p, m, start));
             logService.logEvent(appId, "IMPORT", "Gold Finished", "Duration: " + getDurationSeconds(appId, "Gold Start") + "s");
 
-            finalizeSuccess(appId, files, app);
+            finalizeSuccess(appId, files, applicationService.getById(appId));
             onComplete.accept(true);
         } catch (Exception e) {
             handleFailure(appId, e);

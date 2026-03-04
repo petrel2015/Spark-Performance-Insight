@@ -357,6 +357,19 @@ public class SystemController {
     }
 
     /**
+     * 更新应用备注
+     */
+    @PatchMapping("/apps/{appId}/notes")
+    public void updateNotes(@PathVariable String appId, @RequestBody String notes) {
+        GoldApplicationModel app = applicationService.getById(appId);
+        if (app == null) {
+            throw new ResourceNotFoundException("Application " + appId + " not found");
+        }
+        app.setNotes(notes);
+        applicationService.updateById(app);
+    }
+
+    /**
      * 获取单个 Stage 详情
      */
     @GetMapping("/apps/{appId}/stages/{stageId}")

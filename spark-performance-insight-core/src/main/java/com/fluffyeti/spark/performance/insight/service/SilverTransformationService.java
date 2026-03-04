@@ -188,13 +188,12 @@ public class SilverTransformationService {
     @MonitorStep(value = "Silver Metadata", type = "APP")
     protected void transformApplicationMetadata(String appId) {
         String sql = "UPDATE gold_applications " +
-                     "SET app_name = json_extract_string(b.raw_json, '$.\"App Name\"'), " +
-                     "    user_name = json_extract_string(b.raw_json, '$.User'), " +
-                     "    start_time = (json_extract(b.raw_json, '$.Timestamp'))::BIGINT, " +
-                     "    spark_version = (SELECT json_extract_string(raw_json, '$.\"Spark Version\"') FROM bronze_event_log_start WHERE app_id = ? LIMIT 1) " +
-                     "FROM bronze_event_application_start b " +
-                     "WHERE gold_applications.app_id = b.app_id AND b.app_id = ?";
-        jdbcTemplate.update(sql, appId, appId);
+                     "SET app_name = COALESCE((SELECT json_extract_string(raw_json, '$.\"App Name\"') FROM bronze_event_application_start WHERE app_id = ? LIMIT 1), app_name), " +
+                     "    user_name = COALESCE((SELECT json_extract_string(raw_json, '$.User') FROM bronze_event_application_start WHERE app_id = ? LIMIT 1), user_name), " +
+                     "    start_time = COALESCE((SELECT (json_extract(raw_json, '$.Timestamp'))::BIGINT FROM bronze_event_application_start WHERE app_id = ? LIMIT 1), start_time), " +
+                     "    spark_version = COALESCE((SELECT json_extract_string(raw_json, '$.\"Spark Version\"') FROM bronze_event_log_start WHERE app_id = ? LIMIT 1), spark_version) " +
+                     "WHERE app_id = ?";
+        jdbcTemplate.update(sql, appId, appId, appId, appId, appId);
     }
 
     @MonitorStep(value = "Silver Jobs", type = "JOB")

@@ -52,6 +52,20 @@ public class StageService extends ServiceImpl<StageMapper, GoldStageModel> {
         mapper.insertBatchTaskStats(appId, stageIds);
     }
 
+    public void calculateOnlyStageStatsBatch(String appId, List<Long> stageIds) {
+        log.info("Calculating summary statistics for {} stages in App: {}", stageIds.size(), appId);
+        StageMapper mapper = (StageMapper) getBaseMapper();
+        mapper.deleteBatchStageStats(appId, stageIds);
+        mapper.insertBatchTaskStats(appId, stageIds);
+    }
+
+    public void calculateOnlyStageStats(String appId, Long stageId, Long attemptId) {
+        log.debug("Calculating summary statistics for Stage: {}-{}", stageId, attemptId);
+        StageMapper mapper = (StageMapper) getBaseMapper();
+        mapper.deleteSpecificStageStats(appId, stageId, attemptId);
+        mapper.insertSpecificTaskStats(appId, stageId, attemptId);
+    }
+
     public List<GoldStageStatisticsModel> getStageStats(String appId, Long stageId, Long attemptId) {
         return stageStatisticsMapper.selectList(new QueryWrapper<GoldStageStatisticsModel>()
                 .eq("app_id", appId)

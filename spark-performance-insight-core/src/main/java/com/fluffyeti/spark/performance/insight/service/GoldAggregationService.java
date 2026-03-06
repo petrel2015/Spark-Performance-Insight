@@ -65,6 +65,8 @@ public class GoldAggregationService {
             duckDBManager.runWithRetry(() -> {
                 self.aggregateTasksBatch(appId, allStageIds);
                 self.aggregateStagesBatch(appId, allStageIds);
+                // NEW: Populate gold_stage_statistics for UI summary metrics
+                self.aggregateStageStatsBatch(appId, allStageIds);
             });
         }
         progressReporter.accept(40.0, "Tasks and Stages aggregated");
@@ -191,6 +193,12 @@ public class GoldAggregationService {
         jdbcTemplate.update(sql, appId, appId);
     }
 
+    @MonitorStep(value = "Gold Stage Statistics Batch", type = "STAGE")
+    protected void aggregateStageStatsBatch(String appId, List<Long> stageIds) {
+        log.info("Calculating summary statistics for {} stages in app: {}", stageIds.size(), appId);
+        stageService.calculateOnlyStageStatsBatch(appId, stageIds);
+    }
+
     @MonitorStep(value = "Gold Tasks Batch", type = "STAGE")
     protected void aggregateTasksBatch(String appId, List<Long> stageIds) {
         String stageIdsIn = stageIds.stream().map(String::valueOf).collect(Collectors.joining(","));
@@ -239,6 +247,7 @@ public class GoldAggregationService {
         jdbcTemplate.update("DELETE FROM gold_jobs WHERE app_id = ?", appId);
         jdbcTemplate.update("DELETE FROM gold_stages WHERE app_id = ?", appId);
         jdbcTemplate.update("DELETE FROM gold_tasks WHERE app_id = ?", appId);
+        jdbcTemplate.update("DELETE FROM gold_stage_statistics WHERE app_id = ?", appId);
         jdbcTemplate.update("DELETE FROM gold_executors WHERE app_id = ?", appId);
         jdbcTemplate.update("DELETE FROM gold_sql_executions WHERE app_id = ?", appId);
         jdbcTemplate.update("DELETE FROM gold_environment_configs WHERE app_id = ?", appId);

@@ -135,6 +135,13 @@ public class FullPipelineIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("诊断报告")));
 
+        // 8. Stage Statistics (New Verification)
+        mockMvc.perform(get("/api/apps/" + APP_ID + "/stages/0/0/stats"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", not(empty())))
+                .andExpect(jsonPath("$[0].metricName", notNullValue()))
+                .andExpect(jsonPath("$[0].p50", notNullValue()));
+
         System.out.println(">>> E2E Pipeline Verification Successful!");
     }
 }

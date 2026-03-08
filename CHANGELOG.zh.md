@@ -1,3 +1,15 @@
+## 1.5.0 - 2026-03-08
+
+### 新功能
+- 默认显示挂钟时间 (Wall-clock Duration) 并为 Job 和 Stage 添加累计任务时长
+- 新增 Job 描述搜索功能并优化时长显示
+
+### 修复
+- 恢复缺失的 Job/Stages API 并修复 Job 详情页的对比按钮
+- 持久化 Application 的 QUEUED 状态并增强状态可视化
+- 在 GoldAggregationService 中填充 gold_stage_statistics 以支持 UI 摘要指标
+- 正确解析 Application 名称并实现备注更新 API
+
 ## 1.4.0 - 2026-03-01
 
 ### 新功能

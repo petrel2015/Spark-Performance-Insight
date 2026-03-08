@@ -1,3 +1,15 @@
+## 1.5.0 - 2026-03-08
+
+### Features
+- Display wall-clock duration by default and add cumulative task time for jobs and stages
+- Add job description search and improve duration display
+
+### Fixes
+- Restore missing Job/Stages APIs and fix Job detail view comparison button
+- Persist application QUEUED status and enhance status visualization
+- Populate gold_stage_statistics in GoldAggregationService for UI summary metrics
+- Correctly parse application name and implement notes update API
+
 ## 1.4.0 - 2026-03-01
 
 ### Features

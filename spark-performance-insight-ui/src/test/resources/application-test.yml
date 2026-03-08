@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: "jdbc:duckdb:../out/test_spark_insight.db"
+    url: "jdbc:duckdb:./target/test_spark_insight.db"
     driver-class-name: org.duckdb.DuckDBDriver
   sql:
     init:
@@ -10,7 +10,7 @@ spring:
 insight:
   event-log-path: ../workspace/eventlog
   duckdb:
-    temp-directory: ../out/spark_performance_insight.duckdb.db.tmp
+    temp-directory: ./target/spark_performance_insight.duckdb.db.tmp
   transformation:
     threads: 2
     stage-batch-size: 20

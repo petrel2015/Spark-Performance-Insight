@@ -20,6 +20,10 @@ describe('storage utils', () => {
             expect(res.useDisk).toBe(true)
             expect(res.deserialized).toBe(true)
         })
+
+        it('should return null for invalid JSON strings', () => {
+            expect(parseStorageLevelObject('{invalid json')).toBeNull()
+        })
     })
 
     describe('formatStorageLevel', () => {
@@ -32,15 +36,21 @@ describe('storage utils', () => {
         })
 
         it('should format JSON objects correctly', () => {
-            const level = { useDisk: true, useMemory: true, replication: 2 }
+            const level = { useDisk: true, useMemory: true, useOffHeap: true, deserialized: true, replication: 2 }
             const res = formatStorageLevel(level)
             expect(res).toContain('Disk')
             expect(res).toContain('Memory')
+            expect(res).toContain('OffHeap')
+            expect(res).toContain('Deserialized')
             expect(res).toContain('2x Replicated')
         })
 
         it('should handle raw strings correctly', () => {
             expect(formatStorageLevel('MEMORY_ONLY')).toEqual(['MEMORY ONLY'])
+        })
+
+        it('should return ["Persisted"] for invalid JSON objects', () => {
+            expect(formatStorageLevel('{invalid')).toEqual(['Persisted'])
         })
     })
 })

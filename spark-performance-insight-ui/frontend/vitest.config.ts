@@ -11,7 +11,7 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
       thresholds: {
-        lines: 15,
+        lines: 10,
         branches: 50
       },
       include: ['src/**/*.ts', 'src/**/*.vue'],

@@ -63,9 +63,76 @@ describe('compareStore', () => {
     expect(compareStore.comparisonSelection).not.toContain(key)
   })
 
-  it('should check if item is in workspace', () => {
-    compareStore.addItem({ type: 'stage', appId: 'app-1', itemId: 5, name: 'Stage 5' })
-    expect(compareStore.isInWorkspace('app-1', 'stage', 5)).toBe(true)
-    expect(compareStore.isInWorkspace('app-1', 'stage', 6)).toBe(false)
+  it('should toggle compare mode', () => {
+    const initialMode = compareStore.isCompareMode
+    compareStore.toggleCompareMode()
+    expect(compareStore.isCompareMode).toBe(!initialMode)
+    compareStore.toggleCompareMode()
+    expect(compareStore.isCompareMode).toBe(initialMode)
+  })
+
+  it('should check if item is selected', () => {
+    const key = 'app-1:app:app-1'
+    compareStore.addItem({ type: 'app', appId: 'app-1', itemId: 'app-1' })
+    compareStore.toggleComparisonItem(key, true)
+    expect(compareStore.isItemSelected(key)).toBe(true)
+    compareStore.toggleComparisonItem(key, false)
+    expect(compareStore.isItemSelected(key)).toBe(false)
+  })
+
+  it('should mark app as invalid', () => {
+    const key1 = 'app-1:job:1'
+    const key2 = 'app-1:job:2'
+    const key3 = 'app-2:job:1'
+    
+    compareStore.addItem({ type: 'job', appId: 'app-1', itemId: 1 })
+    compareStore.addItem({ type: 'job', appId: 'app-1', itemId: 2 })
+    compareStore.addItem({ type: 'job', appId: 'app-2', itemId: 1 })
+    
+    compareStore.toggleComparisonItem(key1, true)
+    compareStore.toggleComparisonItem(key3, true)
+    
+    compareStore.markAppAsInvalid('app-1')
+    
+    const item1 = compareStore.selectedItems.find(i => i.id === key1)
+    const item2 = compareStore.selectedItems.find(i => i.id === key2)
+    const item3 = compareStore.selectedItems.find(i => i.id === key3)
+    
+    expect(item1?.isInvalid).toBe(true)
+    expect(item2?.isInvalid).toBe(true)
+    expect(item3?.isInvalid).toBe(false)
+    
+    expect(compareStore.comparisonSelection).not.toContain(key1)
+    expect(compareStore.comparisonSelection).toContain(key3)
+  })
+
+  it('should validate all items', async () => {
+    const key1 = 'app-1:job:1'
+    const key2 = 'app-2:job:1'
+    
+    compareStore.addItem({ type: 'job', appId: 'app-1', itemId: 1 })
+    compareStore.addItem({ type: 'job', appId: 'app-2', itemId: 1 })
+    
+    compareStore.toggleComparisonItem(key1, true)
+    compareStore.toggleComparisonItem(key2, true)
+    
+    const { validateCompareItems } = await import('../api')
+    vi.mocked(validateCompareItems).mockResolvedValueOnce({
+      data: {
+        [key1]: true,
+        [key2]: false
+      }
+    } as any)
+    
+    await compareStore.validateAllItems()
+    
+    const item1 = compareStore.selectedItems.find(i => i.id === key1)
+    const item2 = compareStore.selectedItems.find(i => i.id === key2)
+    
+    expect(item1?.isInvalid).toBe(false)
+    expect(item2?.isInvalid).toBe(true)
+    
+    expect(compareStore.comparisonSelection).toContain(key1)
+    expect(compareStore.comparisonSelection).not.toContain(key2)
   })
 })

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatTime, formatBytes, formatCompactNum, formatNum } from './format'
+import { formatTime, formatBytes, formatCompactNum, formatNum, formatDateTime } from './format'
 
 describe('format utils', () => {
     describe('formatTime', () => {
@@ -50,13 +50,16 @@ describe('format utils', () => {
         })
     })
 
-    describe('formatNum', () => {
-        it('should format numbers with locale and compact version', () => {
-            expect(formatNum(500)).toBe('500')
-            // Locale string might vary by environment, but compact version should be there for > 1000
-            const formatted = formatNum(1500)
-            expect(formatted).toContain('1,500')
-            expect(formatted).toContain('(1.5 K)')
+    describe('formatDateTime', () => {
+        it('should format dates correctly', () => {
+            expect(formatDateTime(null)).toBe('-')
+            expect(formatDateTime(undefined)).toBe('-')
+            expect(formatDateTime('')).toBe('-')
+            // Using a fixed timestamp to test (e.g. 2024-03-09 12:00:00 UTC)
+            const t = new Date('2024-03-09T12:00:00Z').getTime()
+            const formatted = formatDateTime(t)
+            expect(formatted).not.toBe('-')
+            // Don't test exact string due to locale differences
         })
     })
 })

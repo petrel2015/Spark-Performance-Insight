@@ -926,6 +926,8 @@ onUnmounted(() => { if (stompClient) stompClient.disconnect(); });
 .status-TRANSFORMING_SILVER { color: #7f8c8d; background-color: rgba(149, 165, 166, 0.1); }
 .status-AGGREGATING_GOLD { color: #f1c40f; background-color: rgba(241, 196, 15, 0.1); }
 .status-LOADING, .status-RUNNING { color: #3498db; background-color: rgba(52, 152, 219, 0.1); }
+.status-QUEUED { color: #f39c12; background-color: rgba(243, 156, 18, 0.1); }
+.status-CANCELLED { color: #7f8c8d; background-color: rgba(127, 140, 141, 0.1); }
 .status-PENDING_LOAD, .status-PENDING_TO_LOADING, .status-READY { color: #95a5a6; background-color: rgba(149, 165, 166, 0.1); }
 .status-PENDING_REIMPORT, .status-PENDING_OVERWRITE { color: #e67e22; background-color: rgba(230, 126, 34, 0.1); }
 .status-PRE_CALCULATING { color: #9b59b6; background-color: rgba(155, 89, 182, 0.1); }

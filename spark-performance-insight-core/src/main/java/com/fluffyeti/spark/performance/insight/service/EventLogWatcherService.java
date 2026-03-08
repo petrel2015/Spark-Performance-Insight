@@ -99,7 +99,7 @@ public class EventLogWatcherService {
 
     private void handleExistingApp(GoldApplicationModel app, List<File> files, long totalSize, String compression) {
         String currentStatus = app.getParsingStatus();
-        if (List.of("INGESTING_BRONZE", "TRANSFORMING_SILVER", "AGGREGATING_GOLD").contains(currentStatus)) return;
+        if (List.of("INGESTING_BRONZE", "TRANSFORMING_SILVER", "AGGREGATING_GOLD", "QUEUED", "RUNNING", "PRE_CALCULATING").contains(currentStatus)) return;
         try {
             List<FileMetadata> currentMetadata = generateMetadata(files);
             boolean changed = app.getSourceFileMetadata() == null || !isMetadataEqual(currentMetadata, objectMapper.readValue(app.getSourceFileMetadata(), new TypeReference<List<FileMetadata>>() {}));

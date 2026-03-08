@@ -19,6 +19,7 @@ public class ParsingQueueService {
 
     private final JdbcTemplate jdbcTemplate;
     private final StatusBroadcaster broadcaster;
+    private final ApplicationService applicationService;
     
     @Lazy // Break circular dependency if any
     private final EventLogWatcherService eventLogWatcherService;
@@ -31,6 +32,9 @@ public class ParsingQueueService {
         
         // Clear parsing_start_time to avoid stale timing in UI
         jdbcTemplate.update("UPDATE gold_applications SET parsing_start_time = NULL WHERE app_id = ?", appId);
+        
+        // Update gold_applications status to QUEUED
+        applicationService.updateStatusAtomic(appId, "QUEUED", 0.0, "Waiting in queue...", null);
 
         long now = System.currentTimeMillis();
         jdbcTemplate.update("INSERT INTO sys_parsing_queue (id, app_id, type, status, submit_time) VALUES (?, ?, ?, 'QUEUED', ?)",
@@ -47,6 +51,9 @@ public class ParsingQueueService {
         log.info("Cancelling app {} from parsing queue", appId);
         int rows = jdbcTemplate.update("DELETE FROM sys_parsing_queue WHERE app_id = ? AND status = 'QUEUED'", appId);
         if (rows > 0) {
+            // Revert status to something that allows re-triggering, like READY/PENDING_LOAD or previous status if we had it.
+            // For now, let's use a special CANCELLED status that UI can handle, or just PENDING_LOAD.
+            applicationService.updateStatusAtomic(appId, "PENDING_LOAD", 0.0, "Cancelled by user");
             broadcaster.broadcastStatus(appId, "CANCELLED", 0.0, "Cancelled by user", getAppName(appId), getStartTime(appId));
         }
     }

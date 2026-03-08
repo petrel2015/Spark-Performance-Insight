@@ -21,6 +21,8 @@ class ParsingQueueServiceTest {
     @Mock
     private StatusBroadcaster broadcaster;
     @Mock
+    private ApplicationService applicationService;
+    @Mock
     private EventLogWatcherService eventLogWatcherService;
 
     private ParsingQueueService service;
@@ -28,7 +30,7 @@ class ParsingQueueServiceTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        service = new ParsingQueueService(jdbcTemplate, broadcaster, eventLogWatcherService);
+        service = new ParsingQueueService(jdbcTemplate, broadcaster, applicationService, eventLogWatcherService);
     }
 
     @Test
@@ -39,6 +41,9 @@ class ParsingQueueServiceTest {
 
         service.submit(appId, "FULL");
 
+        // Verify status update in gold_applications
+        verify(applicationService).updateStatusAtomic(eq(appId), eq("QUEUED"), eq(0.0), anyString(), any());
+
         // Verify DELETE duplicates
         verify(jdbcTemplate).update(contains("DELETE FROM sys_parsing_queue"), eq(appId));
         // Verify UPDATE gold_app
@@ -47,6 +52,20 @@ class ParsingQueueServiceTest {
         verify(jdbcTemplate).update(contains("INSERT INTO sys_parsing_queue"), any(), eq(appId), eq("FULL"), anyLong());
         
         verify(broadcaster).broadcastStatus(eq(appId), eq("QUEUED"), anyDouble(), anyString(), eq("Test App"), any());
+    }
+
+    @Test
+    @DisplayName("Should cancel queued job")
+    void shouldCancelJob() {
+        String appId = "app-1";
+        when(jdbcTemplate.update(anyString(), eq(appId))).thenReturn(1);
+        when(jdbcTemplate.queryForObject(anyString(), eq(String.class), eq(appId))).thenReturn("Test App");
+
+        service.cancel(appId);
+
+        verify(jdbcTemplate).update(contains("DELETE FROM sys_parsing_queue"), eq(appId));
+        verify(applicationService).updateStatusAtomic(eq(appId), eq("PENDING_LOAD"), eq(0.0), anyString());
+        verify(broadcaster).broadcastStatus(eq(appId), eq("CANCELLED"), anyDouble(), anyString(), eq("Test App"), any());
     }
 
     @Test

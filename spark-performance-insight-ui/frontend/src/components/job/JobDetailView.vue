@@ -17,7 +17,7 @@
               <span class="material-symbols-outlined">
                 {{ compareStore.hasItem('job', appId, jobId) ? 'check_box' : 'add_box' }}
               </span>
-              {{ compareStore.hasItem('stage', appId, stageId) ? 'In Candidate Queue' : 'Add to Candidate' }}
+              {{ compareStore.hasItem('job', appId, jobId) ? 'In Candidate Queue' : 'Add to Candidate' }}
             </button>
           </div>
           <span v-if="currentJob" class="job-description-subtitle">{{ currentJob.description }}</span>

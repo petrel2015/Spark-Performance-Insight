@@ -273,6 +273,17 @@ public class SystemController {
         listQuery.last(buildSqlSuffix(sort, page, size, "execution_id DESC"));
 
         List<GoldSqlExecutionModel> items = listQuery.list();
+        for (GoldSqlExecutionModel sql : items) {
+            List<Long> jobIds = jobService.lambdaQuery()
+                    .eq(GoldJobModel::getAppId, appId)
+                    .eq(GoldJobModel::getSqlExecutionId, sql.getExecutionId())
+                    .select(GoldJobModel::getJobId)
+                    .list()
+                    .stream()
+                    .map(GoldJobModel::getJobId)
+                    .collect(Collectors.toList());
+            sql.setJobIds(jobIds);
+        }
         int totalPages = (int) Math.ceil((double) total / size);
         return new PageResponse<>(items, total, page, size, totalPages);
     }
@@ -283,10 +294,20 @@ public class SystemController {
     @GetMapping("/apps/{appId}/sql/{executionId}")
     public GoldSqlExecutionModel getSqlExecution(@PathVariable String appId, @PathVariable Long executionId) {
         checkAppReady(appId);
-        return sqlExecutionService.lambdaQuery()
+        GoldSqlExecutionModel sql = sqlExecutionService.lambdaQuery()
                 .eq(GoldSqlExecutionModel::getAppId, appId)
                 .eq(GoldSqlExecutionModel::getExecutionId, executionId)
                 .one();
+        
+        if (sql != null) {
+            List<GoldJobModel> jobList = jobService.lambdaQuery()
+                    .eq(GoldJobModel::getAppId, appId)
+                    .eq(GoldJobModel::getSqlExecutionId, executionId)
+                    .list();
+            sql.setJobList(jobList);
+            sql.setJobIds(jobList.stream().map(GoldJobModel::getJobId).collect(Collectors.toList()));
+        }
+        return sql;
     }
 
     /**
@@ -426,12 +447,67 @@ public class SystemController {
     }
 
     /**
-     * 获取特定 Job 的 Executor 汇总
+     * 获取单个 Job 详情
      */
-    @GetMapping("/apps/{appId}/jobs/{jobId}/executors")
+    @Nullable
+    @GetMapping("/apps/{appId}/jobs/{jobId}")
+    public GoldJobModel getJob(@PathVariable String appId, @PathVariable Long jobId) {
+        checkAppReady(appId);
+        GoldJobModel job = jobService.lambdaQuery()
+                .eq(GoldJobModel::getAppId, appId)
+                .eq(GoldJobModel::getJobId, jobId)
+                .one();
+
+        if (job != null && job.getStageIds() != null && !job.getStageIds().isBlank()) {
+            List<Long> sids = Arrays.stream(job.getStageIds().replaceAll("[\\[\\]\\s]", "").split(","))
+                    .filter(s -> !s.isEmpty())
+                    .map(Long::parseLong)
+                    .collect(Collectors.toList());
+            if (!sids.isEmpty()) {
+                List<GoldStageModel> jobStages = stageService.lambdaQuery()
+                        .eq(GoldStageModel::getAppId, appId)
+                        .in(GoldStageModel::getStageId, sids)
+                        .list();
+                job.setStageList(jobStages);
+            }
+        }
+        return job;
+    }
+
+    /**
+     * 获取 Job 的 Executor 汇总
+     */
+    @GetMapping({"/apps/{appId}/jobs/{jobId}/executors", "/apps/{appId}/jobs/{jobId}/executor-summary"})
     public List<Map<String, Object>> getJobExecutorSummary(@PathVariable String appId, @PathVariable Long jobId) {
         checkAppReady(appId);
         return stageService.getJobExecutorSummary(appId, jobId);
+    }
+
+    /**
+     * 获取 Job 关联的所有 Stage 列表
+     */
+    @GetMapping("/apps/{appId}/jobs/{jobId}/stages")
+    public List<GoldStageModel> getJobStages(@PathVariable String appId, @PathVariable Long jobId) {
+        checkAppReady(appId);
+        GoldJobModel job = jobService.lambdaQuery()
+                .eq(GoldJobModel::getAppId, appId)
+                .eq(GoldJobModel::getJobId, jobId)
+                .one();
+        if (job == null || job.getStageIds() == null || job.getStageIds().isBlank()) {
+            return List.of();
+        }
+        List<Long> sids = Arrays.stream(job.getStageIds().replaceAll("[\\[\\]\\s]", "").split(","))
+                .filter(s -> !s.isEmpty())
+                .map(Long::parseLong)
+                .collect(Collectors.toList());
+        if (sids.isEmpty()) {
+            return List.of();
+        }
+        return stageService.lambdaQuery()
+                .eq(GoldStageModel::getAppId, appId)
+                .in(GoldStageModel::getStageId, sids)
+                .orderByAsc(GoldStageModel::getStageId)
+                .list();
     }
 
     /**

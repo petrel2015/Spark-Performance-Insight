@@ -244,6 +244,13 @@ const loading = ref({
   stages: false
 });
 
+const loaded = ref({
+  diagnosis: false,
+  executors: false,
+  environment: false,
+  stages: false
+});
+
 const tabList = ['Diagnosis', 'Jobs', 'Stages', 'Executors', 'Storage', 'Environment', 'SQL / DataFrame'];
 
 const getTabRoute = (tab) => {
@@ -332,7 +339,7 @@ const fetchDataForTab = async (tab) => {
   const appId = route.params.id;
   if (!appId || showRestrictedModal.value) return;
 
-  if (tab === 'Diagnosis' && !report.value && !loading.value.diagnosis) {
+  if (tab === 'Diagnosis' && !loaded.value.diagnosis && !loading.value.diagnosis) {
     loading.value.diagnosis = true;
     try {
       const res = await getDiagnosisReport(appId);
@@ -353,32 +360,36 @@ const fetchDataForTab = async (tab) => {
       } else {
         llmReport.value = app.value.llmReport;
       }
+      loaded.value.diagnosis = true;
     } finally {
       loading.value.diagnosis = false;
     }
-  } else if (tab === 'Executors' && executors.value.length === 0 && !loading.value.executors) {
+  } else if (tab === 'Executors' && !loaded.value.executors && !loading.value.executors) {
     loading.value.executors = true;
     try {
       const res = await getAppExecutors(appId);
       executors.value = res.data;
+      loaded.value.executors = true;
     } finally {
       loading.value.executors = false;
     }
-  } else if (tab === 'Environment' && environment.value.length === 0 && !loading.value.environment) {
+  } else if (tab === 'Environment' && !loaded.value.environment && !loading.value.environment) {
     loading.value.environment = true;
     try {
       const res = await getAppEnvironment(appId);
       environment.value = res.data;
+      loaded.value.environment = true;
     } finally {
       loading.value.environment = false;
     }
-  } else if (tab === 'Stages' && stages.value.length === 0 && !loading.value.stages) {
+  } else if (tab === 'Stages' && !loaded.value.stages && !loading.value.stages) {
     // Stage data is actually fetched inside StageTable, but we can manage a general loading state if needed.
     // However, since StageTable handles its own internal paging and loading, 
     // we just need to ensure the initial load is visible.
     loading.value.stages = true;
     setTimeout(() => {
       loading.value.stages = false;
+      loaded.value.stages = true;
     }, 500); // Simple debounce/sync
   }
 };

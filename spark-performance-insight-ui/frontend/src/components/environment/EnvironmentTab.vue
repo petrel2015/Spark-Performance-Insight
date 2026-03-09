@@ -19,11 +19,11 @@
             </tr>
             </thead>
             <tbody>
-            <tr v-for="config in getFilteredConfigs(section.category)" :key="config.id">
+            <tr v-for="config in (processedConfigs[section.category] || [])" :key="config.id">
               <td class="key-col">{{ config.paramKey }}</td>
               <td class="value-col">{{ config.paramValue }}</td>
             </tr>
-            <tr v-if="getFilteredConfigs(section.category).length === 0">
+            <tr v-if="(processedConfigs[section.category] || []).length === 0">
               <td colspan="2" class="empty-hint">No data available in this section.</td>
             </tr>
             </tbody>
@@ -66,20 +66,26 @@ const searchQueries = reactive({
   classpath_entries: ''
 });
 
-const getFilteredConfigs = (category) => {
-  let result = props.configs.filter(c => c.category === category);
+// 使用 computed 缓存过滤和排序后的结果，避免在模板中多次调用函数
+const processedConfigs = computed(() => {
+  const grouped = {};
+  sections.forEach(section => {
+    const category = section.category;
+    let result = props.configs.filter(c => c.category === category);
 
-  const query = searchQueries[category]?.toLowerCase();
-  if (query) {
-    result = result.filter(c =>
-        (c.paramKey || '').toLowerCase().includes(query) ||
-        (c.paramValue || '').toLowerCase().includes(query)
-    );
-  }
+    const query = searchQueries[category]?.toLowerCase();
+    if (query) {
+      result = result.filter(c =>
+          (c.paramKey || '').toLowerCase().includes(query) ||
+          (c.paramValue || '').toLowerCase().includes(query)
+      );
+    }
 
-  // 默认按 Key 排序
-  return [...result].sort((a, b) => a.paramKey.localeCompare(b.paramKey));
-};
+    // 按 Key 排序
+    grouped[category] = [...result].sort((a, b) => (a.paramKey || '').localeCompare(b.paramKey || ''));
+  });
+  return grouped;
+});
 </script>
 
 <style scoped>

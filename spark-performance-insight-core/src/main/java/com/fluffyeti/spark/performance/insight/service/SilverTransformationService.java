@@ -253,15 +253,22 @@ public class SilverTransformationService {
     @MonitorStep(value = "Silver Environment", type = "APP")
     protected void transformEnvironment(String appId) {
         String sql = "INSERT INTO silver_environment_configs " +
-                     "SELECT app_id, k, (json_extract(raw_json, '$.\"Spark Properties\"')->>k), 'spark_conf' " +
-                     "FROM (SELECT app_id, raw_json, unnest(json_keys(json_extract(raw_json, '$.\"Spark Properties\"'))) as k FROM bronze_event_environment_update WHERE app_id = ?) " +
-                     "UNION ALL " +
-                     "SELECT app_id, k, (json_extract(raw_json, '$.\"JVM Information\"')->>k), 'jvm_info' " +
-                     "FROM (SELECT app_id, raw_json, unnest(json_keys(json_extract(raw_json, '$.\"JVM Information\"'))) as k FROM bronze_event_environment_update WHERE app_id = ?) " +
-                     "UNION ALL " +
-                     "SELECT app_id, k, (json_extract(raw_json, '$.\"System Properties\"')->>k), 'system_props' " +
-                     "FROM (SELECT app_id, raw_json, unnest(json_keys(json_extract(raw_json, '$.\"System Properties\"'))) as k FROM bronze_event_environment_update WHERE app_id = ?)";
-        try { jdbcTemplate.update(sql, appId, appId, appId); } catch (Exception e) { log.warn("Env failed: {}", e.getMessage()); }
+                     "SELECT DISTINCT ON (app_id, k, category) app_id, k, v, category " +
+                     "FROM (" +
+                     "  SELECT app_id, k, (json_extract(raw_json, '$.\"Spark Properties\"')->>k) as v, 'spark_conf' as category, ingested_at FROM (SELECT app_id, raw_json, ingested_at, unnest(json_keys(json_extract(raw_json, '$.\"Spark Properties\"'))) as k FROM bronze_event_environment_update WHERE app_id = ?) " +
+                     "  UNION ALL " +
+                     "  SELECT app_id, k, (json_extract(raw_json, '$.\"JVM Information\"')->>k) as v, 'jvm_info' as category, ingested_at FROM (SELECT app_id, raw_json, ingested_at, unnest(json_keys(json_extract(raw_json, '$.\"JVM Information\"'))) as k FROM bronze_event_environment_update WHERE app_id = ?) " +
+                     "  UNION ALL " +
+                     "  SELECT app_id, k, (json_extract(raw_json, '$.\"System Properties\"')->>k) as v, 'system_props' as category, ingested_at FROM (SELECT app_id, raw_json, ingested_at, unnest(json_keys(json_extract(raw_json, '$.\"System Properties\"'))) as k FROM bronze_event_environment_update WHERE app_id = ?) " +
+                     "  UNION ALL " +
+                     "  SELECT app_id, k, (json_extract(raw_json, '$.\"Hadoop Properties\"')->>k) as v, 'hadoop_conf' as category, ingested_at FROM (SELECT app_id, raw_json, ingested_at, unnest(json_keys(json_extract(raw_json, '$.\"Hadoop Properties\"'))) as k FROM bronze_event_environment_update WHERE app_id = ?) " +
+                     "  UNION ALL " +
+                     "  SELECT app_id, k, (json_extract(raw_json, '$.\"Metrics Properties\"')->>k) as v, 'metrics_props' as category, ingested_at FROM (SELECT app_id, raw_json, ingested_at, unnest(json_keys(json_extract(raw_json, '$.\"Metrics Properties\"'))) as k FROM bronze_event_environment_update WHERE app_id = ?) " +
+                     "  UNION ALL " +
+                     "  SELECT app_id, k, (json_extract(raw_json, '$.\"Classpath Entries\"')->>k) as v, 'classpath_entries' as category, ingested_at FROM (SELECT app_id, raw_json, ingested_at, unnest(json_keys(json_extract(raw_json, '$.\"Classpath Entries\"'))) as k FROM bronze_event_environment_update WHERE app_id = ?) " +
+                     ") t " +
+                     "ORDER BY app_id, k, category, ingested_at DESC";
+        try { jdbcTemplate.update(sql, appId, appId, appId, appId, appId, appId); } catch (Exception e) { log.error("Env transformation failed for app {}: {}", appId, e.getMessage()); }
     }
 
     @MonitorStep(value = "Silver Storage", type = "APP")

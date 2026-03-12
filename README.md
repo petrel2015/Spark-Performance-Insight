@@ -16,7 +16,7 @@ English | [中文](./README.zh.md)
 
 In the AI era, **this project** aims to revolutionize Spark performance analysis. Centered around Spark, it leverages LLM to provide deep data insights and uses the **Model Context Protocol (MCP)** to expose these capabilities, enabling autonomous and natural language-driven tuning. It effectively addresses the core pain points of the native Spark Web UI/History Server by eliminating "slow replay", "information overload", and "lack of comparison" issues through **Medallion Architecture**, **Smart Diagnosis**, and **Multi-dimensional Benchmarking**.
 
-> **💡 Core Goal: Transform EventLog into actionable intelligence, providing instant answers instead of raw data.**
+> **💡 Core Goal: Transform EventLog into "Trustworthy Actionable Intelligence", providing instant answers instead of raw data.**
 
 ---
 
@@ -183,9 +183,15 @@ Starts both **Spark Performance Insight UI** and **Spark History Server** sharin
 
 ## 🗺️ Roadmap
 
-- [ ] **Executor Performance Diagnosis**: Implementing deep analysis of executor throughput vs latency to identify resource utilization bottlenecks. See **[Design Doc](./docs/zh/Executor_Performance_Diagnosis_Design.md)**.
-- [ ] **DAG Visualization**: Adding X6 or similar for Job/Stage relationship graphs.
-- [ ] **Advanced Benchmarking**: Cross-cluster performance comparison logic.
+We are evolving from a "Performance Dashboard" to a "Trustworthy AI Performance Expert".
+
+- **Phase 1: Structured Evidence** - P95 distributions, Skew factors, and Context awareness.
+- **Phase 2: Expert Rule Engine** - 10+ bottleneck patterns and Safe Action sets.
+- **Phase 3: AI-Driven Diagnosis** - Evidence-linked multi-agent (Proposer-Challenger) diagnosis.
+- **Phase 4: Feedback Loop** - Human-in-the-loop evaluation and Golden Test Sets.
+- **Phase 5: Adaptive Tuning** - A/B testing and Bayesian-based parameter optimization.
+
+> **Detailed Planning: [Project Evolution Roadmap](./docs/en/Roadmap.md)**
 
 ## Acknowledgments
 
